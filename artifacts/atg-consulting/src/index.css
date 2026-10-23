@@ -1,47 +1,299 @@
+/* ── ATG Consulting design system v2 ───────────────────────────────────────── */
+/* Fonts (self-hosted via fontsource) */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-.cl-formFieldInput::placeholder { color: #536078; opacity: 1; }
-.cl-formButtonPrimary:hover { background-color: #2a4a73; }
-.cl-footerActionLink:hover { text-decoration: underline; }
+/* ── CSS custom properties ──────────────────────────────────────────────────── */
+:root {
+  /* Dark canvas tokens (marketing, hero, CTA) */
+  --ink:          #0D0F12;
+  --ink-1:        #131619;
+  --ink-2:        #1B1D22;
+  --ink-3:        #252830;
+  --ink-border:   #2E3140;
+  --ink-text:     #E8EAF0;
+  --ink-text-2:   #8890A8;
+  --ink-text-3:   #545A70;
 
-@layer base {
-  html {
-    scroll-behavior: smooth;
-  }
-  body {
-    @apply font-sans text-navy antialiased;
-  }
+  /* Light canvas tokens (app/admin, body sections) */
+  --canvas:         #F8F9FC;
+  --canvas-1:       #FFFFFF;
+  --canvas-2:       #F1F3F7;
+  --canvas-border:  #DDE0EA;
+  --canvas-text:    #0D0F12;
+  --canvas-text-2:  #5A6078;
+  --canvas-text-3:  #9298B0;
+
+  /* Accent */
+  --accent:           #F97316;
+  --accent-btn:       #E8650A;   /* button bg → 4:1 with white, WCAG AA large text */
+  --accent-pressed:   #C95600;
+  --accent-subtle-dk: rgba(249,115,22,0.12);
+  --accent-subtle-lt: rgba(249,115,22,0.08);
+
+  /* Radius scale */
+  --radius-sm: 4px;
+  --radius:    8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Motion */
+  --ease-standard:   cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast:   120ms;
+  --duration-base:   200ms;
+  --duration-slow:   360ms;
+
+  /* Typography */
+  --font-sans:  "Geist Variable", "Geist", system-ui, sans-serif;
+  --font-mono:  "Geist Mono Variable", "Geist Mono", "JetBrains Mono", monospace;
+
+  /* Grid / backgrounds */
+  --grid-dot: rgba(255,255,255,0.06);
+  --grid-size: 28px;
 }
 
+/* ── Base reset ──────────────────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+
+  body {
+    @apply font-sans text-canvas-text bg-canvas;
+    font-feature-settings: "cv02","cv03","cv04","cv11";
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: rgba(249,115,22,0.2);
+    color: inherit;
+  }
+
+  /* Scrollbars */
+  * { scrollbar-width: thin; scrollbar-color: var(--ink-3) transparent; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 9999px; }
+
+  /* Clerk overrides — use design system fonts */
+  .cl-formFieldInput::placeholder { color: var(--canvas-text-3); }
+  .cl-formButtonPrimary { background-color: var(--accent-btn) !important; }
+  .cl-formButtonPrimary:hover { background-color: var(--accent-pressed) !important; }
+  .cl-card { border: 1px solid var(--canvas-border) !important; box-shadow: none !important; }
+  .cl-headerTitle { font-family: var(--font-sans) !important; letter-spacing: -0.03em; }
+}
+
+/* ── Component layer ─────────────────────────────────────────────────────────── */
 @layer components {
+
+  /* ── Buttons ─────────────────────────────────────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-semibold transition-all;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    letter-spacing: -0.01em;
+    padding: 10px 18px;
+    line-height: 1;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+  }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-orange text-white font-semibold text-base hover:bg-orange-500 active:bg-orange-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2;
+    @apply btn;
+    background-color: var(--accent-btn);
+    color: #fff;
+    @apply focus-visible:ring-accent;
+    border: 1px solid transparent;
   }
+  .btn-primary:hover  { background-color: var(--accent-pressed); }
+  .btn-primary:active { transform: scale(0.98); }
+
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg border-2 border-navy text-navy font-semibold text-base hover:bg-navy hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2;
+    @apply btn;
+    background-color: transparent;
+    color: var(--canvas-text);
+    border: 1px solid var(--canvas-border);
+    @apply hover:bg-canvas-2 focus-visible:ring-canvas-text;
   }
+
   .btn-secondary-white {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg border-2 border-white text-white font-semibold text-base hover:bg-white hover:text-navy transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2;
+    @apply btn;
+    background-color: transparent;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.25);
   }
+  .btn-secondary-white:hover { background-color: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.4); }
+
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-navy/60 hover:text-navy hover:bg-navy/5 transition-colors text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2;
+    @apply btn;
+    background: transparent;
+    color: var(--canvas-text-2);
+    border: 1px solid transparent;
+    padding: 8px 12px;
   }
-  .section-eyebrow {
-    @apply text-orange font-semibold tracking-widest text-sm uppercase;
+  .btn-ghost:hover { background-color: var(--canvas-2); color: var(--canvas-text); }
+
+  /* Dark-canvas button variants */
+  .btn-primary-dark {
+    @apply btn;
+    background-color: var(--accent-btn);
+    color: #fff;
+    @apply focus-visible:ring-accent;
+  }
+  .btn-primary-dark:hover  { background-color: var(--accent-pressed); }
+  .btn-ghost-dark {
+    @apply btn;
+    background: transparent;
+    color: var(--ink-text-2);
+    border: 1px solid transparent;
+    padding: 8px 12px;
+  }
+  .btn-ghost-dark:hover { background: rgba(255,255,255,0.06); color: var(--ink-text); }
+
+  /* ── Typography ──────────────────────────────────────────────────────────── */
+  .eyebrow {
+    @apply font-mono text-xs font-medium tracking-widest uppercase;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+  }
+  /* eyebrow on dark canvas */
+  .eyebrow-dark { @apply eyebrow; color: var(--accent); }
+
+  .display-xl {
+    @apply font-sans font-extrabold;
+    font-size: clamp(40px, 6vw, 72px);
+    line-height: 1.03;
+    letter-spacing: -0.055em;
+  }
+  .display-lg {
+    @apply font-sans font-extrabold;
+    font-size: clamp(32px, 4.5vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.045em;
   }
   .section-heading {
-    @apply text-3xl sm:text-4xl font-extrabold text-navy leading-tight;
+    @apply font-sans font-extrabold;
+    font-size: clamp(26px, 3.5vw, 40px);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
   }
-  /* Chip: a pill-shaped selectable button used in the form */
+  .section-eyebrow { @apply eyebrow; } /* alias */
+
+  /* ── Cards ───────────────────────────────────────────────────────────────── */
+  /* Light-mode card */
+  .card {
+    background-color: var(--canvas-1);
+    border: 1px solid var(--canvas-border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+  }
+  .card-hover {
+    @apply card transition-all;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-standard);
+  }
+  .card-hover:hover {
+    border-color: rgba(249,115,22,0.35);
+    box-shadow: 0 0 0 1px rgba(249,115,22,0.1);
+  }
+
+  /* Dark-mode card */
+  .card-dark {
+    background-color: var(--ink-1);
+    border: 1px solid var(--ink-border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+  }
+  .card-dark-hover {
+    @apply card-dark transition-all;
+    transition-duration: var(--duration-base);
+  }
+  .card-dark-hover:hover {
+    border-color: rgba(249,115,22,0.3);
+    background-color: var(--ink-2);
+  }
+
+  /* ── Form inputs ─────────────────────────────────────────────────────────── */
+  .field-input {
+    @apply w-full font-sans text-sm transition-all;
+    background-color: var(--canvas-1);
+    border: 1px solid var(--canvas-border);
+    border-radius: var(--radius-md);
+    color: var(--canvas-text);
+    padding: 10px 14px;
+    outline: none;
+    transition-duration: var(--duration-fast);
+  }
+  .field-input::placeholder { color: var(--canvas-text-3); }
+  .field-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(249,115,22,0.12);
+  }
+
+  /* ── Chip (multi-select) ─────────────────────────────────────────────────── */
   .chip {
-    @apply inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border text-sm font-medium cursor-pointer select-none transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1;
+    @apply inline-flex items-center gap-1.5 font-medium cursor-pointer select-none transition-all;
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--canvas-border);
+    background: var(--canvas-1);
+    color: var(--canvas-text-2);
+    transition-duration: var(--duration-fast);
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1;
   }
-  .chip-unselected {
-    @apply border-navy/20 text-navy/70 hover:border-orange/50 hover:text-navy bg-white;
-  }
+  .chip:hover { border-color: rgba(249,115,22,0.4); color: var(--canvas-text); }
   .chip-selected {
-    @apply border-orange bg-orange/10 text-orange;
+    @apply chip;
+    border-color: var(--accent);
+    background-color: var(--accent-subtle-lt);
+    color: var(--accent-btn);
+    font-weight: 600;
   }
+  .chip-unselected { @apply chip; }
+
+  /* ── Divider ─────────────────────────────────────────────────────────────── */
+  .divider { height: 1px; background-color: var(--canvas-border); }
+  .divider-dark { height: 1px; background-color: var(--ink-border); }
+
+  /* ── Mono label ──────────────────────────────────────────────────────────── */
+  .label-mono {
+    @apply font-mono font-medium;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--canvas-text-3);
+  }
+  .label-mono-accent {
+    @apply font-mono font-medium;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ── Background patterns ─────────────────────────────────────────────────── */
+  .bg-dot-dark {
+    background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
+    background-size: var(--grid-size) var(--grid-size);
+  }
+  .bg-dot-light {
+    background-image: radial-gradient(circle, rgba(13,15,18,0.05) 1px, transparent 1px);
+    background-size: var(--grid-size) var(--grid-size);
+  }
+  .bg-grid-dark {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* ── Focus ring reset ────────────────────────────────────────────────────── */
+  [data-focus-visible] { @apply ring-2 ring-accent ring-offset-2; }
 }

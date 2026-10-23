@@ -1,18 +1,21 @@
 import { Link } from "wouter";
 
-const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL ?? "#book") : "#book";
+const BOOKING_URL = typeof window !== "undefined"
+  ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book")
+  : "#book";
 
 const tiers = [
   {
     id: "white-glove",
+    mono: "WHITE GLOVE",
     name: "White glove",
     tagline: "Shea designs, builds, and tunes your AI system for you.",
     price: "[$ placeholder]",
     cta: "Book your 1:1 with Shea",
     ctaHref: BOOKING_URL,
-    ctaExternal: true,
+    external: true,
     featured: true,
-    badge: "Most popular",
+    badge: "Flagship",
     features: [
       "1:1 consultation to map your specific situation",
       "Done-for-you setup: inbox, CRM, calendar, and workflows",
@@ -23,12 +26,13 @@ const tiers = [
   },
   {
     id: "guided",
+    mono: "GUIDED",
     name: "Guided",
     tagline: "Build it together with Shea in live sessions.",
     price: "[$ placeholder]",
     cta: "Save my spot",
     ctaHref: "/start",
-    ctaExternal: false,
+    external: false,
     featured: false,
     badge: null,
     features: [
@@ -40,12 +44,13 @@ const tiers = [
   },
   {
     id: "self-serve",
+    mono: "SELF-SERVE",
     name: "Self-serve",
     tagline: "Learn the framework and build it yourself.",
     price: "[$ placeholder]",
     cta: "Join the free seminar",
     ctaHref: "/start",
-    ctaExternal: false,
+    external: false,
     featured: false,
     badge: "Start here free",
     features: [
@@ -58,68 +63,124 @@ const tiers = [
 
 export default function Tiers() {
   return (
-    <section id="tiers" className="py-20 sm:py-28 bg-navy/[0.02]" aria-labelledby="tiers-heading">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-14">
-          <p className="section-eyebrow mb-3">Three ways to work with Shea</p>
-          <h2 id="tiers-heading" className="section-heading">Done for you — or as hands-on as you want.</h2>
-          <p className="mt-4 text-navy/60 text-lg">
+    <section
+      id="tiers"
+      className="py-20 sm:py-28"
+      style={{ background: "var(--canvas-2)", borderTop: "1px solid var(--canvas-border)", borderBottom: "1px solid var(--canvas-border)" }}
+      aria-labelledby="tiers-heading"
+    >
+      <div className="max-w-wide mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-xl mx-auto mb-14">
+          <p className="eyebrow mb-4">Three ways to work with Shea</p>
+          <h2 id="tiers-heading" className="section-heading" style={{ color: "var(--canvas-text)" }}>
+            Done for you — or as hands-on as you want.
+          </h2>
+          <p className="mt-4 text-base" style={{ color: "var(--canvas-text-2)" }}>
             Most clients want a human to handle it. That&apos;s why White Glove is the flagship.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 items-stretch">
+        <div className="grid md:grid-cols-3 gap-5">
           {tiers.map((t) => (
             <div
               key={t.id}
-              className={`relative flex flex-col rounded-2xl border ${
+              className="relative flex flex-col rounded-xl overflow-hidden"
+              style={
                 t.featured
-                  ? "border-orange bg-navy text-white shadow-2xl shadow-navy/20"
-                  : "border-navy/10 bg-white text-navy shadow-sm"
-              }`}
+                  ? { background: "var(--ink)", border: "1px solid var(--ink-border)", boxShadow: "0 0 0 1px rgba(249,115,22,0.15), 0 24px 48px rgba(0,0,0,0.3)" }
+                  : { background: "var(--canvas-1)", border: "1px solid var(--canvas-border)" }
+              }
             >
               {t.badge && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className={`text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full shadow ${t.featured ? "bg-orange text-white" : "bg-navy/10 text-navy"}`}>
-                    {t.badge}
+                <div className="absolute top-4 right-4">
+                  <span
+                    className="font-mono text-2xs font-bold px-2 py-1 rounded"
+                    style={t.featured
+                      ? { background: "var(--accent-subtle-dk)", color: "var(--accent)", letterSpacing: "0.08em" }
+                      : { background: "var(--canvas-2)", color: "var(--canvas-text-3)", letterSpacing: "0.08em" }
+                    }
+                  >
+                    {t.badge.toUpperCase()}
                   </span>
                 </div>
               )}
-              <div className="p-7 flex flex-col flex-1">
-                <h3 className={`text-2xl font-extrabold ${t.featured ? "text-white" : "text-navy"}`}>{t.name}</h3>
-                <p className={`mt-2 text-sm ${t.featured ? "text-white/65" : "text-navy/60"}`}>{t.tagline}</p>
-                <div className="my-5">
-                  <span className={`text-3xl font-extrabold ${t.featured ? "text-orange" : "text-navy"}`}>{t.price}</span>
-                </div>
-                <ul className="space-y-3 flex-1" role="list">
+
+              <div className="flex flex-col flex-1 p-6">
+                <span
+                  className="font-mono text-2xs font-bold mb-3"
+                  style={{ color: t.featured ? "var(--accent)" : "var(--canvas-text-3)", letterSpacing: "0.1em" }}
+                >
+                  {t.mono}
+                </span>
+
+                <h3
+                  className="font-extrabold text-xl mb-2"
+                  style={{ color: t.featured ? "var(--ink-text)" : "var(--canvas-text)", letterSpacing: "-0.025em" }}
+                >
+                  {t.name}
+                </h3>
+                <p
+                  className="text-sm mb-5"
+                  style={{ color: t.featured ? "var(--ink-text-2)" : "var(--canvas-text-2)" }}
+                >
+                  {t.tagline}
+                </p>
+
+                <p
+                  className="font-extrabold text-2xl mb-5"
+                  style={{ color: t.featured ? "var(--accent)" : "var(--canvas-text)", letterSpacing: "-0.03em" }}
+                >
+                  {t.price}
+                </p>
+
+                <ul className="space-y-2.5 flex-1 mb-6">
                   {t.features.map((f) => (
-                    <li key={f} className="flex gap-2.5">
-                      <svg className="flex-shrink-0 w-5 h-5 mt-0.5 text-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <li key={f} className="flex gap-2.5 text-sm">
+                      <svg
+                        className="flex-shrink-0 w-4 h-4 mt-0.5"
+                        style={{ color: "var(--accent)" }}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                       </svg>
-                      <span className={`text-sm leading-relaxed ${t.featured ? "text-white/80" : "text-navy/70"}`}>{f}</span>
+                      <span style={{ color: t.featured ? "var(--ink-text-2)" : "var(--canvas-text-2)" }}>
+                        {f}
+                      </span>
                     </li>
                   ))}
                 </ul>
-                {t.ctaExternal ? (
+
+                {t.external ? (
                   <a
                     href={t.ctaHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`mt-8 w-full text-center px-6 py-3.5 rounded-xl font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                      t.featured ? "bg-orange text-white hover:bg-orange-500 focus-visible:ring-orange" : "bg-navy text-white hover:bg-navy-700 focus-visible:ring-navy"
-                    }`}
+                    className="btn-primary w-full justify-center"
+                    style={{ fontSize: "14px" }}
                   >
                     {t.cta}
                   </a>
                 ) : (
-                  <Link
-                    to={t.ctaHref}
-                    className={`mt-8 w-full text-center px-6 py-3.5 rounded-xl font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                      t.featured ? "bg-orange text-white hover:bg-orange-500 focus-visible:ring-orange" : "bg-navy text-white hover:bg-navy-700 focus-visible:ring-navy"
-                    }`}
-                  >
-                    {t.cta}
+                  <Link to={t.ctaHref}>
+                    <span
+                      className="w-full justify-center flex items-center"
+                      style={{
+                        background: t.featured ? "transparent" : "var(--canvas-text)",
+                        color: t.featured ? "var(--ink-text-2)" : "var(--canvas-1)",
+                        border: `1px solid ${t.featured ? "var(--ink-border)" : "var(--canvas-text)"}`,
+                        borderRadius: "var(--radius-md)",
+                        padding: "10px 18px",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        letterSpacing: "-0.01em",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {t.cta}
+                    </span>
                   </Link>
                 )}
               </div>
