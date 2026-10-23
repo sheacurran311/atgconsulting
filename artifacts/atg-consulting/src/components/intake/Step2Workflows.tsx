@@ -36,7 +36,7 @@ export default function Step2Workflows({ data, areas, onChange, errors }: Props)
       {/* AI comfort level — radio ladder */}
       <div>
         <p className="text-sm font-medium mb-0.5" id="comfort-label" style={{ color: "var(--canvas-text)" }}>
-          AI comfort level <span style={{ color: "var(--accent)" }} aria-hidden="true">*</span>
+          AI comfort level <span style={{ color: "var(--blue)" }} aria-hidden="true">*</span>
         </p>
         <p className="text-xs mb-3" style={{ color: "var(--canvas-text-3)" }}>
           Pick the one that best describes you right now.
@@ -49,8 +49,8 @@ export default function Step2Workflows({ data, areas, onChange, errors }: Props)
                 key={i}
                 className="flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all"
                 style={{
-                  border: `1px solid ${selected ? "var(--accent)" : "var(--canvas-border)"}`,
-                  background: selected ? "var(--accent-subtle-lt)" : "var(--canvas-1)",
+                  border: `1px solid ${selected ? "var(--blue)" : "var(--canvas-border)"}`,
+                  background: selected ? "var(--blue-subtle-lt)" : "var(--canvas-1)",
                 }}
               >
                 <input
@@ -61,7 +61,7 @@ export default function Step2Workflows({ data, areas, onChange, errors }: Props)
                 <span
                   className="font-mono text-xs font-bold w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
                   style={{
-                    background: selected ? "var(--accent-btn)" : "var(--canvas-2)",
+                    background: selected ? "var(--blue-btn)" : "var(--canvas-2)",
                     color: selected ? "#fff" : "var(--canvas-text-3)",
                   }}
                 >
@@ -80,7 +80,7 @@ export default function Step2Workflows({ data, areas, onChange, errors }: Props)
       {/* Tools */}
       <div>
         <p className="text-sm font-medium mb-0.5" id="tools-label" style={{ color: "var(--canvas-text)" }}>
-          Tools you use today <span style={{ color: "var(--accent)" }} aria-hidden="true">*</span>
+          Tools you use today <span style={{ color: "var(--blue)" }} aria-hidden="true">*</span>
         </p>
         <p className="text-xs mb-2" style={{ color: "var(--canvas-text-3)" }}>Pick all that apply.</p>
         <div className="flex flex-wrap gap-2" role="group" aria-labelledby="tools-label">
@@ -95,7 +95,7 @@ export default function Step2Workflows({ data, areas, onChange, errors }: Props)
       {/* Time sinks */}
       <div>
         <p className="text-sm font-medium mb-0.5" id="sinks-label" style={{ color: "var(--canvas-text)" }}>
-          Biggest time sinks <span style={{ color: "var(--accent)" }} aria-hidden="true">*</span>
+          Biggest time sinks <span style={{ color: "var(--blue)" }} aria-hidden="true">*</span>
         </p>
         <p className="text-xs mb-2" style={{ color: "var(--canvas-text-3)" }}>
           Showing tasks relevant to the areas you selected.

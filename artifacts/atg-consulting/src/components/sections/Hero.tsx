@@ -34,7 +34,7 @@ function PlanPreview() {
         <div className="flex items-center gap-2">
           <span
             className="font-mono text-2xs font-medium px-2 py-1 rounded"
-            style={{ background: "var(--accent-subtle-dk)", color: "var(--accent)", letterSpacing: "0.06em" }}
+            style={{ background: "var(--blue-subtle-dk)", color: "var(--blue)", letterSpacing: "0.06em" }}
           >
             AI READINESS
           </span>
@@ -60,7 +60,7 @@ function PlanPreview() {
               className="rounded-md p-3"
               style={{ background: "var(--ink-2)", border: "1px solid var(--ink-3)" }}
             >
-              <p className="font-mono text-2xs mb-1" style={{ color: "var(--accent)", letterSpacing: "0.06em" }}>
+              <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>
                 {a.area.toUpperCase()}
               </p>
               <p className="text-sm" style={{ color: "var(--ink-text-2)", lineHeight: "1.4" }}>
@@ -80,7 +80,7 @@ function PlanPreview() {
           </span>
           <span
             className="text-xs font-semibold px-3 py-1.5 rounded"
-            style={{ background: "var(--accent-btn)", color: "#fff" }}
+            style={{ background: "var(--blue-btn)", color: "#fff" }}
           >
             Book 1:1 with Shea →
           </span>
@@ -118,7 +118,7 @@ export default function Hero() {
             <div className="flex items-center gap-2 mb-6">
               <span
                 className="font-mono text-xs font-medium"
-                style={{ color: "var(--accent)", letterSpacing: "0.1em", textTransform: "uppercase" }}
+                style={{ color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase" }}
               >
                 Human-led AI solutions
               </span>
@@ -142,7 +142,7 @@ export default function Hero() {
               style={{ color: "var(--ink-text)" }}
             >
               A tailored AI setup,{" "}
-              <span style={{ color: "var(--accent)" }}>
+              <span style={{ color: "var(--blue)" }}>
                 built around your&nbsp;life.
               </span>
             </h1>

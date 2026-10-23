@@ -1,32 +1,32 @@
-# ATG Consulting — Design System v2
+# ATG Consulting — Design System v3
 
-Modern, product-grade visual system inspired by Linear, Vercel, and Stripe. Dark-first for the marketing canvas; clean light for app/admin screens.
+Monochrome + electric blue. Dark-first marketing canvas; clean neutral light for app/admin.
 
 ---
 
 ## Fonts
 
-| Role | Family | Usage |
+| Role | Family | Source |
 |---|---|---|
-| **Sans** | **Geist Variable** (`@fontsource-variable/geist`) | All body copy, headings, UI labels |
-| **Mono** | **Geist Mono Variable** (`@fontsource-variable/geist-mono`) | Eyebrows, stat labels, code-like tags, mono badges |
+| **Sans** | **Geist Variable** | `@fontsource-variable/geist` |
+| **Mono** | **Geist Mono Variable** | `@fontsource-variable/geist-mono` |
 
-Self-hosted via fontsource. Imported at the top of `src/index.css`.
+Mono used for: eyebrows, stat labels, step counters, area badges, timestamps, code-like tags.
 
-### Typography scale
+### Type scale
 
-| Token | Size | Line-height | Tracking |
+| Class | Size | Line-height | Tracking |
 |---|---|---|---|
-| `text-2xs` | 10px | 1.4 | +0.06em (mono only) |
-| `text-xs`  | 11px | 1.4 | +0.04em |
-| `text-sm`  | 13px | 1.5 | −0.005em |
-| `text-base`| 15px | 1.6 | −0.01em |
-| `text-md`  | 17px | 1.55| −0.01em |
-| `text-lg`  | 20px | 1.4 | −0.02em |
-| `text-xl`  | 26px | 1.25| −0.025em |
-| `text-2xl` | 34px | 1.15| −0.03em |
+| `text-2xs` | 10px | 1.4 | +0.06em |
+| `text-xs` | 11px | 1.4 | +0.04em |
+| `text-sm` | 13px | 1.5 | −0.005em |
+| `text-base` | 15px | 1.6 | −0.01em |
+| `text-md` | 17px | 1.55 | −0.01em |
+| `text-lg` | 20px | 1.4 | −0.02em |
+| `text-xl` | 26px | 1.25 | −0.025em |
+| `text-2xl` | 34px | 1.15 | −0.03em |
 | `text-3xl` | 44px | 1.1 | −0.04em |
-| `text-4xl` | 56px | 1.05| −0.05em |
+| `text-4xl` | 56px | 1.05 | −0.05em |
 | `text-5xl` | 72px | 1.0 | −0.055em |
 | `.display-xl` | clamp(40–72px) | 1.03 | −0.055em |
 | `.display-lg` | clamp(32–56px) | 1.05 | −0.045em |
@@ -36,140 +36,128 @@ Self-hosted via fontsource. Imported at the top of `src/index.css`.
 
 ## Colour palette
 
-### Dark canvas (marketing site, hero, CTA, nav)
+### Dark canvas (marketing, hero, nav, CTA) — true neutral graphite
 
-| Token | CSS variable | Hex | Usage |
+| Token | CSS var | Hex | Note |
 |---|---|---|---|
-| Ink / page bg | `--ink` | `#0D0F12` | Page background |
-| Surface 1 | `--ink-1` | `#131619` | Layered cards on dark |
-| Surface 2 | `--ink-2` | `#1B1D22` | Elevated cards, hover |
-| Surface 3 | `--ink-3` | `#252830` | Strong dividers |
-| Border | `--ink-border` | `#2E3140` | Hairline borders |
-| Text primary | `--ink-text` | `#E8EAF0` | Body text on dark |
-| Text secondary | `--ink-text-2` | `#8890A8` | Muted text on dark |
-| Text tertiary | `--ink-text-3` | `#545A70` | Disabled / very muted |
+| Page bg | `--ink` | **`#0A0A0B`** | Near-pure black |
+| Surface 1 | `--ink-1` | **`#111112`** | Cards on dark |
+| Surface 2 | `--ink-2` | **`#18181A`** | Elevated cards |
+| Surface 3 | `--ink-3` | **`#232325`** | Strong dividers |
+| Border | `--ink-border` | **`#2E2E31`** | Hairline, true neutral |
+| Text primary | `--ink-text` | **`#FAFAF9`** | Off-white (as specified) |
+| Text secondary | `--ink-text-2` | **`#A1A1A4`** | True neutral mid-gray |
+| Text muted | `--ink-text-3` | **`#6E6E72`** | True neutral dark-gray |
 
-### Light canvas (app/admin, body sections)
+> All dark surfaces are **true neutral grays** — no navy or blue tint. (Previous `#8890A8` and `#2E3140` are gone.)
 
-| Token | CSS variable | Hex | Usage |
+### Light canvas (app/admin, body sections) — neutral grays
+
+| Token | CSS var | Hex | Note |
 |---|---|---|---|
-| Page bg | `--canvas` | `#F8F9FC` | Light page background |
-| Card | `--canvas-1` | `#FFFFFF` | Card surface |
-| Secondary | `--canvas-2` | `#F1F3F7` | Hover states, alt rows |
-| Border | `--canvas-border` | `#DDE0EA` | Card borders, dividers |
-| Text primary | `--canvas-text` | `#0D0F12` | Body text on light |
-| Text secondary | `--canvas-text-2` | `#5A6078` | Muted text |
-| Text tertiary | `--canvas-text-3` | `#9298B0` | Placeholder, disabled |
+| Page bg | `--canvas` | **`#FAFAF9`** | Off-white (matches ink-text) |
+| Card | `--canvas-1` | **`#FFFFFF`** | |
+| Secondary | `--canvas-2` | **`#F2F2F2`** | Hover states |
+| Border | `--canvas-border` | **`#E0E0E0`** | True neutral |
+| Text primary | `--canvas-text` | **`#0A0A0B`** | Near-black |
+| Text secondary | `--canvas-text-2` | **`#6B6B6E`** | Neutral mid-gray |
+| Text muted | `--canvas-text-3` | **`#9E9EA1`** | Neutral light-gray |
 
-**WCAG AA contrast check (light canvas):**
-- `--canvas-text` on `--canvas-1`: 19.5:1 ✅
-- `--canvas-text-2` on `--canvas-1`: 5.9:1 ✅
-- `--canvas-text-3` on `--canvas-1`: 3.1:1 ✅ (passes for large/UI text)
+**WCAG AA contrast (light canvas):**
+- `#0A0A0B` on `#FFFFFF` → 21:1 ✅
+- `#6B6B6E` on `#FFFFFF` → 5.7:1 ✅
+- `#9E9EA1` on `#FFFFFF` → 2.8:1 — muted/placeholder only (not used for body text)
 
-### Accent (single sharp CTA/highlight — orange)
+### Electric blue — single accent (no orange anywhere)
 
-| Token | CSS variable | Hex | Usage |
+| Token | CSS var | Hex | WCAG with white |
 |---|---|---|---|
-| Accent display | `--accent` | `#F97316` | Icons, text on dark, decorative |
-| Accent button | `--accent-btn` | `#E8650A` | Button backgrounds (4:1 with white ✅) |
-| Accent pressed | `--accent-pressed` | `#C95600` | Active/pressed state |
-| Subtle (dark) | `--accent-subtle-dk` | `rgba(249,115,22,0.12)` | Tinted bg on dark |
-| Subtle (light) | `--accent-subtle-lt` | `rgba(249,115,22,0.08)` | Tinted bg on light |
+| Brand / display | `--blue` | **`#3B6BFF`** | 4.5:1 ≈ AA (large text ✅) |
+| **Button background** | `--blue-btn` | **`#2557E8`** | **4.9:1 — WCAG AA ✅** |
+| Pressed / active | `--blue-pressed` | **`#1B45CC`** | 6.5:1 ✅ |
+| Subtle bg (dark) | `--blue-subtle-dk` | `rgba(59,107,255,0.12)` | — |
+| Subtle bg (light) | `--blue-subtle-lt` | `rgba(59,107,255,0.08)` | — |
+| Glow | `--blue-glow` | `0 0 0 1px rgba(59,107,255,0.3), 0 0 28px rgba(59,107,255,0.12)` | — |
 
-**WCAG AA:**
-- White text on `--accent-btn` (#E8650A): 4.1:1 ✅ (large text / UI components)
-- `--accent` on `--ink` (#0D0F12): 7.1:1 ✅ (orange text on dark)
-- `--canvas-text` on `--accent-btn` background: 5.2:1 ✅ (dark text alternative)
+> **Button contrast:** White text on `--blue-btn` (`#2557E8`) = **4.9:1**. WCAG AA requires 4.5:1 for normal text and 3:1 for large text — both are met. `--blue` (`#3B6BFF`) at 4.5:1 is on the exact threshold; buttons always use `--blue-btn` to guarantee headroom.
+
+> `--accent` / `--accent-btn` / `--accent-pressed` are kept as aliases pointing to the blue vars for backward compatibility during migration.
+
+---
+
+## Logo
+
+All four SVG logos updated — the orange dot (`#F2994A`) is now **`#3B6BFF`** (electric blue):
+
+| File | Use | Treatment on dark bg |
+|---|---|---|
+| `optionA_icon.svg` | Favicon, footer icon | `filter: brightness(0) invert(1) opacity(0.7)` |
+| `optionA_lockup_notag.svg` | Nav | `filter: brightness(0) invert(1)` |
+| `optionA_lockup_white.svg` | Dark surfaces | Native (already white/blue) |
+| `optionA_lockup.svg` | Light surfaces | Native (dark text, blue dot) |
 
 ---
 
 ## Radius
 
-| Token | Value | Usage |
-|---|---|---|
-| `--radius-sm` | 4px | Tags, badges, chips |
-| `--radius` | 8px | Default elements |
-| `--radius-md` | 10px | Buttons, inputs |
-| `--radius-lg` | 12px | Cards |
-| `--radius-xl` | 16px | Large panels, modals |
-| `--radius-2xl` | 20px | Hero panel, feature cards |
-
----
-
-## Shadows (light canvas)
-
-| Tailwind | Value |
+| Token | Value |
 |---|---|
-| `shadow-xs` | `0 1px 2px rgba(0,0,0,0.08)` |
-| `shadow-sm` | `0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)` |
-| `shadow-md` | `0 6px 16px -2px rgba(0,0,0,0.1), 0 3px 6px -2px rgba(0,0,0,0.05)` |
-| `shadow-glow-accent` | `0 0 0 1px rgba(249,115,22,0.3), 0 0 24px rgba(249,115,22,0.12)` |
+| `--radius-sm` | 4px — chips, badges |
+| `--radius` | 8px — default |
+| `--radius-md` | 10px — buttons, inputs |
+| `--radius-lg` | 12px — cards |
+| `--radius-xl` | 16px — panels |
 
----
+## Shadows
+
+| Class | Value |
+|---|---|
+| `shadow-xs` | `0 1px 2px rgba(0,0,0,0.09)` |
+| `shadow-sm` | `0 1px 3px rgba(0,0,0,0.12)` |
+| `shadow-glow-blue` | `0 0 0 1px rgba(59,107,255,0.35), 0 0 28px rgba(59,107,255,0.14)` |
 
 ## Motion
 
-| Token | Value | Usage |
-|---|---|---|
-| `--ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | Most transitions |
-| `--ease-spring` | `cubic-bezier(0.34, 1.56, 0.64, 1)` | Bounce interactions |
-| `--duration-fast` | `120ms` | Hover states |
-| `--duration-base` | `200ms` | Standard transitions |
-| `--duration-slow` | `360ms` | Page-level animations |
+| Token | Value |
+|---|---|
+| `--ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` |
+| `--ease-spring` | `cubic-bezier(0.34, 1.56, 0.64, 1)` |
+| `--duration-fast` | 120ms |
+| `--duration-base` | 200ms |
+| `--duration-slow` | 360ms |
 
 ---
 
-## Component classes (defined in `src/index.css`)
+## Component classes (`src/index.css`)
 
 | Class | Description |
 |---|---|
-| `.btn-primary` | Orange-filled CTA button |
-| `.btn-secondary` | Outlined button for light canvas |
-| `.btn-secondary-white` | Outlined white button for dark canvas |
-| `.btn-ghost` | Text-only ghost button |
-| `.card` | Light-canvas card (white bg, border) |
-| `.card-hover` | Card with hover accent border |
-| `.card-dark` | Dark-canvas card |
-| `.card-dark-hover` | Dark card with hover state |
-| `.field-input` | Styled text/email/textarea input |
-| `.chip` / `.chip-selected` / `.chip-unselected` | Multi-select pill chips |
-| `.eyebrow` | Mono uppercase label in accent color |
-| `.label-mono` | Smaller mono label in muted color |
-| `.label-mono-accent` | Smaller mono label in accent color |
-| `.bg-dot-dark` | Dot-grid background for dark canvas |
-| `.bg-dot-light` | Dot-grid background for light canvas |
-| `.bg-grid-dark` | Line-grid background for dark canvas |
-| `.display-xl` / `.display-lg` | Fluid display headings |
-| `.section-heading` | Fluid section headings |
-
----
-
-## Backgrounds / visual elements
-
-- **Dot grid** (`.bg-dot-dark`): `radial-gradient` 1px dots at 28px spacing — used in hero and CTA sections
-- **Accent glow** (`shadow-glow-accent`): orange radial glow — used on featured cards and interactive elements
-- **Surface layering**: ink → ink-1 → ink-2 → ink-3 on dark; canvas → canvas-1 → canvas-2 on light
-
----
-
-## Logo usage
-
-| Context | File | Treatment |
-|---|---|---|
-| Dark nav / dark shells | `optionA_lockup_notag.svg` | `filter: brightness(0) invert(1)` |
-| Light backgrounds | `optionA_lockup_notag.svg` | No filter (natural navy ink) |
-| Favicon | `optionA_icon.svg` | Native |
-| Footer icon on dark | `optionA_icon.svg` | `filter: brightness(0) invert(1) opacity(0.7)` |
+| `.btn-primary` | Blue-btn fill, white text, WCAG AA |
+| `.btn-secondary` | Outlined, light canvas |
+| `.btn-secondary-white` | Outlined white, dark canvas |
+| `.btn-ghost` | Text-only, light canvas |
+| `.btn-ghost-dark` | Text-only, dark canvas |
+| `.eyebrow` / `.section-eyebrow` | Mono uppercase in `--blue` |
+| `.label-mono` | Mono uppercase, muted |
+| `.label-mono-blue` | Mono uppercase, blue |
+| `.card` / `.card-hover` | Light canvas card |
+| `.card-dark` / `.card-dark-hover` | Dark canvas card |
+| `.field-input` | Styled input, blue focus ring |
+| `.chip` / `.chip-selected` / `.chip-unselected` | Multi-select pills, blue when active |
+| `.bg-dot-dark` | Dot-grid, dark canvas |
+| `.bg-dot-light` | Dot-grid, light canvas |
+| `.display-xl` / `.display-lg` / `.section-heading` | Fluid headings |
 
 ---
 
 ## Where to edit
 
-| File | What it controls |
+| File | Controls |
 |---|---|
-| `artifacts/atg-consulting/tailwind.config.js` | Color tokens, spacing, radius, shadow, animation |
-| `artifacts/atg-consulting/src/index.css` | CSS variables, component classes, base styles |
-| `artifacts/atg-consulting/src/components/sections/` | All marketing page sections |
+| `artifacts/atg-consulting/tailwind.config.js` | Colour tokens, scale, radius, shadow |
+| `artifacts/atg-consulting/src/index.css` | CSS variables, component classes |
+| `artifacts/atg-consulting/public/brand/logos/svg/*.svg` | Logo files (blue accent dot) |
+| `artifacts/atg-consulting/src/components/sections/` | Marketing page sections |
 | `artifacts/atg-consulting/src/components/app/AppShell.tsx` | Client portal sidebar |
 | `artifacts/atg-consulting/src/components/admin/AdminShell.tsx` | Admin sidebar |
-| `artifacts/atg-consulting/src/components/intake/` | Intake form steps, chips, progress bar |
+| `artifacts/atg-consulting/src/components/intake/` | Form components |

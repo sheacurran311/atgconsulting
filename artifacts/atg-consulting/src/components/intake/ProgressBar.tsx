@@ -16,7 +16,7 @@ export default function ProgressBar({ step, total, labels }: ProgressBarProps) {
             key={label}
             className="font-mono text-2xs transition-colors"
             style={{
-              color: i + 1 === step ? "var(--accent)" : i + 1 < step ? "var(--canvas-text-2)" : "var(--canvas-text-3)",
+              color: i + 1 === step ? "var(--blue)" : i + 1 < step ? "var(--canvas-text-2)" : "var(--canvas-text-3)",
               letterSpacing: "0.06em",
               textTransform: "uppercase",
             }}
@@ -39,7 +39,7 @@ export default function ProgressBar({ step, total, labels }: ProgressBarProps) {
           className="h-full rounded-full"
           style={{
             width: `${pct}%`,
-            background: "var(--accent)",
+            background: "var(--blue)",
             transition: "width 0.4s cubic-bezier(0.2,0,0,1)",
           }}
         />
@@ -54,7 +54,7 @@ export default function ProgressBar({ step, total, labels }: ProgressBarProps) {
             style={{
               width: i + 1 === step ? "20px" : "6px",
               height: "6px",
-              background: i + 1 <= step ? "var(--accent)" : "var(--canvas-border)",
+              background: i + 1 <= step ? "var(--blue)" : "var(--canvas-border)",
               transition: "all 0.3s cubic-bezier(0.2,0,0,1)",
             }}
             aria-hidden="true"

@@ -23,7 +23,7 @@ export default function CTA() {
       <div className="relative max-w-wide mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <p
           className="font-mono text-xs font-medium mb-5"
-          style={{ color: "var(--accent)", letterSpacing: "0.1em", textTransform: "uppercase" }}
+          style={{ color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase" }}
         >
           Ready when you are
         </p>
@@ -34,7 +34,7 @@ export default function CTA() {
           style={{ color: "var(--ink-text)" }}
         >
           Spend your time selling,{" "}
-          <span style={{ color: "var(--accent)" }}>not chasing.</span>
+          <span style={{ color: "var(--blue)" }}>not chasing.</span>
         </h2>
 
         <p className="mt-5 text-md max-w-xl mx-auto leading-relaxed" style={{ color: "var(--ink-text-2)" }}>

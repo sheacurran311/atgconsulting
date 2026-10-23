@@ -13,7 +13,7 @@ const rows: { feature: string; ss: CellVal; g: CellVal; wg: CellVal }[] = [
 
 function Tick() {
   return (
-    <svg className="w-4 h-4 mx-auto" style={{ color: "var(--accent)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Yes">
+    <svg className="w-4 h-4 mx-auto" style={{ color: "var(--blue)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Yes">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
     </svg>
   );
@@ -55,7 +55,7 @@ export default function CompareTable() {
                   <span className="font-semibold text-sm" style={{ color: "var(--canvas-text)" }}>Self-serve</span>
                 </th>
                 <th className="px-4 py-4 text-center" style={{ background: "rgba(249,115,22,0.04)" }}>
-                  <span className="font-semibold text-sm" style={{ color: "var(--accent-btn)" }}>Guided</span>
+                  <span className="font-semibold text-sm" style={{ color: "var(--blue-btn)" }}>Guided</span>
                   <span className="font-mono text-2xs ml-1.5" style={{ color: "var(--canvas-text-3)" }}>popular</span>
                 </th>
                 <th className="px-4 py-4 text-center">

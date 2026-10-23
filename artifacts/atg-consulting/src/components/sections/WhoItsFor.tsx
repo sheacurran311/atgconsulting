@@ -25,7 +25,7 @@ export default function WhoItsFor() {
             <div key={a.mono} className="card">
               <span
                 className="font-mono text-2xs font-bold block mb-3"
-                style={{ color: "var(--accent)", letterSpacing: "0.1em" }}
+                style={{ color: "var(--blue)", letterSpacing: "0.1em" }}
               >
                 {a.mono}
               </span>

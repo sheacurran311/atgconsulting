@@ -44,7 +44,7 @@ export default function AdminShell({ children }: Props) {
               style={{ filter: "brightness(0) invert(1)" }}
             />
           </Link>
-          <span className="font-mono text-2xs mt-2 block" style={{ color: "var(--accent)", letterSpacing: "0.1em" }}>
+          <span className="font-mono text-2xs mt-2 block" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
             ADMIN CONSOLE
           </span>
         </div>
@@ -86,7 +86,7 @@ export default function AdminShell({ children }: Props) {
           <Link key={item.to} to={item.to}>
             <span
               className="flex-shrink-0 px-4 py-2.5 text-xs font-semibold whitespace-nowrap cursor-pointer"
-              style={{ color: location.startsWith(item.to) ? "var(--accent)" : "var(--ink-text-3)" }}
+              style={{ color: location.startsWith(item.to) ? "var(--blue)" : "var(--ink-text-3)" }}
             >
               {item.label}
             </span>

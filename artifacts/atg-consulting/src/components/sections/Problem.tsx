@@ -38,7 +38,7 @@ export default function Problem() {
           <p className="eyebrow mb-4">The real problem</p>
           <h2 id="problem-heading" className="section-heading" style={{ color: "var(--canvas-text)" }}>
             You don&apos;t need another tool.{" "}
-            <span style={{ color: "var(--accent)" }}>You need a solution built for you.</span>
+            <span style={{ color: "var(--blue)" }}>You need a solution built for you.</span>
           </h2>
           <p className="mt-5 text-base leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>
             The tools are powerful. The problem is design — figuring out exactly which ones
@@ -52,7 +52,7 @@ export default function Problem() {
             <div key={p.key} className="card-hover flex gap-4">
               <span
                 className="font-mono text-xs font-medium mt-0.5 flex-shrink-0"
-                style={{ color: "var(--accent)", letterSpacing: "0.06em" }}
+                style={{ color: "var(--blue)", letterSpacing: "0.06em" }}
               >
                 {p.label}
               </span>

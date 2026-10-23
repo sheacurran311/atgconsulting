@@ -22,7 +22,7 @@ export default function Step3Preferences({ data, onChange, errors }: Props) {
       {/* Hours slider */}
       <div>
         <label htmlFor="hoursLost" className="block text-sm font-medium mb-1.5" style={{ color: "var(--canvas-text)" }}>
-          Hours per week lost to repetitive work <span style={{ color: "var(--accent)" }} aria-hidden="true">*</span>
+          Hours per week lost to repetitive work <span style={{ color: "var(--blue)" }} aria-hidden="true">*</span>
         </label>
         <p className="text-xs mb-4" style={{ color: "var(--canvas-text-3)" }}>Drag the slider to adjust.</p>
 
@@ -32,13 +32,13 @@ export default function Step3Preferences({ data, onChange, errors }: Props) {
             value={data.hoursLost}
             onChange={(e) => onChange({ hoursLost: Number(e.target.value) })}
             className="flex-1 cursor-pointer"
-            style={{ accentColor: "var(--accent)" }}
+            style={{ accentColor: "var(--blue)" }}
             aria-valuemin={1} aria-valuemax={40} aria-valuenow={data.hoursLost}
             aria-valuetext={`${data.hoursLost} hours per week`}
           />
           <span
             className="font-mono font-bold text-2xl w-16 text-right flex-shrink-0"
-            style={{ color: "var(--accent)", letterSpacing: "-0.02em" }}
+            style={{ color: "var(--blue)", letterSpacing: "-0.02em" }}
           >
             {data.hoursLost}h
           </span>
@@ -55,7 +55,7 @@ export default function Step3Preferences({ data, onChange, errors }: Props) {
       {/* Preferred help */}
       <div>
         <p className="text-sm font-medium mb-0.5" id="help-label" style={{ color: "var(--canvas-text)" }}>
-          Preferred way to get help <span style={{ color: "var(--accent)" }} aria-hidden="true">*</span>
+          Preferred way to get help <span style={{ color: "var(--blue)" }} aria-hidden="true">*</span>
         </p>
         <p className="text-xs mb-2" style={{ color: "var(--canvas-text-3)" }}>We&apos;ll factor this into your recommendation.</p>
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="help-label">

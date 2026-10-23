@@ -50,8 +50,8 @@ export default function HowItWorks() {
                 <span
                   className="font-mono text-xs font-bold px-2 py-1 rounded"
                   style={{
-                    background: i === 1 ? "var(--accent-subtle-lt)" : "var(--canvas-2)",
-                    color: i === 1 ? "var(--accent-btn)" : "var(--canvas-text-3)",
+                    background: i === 1 ? "var(--blue-subtle-lt)" : "var(--canvas-2)",
+                    color: i === 1 ? "var(--blue-btn)" : "var(--canvas-text-3)",
                     letterSpacing: "0.06em",
                   }}
                 >

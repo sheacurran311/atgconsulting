@@ -22,36 +22,36 @@ function ModuleList() {
       <div className="max-w-3xl mx-auto">
         <div className="mb-8">
           <p className="section-eyebrow mb-1">Client portal</p>
-          <h1 className="text-2xl font-extrabold text-navy">Learn</h1>
-          <p className="text-navy/55 text-sm mt-1">Modules to help you get the most from your AI setup.</p>
+          <h1 className="text-2xl font-extrabold text-canvas-text">Learn</h1>
+          <p className="text-canvas-text text-sm mt-1">Modules to help you get the most from your AI setup.</p>
         </div>
-        {loading ? <p className="text-navy/50">Loading…</p> : modules.length === 0 ? (
-          <div className="rounded-2xl border border-navy/10 bg-white p-10 text-center">
-            <p className="font-bold text-navy mb-1">No modules published yet</p>
-            <p className="text-navy/55 text-sm">Shea will publish learning resources here over time.</p>
+        {loading ? <p className="text-canvas-text">Loading…</p> : modules.length === 0 ? (
+          <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-10 text-center">
+            <p className="font-bold text-canvas-text mb-1">No modules published yet</p>
+            <p className="text-canvas-text text-sm">Shea will publish learning resources here over time.</p>
           </div>
         ) : (
           <ul className="space-y-3">
             {modules.map((m) => (
               <li key={m.id}>
                 {m.locked ? (
-                  <div className="rounded-2xl border border-navy/10 bg-white p-5 opacity-60 flex items-center justify-between gap-4">
+                  <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-5 opacity-60 flex items-center justify-between gap-4">
                     <div>
-                      <span className="text-xs bg-navy/10 text-navy px-2 py-0.5 rounded-full font-medium">{TIER_LABELS[m.minTier]} and above</span>
-                      <p className="font-bold text-navy mt-1">{m.title}</p>
-                      <p className="text-navy/50 text-sm">{m.description}</p>
+                      <span className="text-xs bg-canvas-2 text-canvas-text px-2 py-0.5 rounded-full font-medium">{TIER_LABELS[m.minTier]} and above</span>
+                      <p className="font-bold text-canvas-text mt-1">{m.title}</p>
+                      <p className="text-canvas-text text-sm">{m.description}</p>
                     </div>
                     <span className="text-xl">🔒</span>
                   </div>
                 ) : (
                   <Link to={`/app/learn/${m.slug}`}>
-                    <div className="rounded-2xl border border-navy/10 bg-white p-5 hover:border-orange/30 transition-colors cursor-pointer flex items-center justify-between gap-4">
+                    <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-5 hover:border-blue/30 transition-colors cursor-pointer flex items-center justify-between gap-4">
                       <div>
                         {m.completed && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Completed</span>}
-                        <p className="font-bold text-navy mt-1">{m.title}</p>
-                        <p className="text-navy/50 text-sm">{m.description}</p>
+                        <p className="font-bold text-canvas-text mt-1">{m.title}</p>
+                        <p className="text-canvas-text text-sm">{m.description}</p>
                       </div>
-                      <svg className="w-5 h-5 text-navy/30 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      <svg className="w-5 h-5 text-canvas-text flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </div>
                   </Link>
                 )}
@@ -89,23 +89,23 @@ function ModuleDetail({ slug }: { slug: string }) {
     <AppShell>
       <div className="max-w-2xl mx-auto">
         <Link to="/app/learn"><span className="btn-ghost mb-6 inline-flex">← Back to Learn</span></Link>
-        {loading ? <p className="text-navy/50">Loading…</p> : error ? (
-          <div className="rounded-2xl border border-orange/20 bg-orange/5 p-6 text-center">
-            <p className="font-bold text-navy mb-2">🔒 {error}</p>
+        {loading ? <p className="text-canvas-text">Loading…</p> : error ? (
+          <div className="rounded-2xl border border-blue/20 bg-blue/5 p-6 text-center">
+            <p className="font-bold text-canvas-text mb-2">🔒 {error}</p>
             <Link to="/app/account" className="btn-primary text-sm">View upgrade options</Link>
           </div>
         ) : m ? (
           <div className="space-y-6">
             <div>
               <p className="section-eyebrow mb-1">Module</p>
-              <h1 className="text-2xl font-extrabold text-navy">{m.title}</h1>
+              <h1 className="text-2xl font-extrabold text-canvas-text">{m.title}</h1>
             </div>
             {m.videoUrl && (
-              <div className="rounded-2xl overflow-hidden border border-navy/10">
+              <div className="rounded-2xl overflow-hidden border border-canvas-border">
                 <iframe src={m.videoUrl} className="w-full aspect-video" allowFullScreen title={m.title} />
               </div>
             )}
-            <div className="rounded-2xl border border-navy/10 bg-white p-6 prose prose-sm max-w-none text-navy/70 whitespace-pre-wrap leading-relaxed">
+            <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-6 prose prose-sm max-w-none text-canvas-text whitespace-pre-wrap leading-relaxed">
               {m.body}
             </div>
             {!completed && (

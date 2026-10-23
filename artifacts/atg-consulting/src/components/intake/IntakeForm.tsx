@@ -137,7 +137,7 @@ export default function IntakeForm() {
 
       {/* Step heading */}
       <div className="mb-6">
-        <p className="font-mono text-xs font-medium mb-1" style={{ color: "var(--accent)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        <p className="font-mono text-xs font-medium mb-1" style={{ color: "var(--blue)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
           Step {step} of {TOTAL_STEPS}
         </p>
         <h2 className="font-extrabold text-2xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.025em" }}>

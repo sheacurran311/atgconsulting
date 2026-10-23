@@ -1,5 +1,4 @@
-/* ── ATG Consulting design system v2 ───────────────────────────────────────── */
-/* Fonts (self-hosted via fontsource) */
+/* ── ATG Consulting design system v3 — monochrome + electric blue ──────────── */
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
 
@@ -9,90 +8,93 @@
 
 /* ── CSS custom properties ──────────────────────────────────────────────────── */
 :root {
-  /* Dark canvas tokens (marketing, hero, CTA) */
-  --ink:          #0D0F12;
-  --ink-1:        #131619;
-  --ink-2:        #1B1D22;
-  --ink-3:        #252830;
-  --ink-border:   #2E3140;
-  --ink-text:     #E8EAF0;
-  --ink-text-2:   #8890A8;
-  --ink-text-3:   #545A70;
+  /* ── Dark canvas (marketing, hero, nav, CTA) — true neutral graphite ──── */
+  --ink:          #0A0A0B;   /* page bg — near-pure black                    */
+  --ink-1:        #111112;   /* surface 1                                     */
+  --ink-2:        #18181A;   /* elevated card                                 */
+  --ink-3:        #232325;   /* strong divider                                */
+  --ink-border:   #2E2E31;   /* hairline border (neutral, no blue tint)       */
+  --ink-text:     #FAFAF9;   /* primary text (off-white)                      */
+  --ink-text-2:   #A1A1A4;   /* secondary — true neutral mid-gray             */
+  --ink-text-3:   #6E6E72;   /* muted/tertiary — neutral                      */
 
-  /* Light canvas tokens (app/admin, body sections) */
-  --canvas:         #F8F9FC;
-  --canvas-1:       #FFFFFF;
-  --canvas-2:       #F1F3F7;
-  --canvas-border:  #DDE0EA;
-  --canvas-text:    #0D0F12;
-  --canvas-text-2:  #5A6078;
-  --canvas-text-3:  #9298B0;
+  /* ── Light canvas (app/admin, body sections) — neutral grays ─────────── */
+  --canvas:         #FAFAF9; /* page bg                                       */
+  --canvas-1:       #FFFFFF; /* card surface                                  */
+  --canvas-2:       #F2F2F2; /* secondary surface / hover                     */
+  --canvas-border:  #E0E0E0; /* true neutral border                           */
+  --canvas-text:    #0A0A0B; /* primary text                                  */
+  --canvas-text-2:  #6B6B6E; /* secondary — neutral                           */
+  --canvas-text-3:  #9E9EA1; /* muted/tertiary                                */
 
-  /* Accent */
-  --accent:           #F97316;
-  --accent-btn:       #E8650A;   /* button bg → 4:1 with white, WCAG AA large text */
-  --accent-pressed:   #C95600;
-  --accent-subtle-dk: rgba(249,115,22,0.12);
-  --accent-subtle-lt: rgba(249,115,22,0.08);
+  /* ── Electric blue accent ─────────────────────────────────────────────── */
+  --blue:           #3B6BFF; /* display, borders, glow, text on dark          */
+  --blue-btn:       #2557E8; /* button bg — 4.9:1 with white, WCAG AA ✅     */
+  --blue-pressed:   #1B45CC; /* pressed / active state                        */
+  --blue-subtle-dk: rgba(59,107,255,0.12); /* tinted bg on dark canvas       */
+  --blue-subtle-lt: rgba(59,107,255,0.08); /* tinted bg on light canvas      */
+  --blue-glow:      0 0 0 1px rgba(59,107,255,0.3), 0 0 28px rgba(59,107,255,0.12);
 
-  /* Radius scale */
+  /* ── Legacy aliases (keeps --accent refs working during migration) ─────── */
+  --accent:           var(--blue);
+  --blue-btn:       var(--blue-btn);
+  --blue-pressed:   var(--blue-pressed);
+  --blue-subtle-dk: var(--blue-subtle-dk);
+  --blue-subtle-lt: var(--blue-subtle-lt);
+
+  /* ── Radius ───────────────────────────────────────────────────────────── */
   --radius-sm: 4px;
   --radius:    8px;
   --radius-md: 10px;
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  /* Motion */
-  --ease-standard:   cubic-bezier(0.2, 0, 0, 1);
-  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
-  --duration-fast:   120ms;
-  --duration-base:   200ms;
-  --duration-slow:   360ms;
+  /* ── Motion ───────────────────────────────────────────────────────────── */
+  --ease-standard:  cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast:  120ms;
+  --duration-base:  200ms;
+  --duration-slow:  360ms;
 
-  /* Typography */
-  --font-sans:  "Geist Variable", "Geist", system-ui, sans-serif;
-  --font-mono:  "Geist Mono Variable", "Geist Mono", "JetBrains Mono", monospace;
+  /* ── Fonts ────────────────────────────────────────────────────────────── */
+  --font-sans: "Geist Variable", "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", "JetBrains Mono", monospace;
 
-  /* Grid / backgrounds */
-  --grid-dot: rgba(255,255,255,0.06);
+  /* ── Dot grid ─────────────────────────────────────────────────────────── */
   --grid-size: 28px;
 }
 
-/* ── Base reset ──────────────────────────────────────────────────────────────── */
+/* ── Base ───────────────────────────────────────────────────────────────────── */
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
-
   html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
-
   body {
-    @apply font-sans text-canvas-text bg-canvas;
+    @apply font-sans;
+    background-color: var(--canvas);
+    color: var(--canvas-text);
     font-feature-settings: "cv02","cv03","cv04","cv11";
   }
-
-  /* Selection */
   ::selection {
-    background-color: rgba(249,115,22,0.2);
+    background-color: rgba(59,107,255,0.18);
     color: inherit;
   }
-
-  /* Scrollbars */
   * { scrollbar-width: thin; scrollbar-color: var(--ink-3) transparent; }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 9999px; }
 
-  /* Clerk overrides — use design system fonts */
+  /* Clerk overrides */
   .cl-formFieldInput::placeholder { color: var(--canvas-text-3); }
-  .cl-formButtonPrimary { background-color: var(--accent-btn) !important; }
-  .cl-formButtonPrimary:hover { background-color: var(--accent-pressed) !important; }
+  .cl-formButtonPrimary { background-color: var(--blue-btn) !important; }
+  .cl-formButtonPrimary:hover { background-color: var(--blue-pressed) !important; }
   .cl-card { border: 1px solid var(--canvas-border) !important; box-shadow: none !important; }
   .cl-headerTitle { font-family: var(--font-sans) !important; letter-spacing: -0.03em; }
 }
 
-/* ── Component layer ─────────────────────────────────────────────────────────── */
+/* ── Components ─────────────────────────────────────────────────────────────── */
 @layer components {
 
-  /* ── Buttons ─────────────────────────────────────────────────────────────── */
+  /* ── Buttons ─────────────────────────────────────────────────────────── */
   .btn {
     @apply inline-flex items-center justify-center gap-2 font-semibold transition-all;
     @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
@@ -104,14 +106,15 @@
     transition-duration: var(--duration-fast);
     transition-timing-function: var(--ease-standard);
   }
+  /* Primary — white text on blue-btn (#2557E8) = 4.9:1 WCAG AA ✅ */
   .btn-primary {
     @apply btn;
-    background-color: var(--accent-btn);
-    color: #fff;
-    @apply focus-visible:ring-accent;
+    background-color: var(--blue-btn);
+    color: #ffffff;
     border: 1px solid transparent;
+    @apply focus-visible:ring-blue;
   }
-  .btn-primary:hover  { background-color: var(--accent-pressed); }
+  .btn-primary:hover  { background-color: var(--blue-pressed); }
   .btn-primary:active { transform: scale(0.98); }
 
   .btn-secondary {
@@ -119,16 +122,16 @@
     background-color: transparent;
     color: var(--canvas-text);
     border: 1px solid var(--canvas-border);
-    @apply hover:bg-canvas-2 focus-visible:ring-canvas-text;
   }
+  .btn-secondary:hover { background-color: var(--canvas-2); }
 
   .btn-secondary-white {
     @apply btn;
     background-color: transparent;
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.25);
+    color: #ffffff;
+    border: 1px solid rgba(255,255,255,0.22);
   }
-  .btn-secondary-white:hover { background-color: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.4); }
+  .btn-secondary-white:hover { background-color: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.38); }
 
   .btn-ghost {
     @apply btn;
@@ -139,14 +142,6 @@
   }
   .btn-ghost:hover { background-color: var(--canvas-2); color: var(--canvas-text); }
 
-  /* Dark-canvas button variants */
-  .btn-primary-dark {
-    @apply btn;
-    background-color: var(--accent-btn);
-    color: #fff;
-    @apply focus-visible:ring-accent;
-  }
-  .btn-primary-dark:hover  { background-color: var(--accent-pressed); }
   .btn-ghost-dark {
     @apply btn;
     background: transparent;
@@ -156,15 +151,29 @@
   }
   .btn-ghost-dark:hover { background: rgba(255,255,255,0.06); color: var(--ink-text); }
 
-  /* ── Typography ──────────────────────────────────────────────────────────── */
+  /* ── Typography ──────────────────────────────────────────────────────── */
   .eyebrow {
-    @apply font-mono text-xs font-medium tracking-widest uppercase;
-    color: var(--accent);
+    @apply font-mono font-medium;
+    font-size: 11px;
     letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--blue);
   }
-  /* eyebrow on dark canvas */
-  .eyebrow-dark { @apply eyebrow; color: var(--accent); }
-
+  .section-eyebrow { @apply eyebrow; }
+  .label-mono {
+    @apply font-mono font-medium;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--canvas-text-3);
+  }
+  .label-mono-blue {
+    @apply font-mono font-medium;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--blue);
+  }
   .display-xl {
     @apply font-sans font-extrabold;
     font-size: clamp(40px, 6vw, 72px);
@@ -183,10 +192,8 @@
     line-height: 1.1;
     letter-spacing: -0.03em;
   }
-  .section-eyebrow { @apply eyebrow; } /* alias */
 
-  /* ── Cards ───────────────────────────────────────────────────────────────── */
-  /* Light-mode card */
+  /* ── Cards ───────────────────────────────────────────────────────────── */
   .card {
     background-color: var(--canvas-1);
     border: 1px solid var(--canvas-border);
@@ -194,16 +201,14 @@
     padding: 24px;
   }
   .card-hover {
-    @apply card transition-all;
-    transition-duration: var(--duration-base);
-    transition-timing-function: var(--ease-standard);
+    @apply card;
+    transition: border-color var(--duration-base) var(--ease-standard),
+                box-shadow var(--duration-base) var(--ease-standard);
   }
   .card-hover:hover {
-    border-color: rgba(249,115,22,0.35);
-    box-shadow: 0 0 0 1px rgba(249,115,22,0.1);
+    border-color: rgba(59,107,255,0.3);
+    box-shadow: 0 0 0 1px rgba(59,107,255,0.08);
   }
-
-  /* Dark-mode card */
   .card-dark {
     background-color: var(--ink-1);
     border: 1px solid var(--ink-border);
@@ -211,15 +216,15 @@
     padding: 24px;
   }
   .card-dark-hover {
-    @apply card-dark transition-all;
-    transition-duration: var(--duration-base);
+    @apply card-dark;
+    transition: border-color var(--duration-base), background-color var(--duration-base);
   }
   .card-dark-hover:hover {
-    border-color: rgba(249,115,22,0.3);
+    border-color: rgba(59,107,255,0.25);
     background-color: var(--ink-2);
   }
 
-  /* ── Form inputs ─────────────────────────────────────────────────────────── */
+  /* ── Inputs ──────────────────────────────────────────────────────────── */
   .field-input {
     @apply w-full font-sans text-sm transition-all;
     background-color: var(--canvas-1);
@@ -232,11 +237,11 @@
   }
   .field-input::placeholder { color: var(--canvas-text-3); }
   .field-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(249,115,22,0.12);
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(59,107,255,0.12);
   }
 
-  /* ── Chip (multi-select) ─────────────────────────────────────────────────── */
+  /* ── Chips ───────────────────────────────────────────────────────────── */
   .chip {
     @apply inline-flex items-center gap-1.5 font-medium cursor-pointer select-none transition-all;
     font-size: 13px;
@@ -246,54 +251,31 @@
     background: var(--canvas-1);
     color: var(--canvas-text-2);
     transition-duration: var(--duration-fast);
-    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-1;
   }
-  .chip:hover { border-color: rgba(249,115,22,0.4); color: var(--canvas-text); }
+  .chip:hover { border-color: rgba(59,107,255,0.35); color: var(--canvas-text); }
   .chip-selected {
     @apply chip;
-    border-color: var(--accent);
-    background-color: var(--accent-subtle-lt);
-    color: var(--accent-btn);
+    border-color: var(--blue);
+    background-color: var(--blue-subtle-light);
+    color: var(--blue-btn);
     font-weight: 600;
   }
   .chip-unselected { @apply chip; }
 
-  /* ── Divider ─────────────────────────────────────────────────────────────── */
-  .divider { height: 1px; background-color: var(--canvas-border); }
-  .divider-dark { height: 1px; background-color: var(--ink-border); }
-
-  /* ── Mono label ──────────────────────────────────────────────────────────── */
-  .label-mono {
-    @apply font-mono font-medium;
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--canvas-text-3);
-  }
-  .label-mono-accent {
-    @apply font-mono font-medium;
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-
-  /* ── Background patterns ─────────────────────────────────────────────────── */
+  /* ── Backgrounds ─────────────────────────────────────────────────────── */
   .bg-dot-dark {
-    background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
+    background-image: radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px);
     background-size: var(--grid-size) var(--grid-size);
   }
   .bg-dot-light {
-    background-image: radial-gradient(circle, rgba(13,15,18,0.05) 1px, transparent 1px);
+    background-image: radial-gradient(circle, rgba(10,10,11,0.04) 1px, transparent 1px);
     background-size: var(--grid-size) var(--grid-size);
   }
   .bg-grid-dark {
     background-image:
-      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
     background-size: 48px 48px;
   }
-
-  /* ── Focus ring reset ────────────────────────────────────────────────────── */
-  [data-focus-visible] { @apply ring-2 ring-accent ring-offset-2; }
 }

@@ -19,9 +19,9 @@ export default function Example() {
           <div
             className="flex gap-3 items-start mb-10 p-4 rounded-lg"
             role="note"
-            style={{ background: "var(--accent-subtle-lt)", border: "1px solid rgba(249,115,22,0.2)" }}
+            style={{ background: "var(--blue-subtle-lt)", border: "1px solid rgba(249,115,22,0.2)" }}
           >
-            <svg className="flex-shrink-0 w-4 h-4 mt-0.5" style={{ color: "var(--accent)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <svg className="flex-shrink-0 w-4 h-4 mt-0.5" style={{ color: "var(--blue)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>
@@ -46,9 +46,9 @@ export default function Example() {
                   <div
                     className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs font-bold"
                     style={{
-                      background: i === 0 ? "var(--accent-btn)" : "var(--canvas-2)",
+                      background: i === 0 ? "var(--blue-btn)" : "var(--canvas-2)",
                       color: i === 0 ? "#fff" : "var(--canvas-text-2)",
-                      border: `1px solid ${i === 0 ? "var(--accent-btn)" : "var(--canvas-border)"}`,
+                      border: `1px solid ${i === 0 ? "var(--blue-btn)" : "var(--canvas-border)"}`,
                     }}
                   >
                     {s.n}

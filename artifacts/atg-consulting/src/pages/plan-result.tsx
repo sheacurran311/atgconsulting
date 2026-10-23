@@ -88,7 +88,7 @@ export default function PlanResultPage() {
         >
           <span
             className="font-mono text-2xs font-bold block mb-2"
-            style={{ color: "var(--accent)", letterSpacing: "0.1em" }}
+            style={{ color: "var(--blue)", letterSpacing: "0.1em" }}
           >
             AI READINESS LEVEL
           </span>
@@ -115,7 +115,7 @@ export default function PlanResultPage() {
                 className="rounded-xl p-4 flex gap-3"
                 style={{ background: "var(--canvas-1)", border: "1px solid var(--canvas-border)" }}
               >
-                <span className="font-mono text-lg flex-shrink-0 mt-0.5" style={{ color: "var(--accent)" }}>
+                <span className="font-mono text-lg flex-shrink-0 mt-0.5" style={{ color: "var(--blue)" }}>
                   {AREA_ICONS[area.area] ?? "◆"}
                 </span>
                 <div>
@@ -150,10 +150,10 @@ export default function PlanResultPage() {
         {/* Preliminary note */}
         <div
           className="flex gap-3 items-start p-4 rounded-lg mb-7"
-          style={{ background: "var(--accent-subtle-lt)", border: "1px solid rgba(249,115,22,0.2)" }}
+          style={{ background: "var(--blue-subtle-lt)", border: "1px solid rgba(249,115,22,0.2)" }}
           role="note"
         >
-          <svg className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "var(--accent)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <svg className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "var(--blue)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <p className="text-sm leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>

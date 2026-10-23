@@ -67,7 +67,7 @@ export default function AppShell({ children }: Props) {
                     letterSpacing: "-0.005em",
                   }}
                 >
-                  <span className="font-mono text-xs" aria-hidden="true" style={{ color: active ? "var(--accent)" : "var(--ink-text-3)" }}>
+                  <span className="font-mono text-xs" aria-hidden="true" style={{ color: active ? "var(--blue)" : "var(--ink-text-3)" }}>
                     {item.icon}
                   </span>
                   {item.label}
@@ -105,7 +105,7 @@ export default function AppShell({ children }: Props) {
             <Link key={item.to} to={item.to}>
               <span
                 className="flex flex-col items-center gap-0.5 px-4 py-3 text-2xs font-medium whitespace-nowrap flex-shrink-0 cursor-pointer"
-                style={{ color: active ? "var(--accent)" : "var(--ink-text-3)" }}
+                style={{ color: active ? "var(--blue)" : "var(--ink-text-3)" }}
               >
                 <span className="font-mono text-base leading-none">{item.icon}</span>
                 {item.label}

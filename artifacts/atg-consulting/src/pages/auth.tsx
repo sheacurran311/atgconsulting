@@ -3,15 +3,15 @@ import { basePath } from "@/lib/clerk";
 
 function AuthShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-[calc(100dvh-4rem)] bg-navy-50 px-4 py-12 sm:py-16">
+    <main className="min-h-[calc(100dvh-4rem)] bg-ink-50 px-4 py-12 sm:py-16">
       <div className="mx-auto max-w-xl text-center mb-8">
         <p className="section-eyebrow mb-3">ATG Consulting</p>
-        <h1 className="text-3xl font-extrabold text-navy">Practical AI, built around you.</h1>
-        <p className="mt-3 text-navy/70">Access your account, or explore your next AI workflow.</p>
+        <h1 className="text-3xl font-extrabold text-canvas-text">Practical AI, built around you.</h1>
+        <p className="mt-3 text-canvas-text">Access your account, or explore your next AI workflow.</p>
       </div>
       {children}
-      <p className="mt-7 text-center text-sm text-navy/60">
-        Just looking for a free plan? <a href={`${basePath}/start`} className="font-semibold text-navy underline">No account needed.</a>
+      <p className="mt-7 text-center text-sm text-canvas-text">
+        Just looking for a free plan? <a href={`${basePath}/start`} className="font-semibold text-canvas-text underline">No account needed.</a>
       </p>
     </main>
   );

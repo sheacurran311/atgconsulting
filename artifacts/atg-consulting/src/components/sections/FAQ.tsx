@@ -24,7 +24,7 @@ function Item({ q, a }: { q: string; a: string }) {
       >
         <span
           className="text-sm font-medium transition-colors"
-          style={{ color: open ? "var(--accent-btn)" : "var(--canvas-text)" }}
+          style={{ color: open ? "var(--blue-btn)" : "var(--canvas-text)" }}
         >
           {q}
         </span>

@@ -21,7 +21,7 @@ function FieldLabel({ id, children, required }: { id: string; children: React.Re
   return (
     <label htmlFor={id} className="block text-sm font-medium mb-1.5" style={{ color: "var(--canvas-text)" }}>
       {children}
-      {required && <span style={{ color: "var(--accent)", marginLeft: 2 }} aria-hidden="true">*</span>}
+      {required && <span style={{ color: "var(--blue)", marginLeft: 2 }} aria-hidden="true">*</span>}
     </label>
   );
 }
@@ -76,7 +76,7 @@ export default function Step1About({ data, onChange, errors }: Props) {
       {/* Business size */}
       <div>
         <p className="text-sm font-medium mb-2" id="bizsize-label" style={{ color: "var(--canvas-text)" }}>
-          Business size <span style={{ color: "var(--accent)" }} aria-hidden="true">*</span>
+          Business size <span style={{ color: "var(--blue)" }} aria-hidden="true">*</span>
         </p>
         <div className="flex flex-wrap gap-2" role="group" aria-labelledby="bizsize-label">
           {BIZ_SIZES.map((s) => (
@@ -90,7 +90,7 @@ export default function Step1About({ data, onChange, errors }: Props) {
       {/* Areas */}
       <div>
         <p className="text-sm font-medium mb-0.5" id="areas-label" style={{ color: "var(--canvas-text)" }}>
-          Where do you want help? <span style={{ color: "var(--accent)" }} aria-hidden="true">*</span>
+          Where do you want help? <span style={{ color: "var(--blue)" }} aria-hidden="true">*</span>
         </p>
         <p className="text-xs mb-3" style={{ color: "var(--canvas-text-3)" }}>
           Pick all that apply — we&apos;ll show relevant options in the next step.
@@ -106,8 +106,8 @@ export default function Step1About({ data, onChange, errors }: Props) {
                 aria-pressed={selected}
                 className="text-left p-3 rounded-lg transition-all focus:outline-none focus-visible:ring-2"
                 style={{
-                  border: `1px solid ${selected ? "var(--accent)" : "var(--canvas-border)"}`,
-                  background: selected ? "var(--accent-subtle-lt)" : "var(--canvas-1)",
+                  border: `1px solid ${selected ? "var(--blue)" : "var(--canvas-border)"}`,
+                  background: selected ? "var(--blue-subtle-lt)" : "var(--canvas-1)",
                   boxShadow: selected ? "0 0 0 1px rgba(249,115,22,0.15)" : "none",
                 }}
               >

@@ -14,7 +14,7 @@ export default function AdminClientsPage() {
 const TIER_OPTIONS = ["", "NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"];
 const STATUS_OPTIONS = ["", "PROSPECT", "ACTIVE", "PAUSED", "CHURNED"];
 const TIER_LABELS: Record<string, string> = { NONE: "No plan", SELF_SERVE: "Self-serve", GUIDED: "Guided", WHITE_GLOVE: "White Glove" };
-const STATUS_COLORS: Record<string, string> = { PROSPECT: "text-orange bg-orange/10", ACTIVE: "text-green-700 bg-green-50", PAUSED: "text-navy/60 bg-navy/8", CHURNED: "text-red-600 bg-red-50" };
+const STATUS_COLORS: Record<string, string> = { PROSPECT: "text-blue bg-blue/10", ACTIVE: "text-green-700 bg-green-50", PAUSED: "text-canvas-text bg-canvas-2", CHURNED: "text-red-600 bg-red-50" };
 
 function ClientList() {
   const [clients, setClients] = useState<ClientAdmin[]>([]);
@@ -38,50 +38,50 @@ function ClientList() {
     <AdminShell>
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-extrabold text-navy">Clients</h1>
+          <h1 className="text-2xl font-extrabold text-canvas-text">Clients</h1>
         </div>
 
         <div className="flex flex-wrap gap-3 mb-6">
           <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()}
-            placeholder="Search name, email, company…" className="flex-1 min-w-48 rounded-xl border border-navy/20 px-4 py-2.5 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-orange" />
-          <select value={tier} onChange={(e) => setTier(e.target.value)} className="rounded-xl border border-navy/20 px-3 py-2.5 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-orange">
+            placeholder="Search name, email, company…" className="flex-1 min-w-48 rounded-xl border border-canvas-border px-4 py-2.5 text-sm text-canvas-text focus:outline-none focus:ring-2 focus:ring-blue" />
+          <select value={tier} onChange={(e) => setTier(e.target.value)} className="rounded-xl border border-canvas-border px-3 py-2.5 text-sm text-canvas-text focus:outline-none focus:ring-2 focus:ring-blue">
             {TIER_OPTIONS.map((t) => <option key={t} value={t}>{t ? TIER_LABELS[t] ?? t : "All tiers"}</option>)}
           </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border border-navy/20 px-3 py-2.5 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-orange">
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border border-canvas-border px-3 py-2.5 text-sm text-canvas-text focus:outline-none focus:ring-2 focus:ring-blue">
             {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s || "All statuses"}</option>)}
           </select>
           <button onClick={load} className="btn-primary text-sm py-2.5">Search</button>
         </div>
 
-        {loading ? <p className="text-navy/50">Loading…</p> : (
-          <div className="rounded-2xl border border-navy/10 overflow-hidden">
-            <table className="min-w-full bg-white text-sm">
-              <thead className="border-b border-navy/10 bg-navy/[0.02]">
+        {loading ? <p className="text-canvas-text">Loading…</p> : (
+          <div className="rounded-2xl border border-canvas-border overflow-hidden">
+            <table className="min-w-full bg-canvas-1 text-sm">
+              <thead className="border-b border-canvas-border bg-canvas-2[0.02]">
                 <tr>
                   {["Name", "Tier", "Status", "Industry", "AI Level", "Sessions", "Docs", ""].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-bold text-navy/50 uppercase tracking-wide">{h}</th>
+                    <th key={h} className="px-4 py-3 text-left text-xs font-bold text-canvas-text uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy/5">
                 {clients.length === 0 ? (
-                  <tr><td colSpan={8} className="px-4 py-8 text-center text-navy/40">No clients found.</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-canvas-text">No clients found.</td></tr>
                 ) : clients.map((c) => (
-                  <tr key={c.id} className="hover:bg-navy/[0.015]">
+                  <tr key={c.id} className="hover:bg-canvas-2[0.015]">
                     <td className="px-4 py-3">
-                      <p className="font-semibold text-navy">{c.user.name ?? "—"}</p>
-                      <p className="text-navy/45 text-xs">{c.user.email ?? "—"}</p>
+                      <p className="font-semibold text-canvas-text">{c.user.name ?? "—"}</p>
+                      <p className="text-canvas-text text-xs">{c.user.email ?? "—"}</p>
                     </td>
-                    <td className="px-4 py-3 text-navy/70">{TIER_LABELS[c.tier] ?? c.tier}</td>
+                    <td className="px-4 py-3 text-canvas-text">{TIER_LABELS[c.tier] ?? c.tier}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${STATUS_COLORS[c.status] ?? "text-navy"}`}>{c.status}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${STATUS_COLORS[c.status] ?? "text-canvas-text"}`}>{c.status}</span>
                     </td>
-                    <td className="px-4 py-3 text-navy/60">{c.industry ?? "—"}</td>
-                    <td className="px-4 py-3 text-navy/60">{c.aiLevel}/4</td>
-                    <td className="px-4 py-3 text-navy/60">{c._count?.consultations ?? 0}</td>
-                    <td className="px-4 py-3 text-navy/60">{c._count?.documents ?? 0}</td>
+                    <td className="px-4 py-3 text-canvas-text">{c.industry ?? "—"}</td>
+                    <td className="px-4 py-3 text-canvas-text">{c.aiLevel}/4</td>
+                    <td className="px-4 py-3 text-canvas-text">{c._count?.consultations ?? 0}</td>
+                    <td className="px-4 py-3 text-canvas-text">{c._count?.documents ?? 0}</td>
                     <td className="px-4 py-3">
-                      <Link to={`/admin/clients/${c.id}`}><span className="text-orange text-xs font-semibold hover:underline cursor-pointer">View →</span></Link>
+                      <Link to={`/admin/clients/${c.id}`}><span className="text-blue text-xs font-semibold hover:underline cursor-pointer">View →</span></Link>
                     </td>
                   </tr>
                 ))}
@@ -125,7 +125,7 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
     setSavingNotes(false);
   }
 
-  if (loading) return <AdminShell><p className="text-navy/50">Loading…</p></AdminShell>;
+  if (loading) return <AdminShell><p className="text-canvas-text">Loading…</p></AdminShell>;
   if (!client) return <AdminShell><p className="text-red-500">Client not found.</p></AdminShell>;
 
   return (
@@ -136,26 +136,26 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-extrabold text-navy">{client.user.name ?? "Unnamed"}</h1>
-            <p className="text-navy/55 text-sm">{client.user.email ?? "—"} · {client.industry ?? "—"}</p>
+            <h1 className="text-2xl font-extrabold text-canvas-text">{client.user.name ?? "Unnamed"}</h1>
+            <p className="text-canvas-text text-sm">{client.user.email ?? "—"} · {client.industry ?? "—"}</p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <select value={client.tier} disabled={saving} onChange={(e) => updateField("tier", e.target.value)}
-              className="rounded-xl border border-navy/20 px-3 py-2 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-orange">
+              className="rounded-xl border border-canvas-border px-3 py-2 text-sm text-canvas-text focus:outline-none focus:ring-2 focus:ring-blue">
               {["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"].map((t) => <option key={t} value={t}>{TIER_LABELS[t] ?? t}</option>)}
             </select>
             <select value={client.status} disabled={saving} onChange={(e) => updateField("status", e.target.value)}
-              className="rounded-xl border border-navy/20 px-3 py-2 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-orange">
+              className="rounded-xl border border-canvas-border px-3 py-2 text-sm text-canvas-text focus:outline-none focus:ring-2 focus:ring-blue">
               {["PROSPECT", "ACTIVE", "PAUSED", "CHURNED"].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-navy/10 mb-6 overflow-x-auto">
+        <div className="flex gap-1 border-b border-canvas-border mb-6 overflow-x-auto">
           {TABS.map((t) => (
             <Link key={t} to={`/admin/clients/${id}/${t}`}>
-              <span className={`px-4 py-2.5 text-sm font-semibold capitalize whitespace-nowrap border-b-2 -mb-px transition-colors ${tab === t ? "border-orange text-orange" : "border-transparent text-navy/50 hover:text-navy"}`}>{t}</span>
+              <span className={`px-4 py-2.5 text-sm font-semibold capitalize whitespace-nowrap border-b-2 -mb-px transition-colors ${tab === t ? "border-blue text-blue" : "border-transparent text-canvas-text hover:text-canvas-text"}`}>{t}</span>
             </Link>
           ))}
         </div>
@@ -180,10 +180,10 @@ function OverviewTab({ client, editNotes, setEditNotes, saveNotes, savingNotes }
         <Stat label="Consultations" value={String(client.consultations.length)} />
         <Stat label="Documents" value={String(client.documents.length)} />
       </div>
-      <div className="rounded-2xl border border-navy/10 bg-white p-5">
-        <p className="text-xs font-bold text-orange tracking-widest uppercase mb-2">Admin notes</p>
+      <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-5">
+        <p className="text-xs font-bold text-blue tracking-widest uppercase mb-2">Admin notes</p>
         <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={5}
-          className="w-full rounded-xl border border-navy/20 px-3 py-2 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-orange resize-none" placeholder="Private notes about this client…" />
+          className="w-full rounded-xl border border-canvas-border px-3 py-2 text-sm text-canvas-text focus:outline-none focus:ring-2 focus:ring-blue resize-none" placeholder="Private notes about this client…" />
         <button onClick={saveNotes} disabled={savingNotes} className="btn-primary text-sm mt-2">{savingNotes ? "Saving…" : "Save notes"}</button>
       </div>
     </div>
@@ -192,15 +192,15 @@ function OverviewTab({ client, editNotes, setEditNotes, saveNotes, savingNotes }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-navy/10 bg-white p-4">
-      <p className="text-xs text-navy/50 mb-1">{label}</p>
-      <p className="text-2xl font-extrabold text-navy">{value}</p>
+    <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-4">
+      <p className="text-xs text-canvas-text mb-1">{label}</p>
+      <p className="text-2xl font-extrabold text-canvas-text">{value}</p>
     </div>
   );
 }
 
 function PrepTab({ prep }: { prep: PrepView | null }) {
-  if (!prep) return <p className="text-navy/50">No intake data yet.</p>;
+  if (!prep) return <p className="text-canvas-text">No intake data yet.</p>;
   const { answers, plan, talkingPoints } = prep;
 
   // Parse admin report if present
@@ -218,7 +218,7 @@ function PrepTab({ prep }: { prep: PrepView | null }) {
             {(["Role", "Industry", "Business size", "Hours/week lost", "Preferred help", "Automate first"] as const).map((label, i) => {
               const keys = ["role", "industry", "bizSize", "hoursLost", "preferredHelp", "automateFirst"];
               const v = (answers as Record<string, unknown>)[keys[i]!];
-              return v ? <div key={label}><span className="font-semibold text-navy">{label}:</span> <span className="text-navy/70">{String(v)}</span></div> : null;
+              return v ? <div key={label}><span className="font-semibold text-canvas-text">{label}:</span> <span className="text-canvas-text">{String(v)}</span></div> : null;
             })}
           </div>
         </Section>
@@ -232,24 +232,24 @@ function PrepTab({ prep }: { prep: PrepView | null }) {
           {Array.isArray(adminReport.opportunityAreas) && (
             <Section title="Opportunity areas (ranked)">
               {(adminReport.opportunityAreas as Array<{ area: string; title: string; estimatedTimeSavedHrsPerWeek: number; solutionIdeas: string[]; toolOptions: string[] }>).map((o, i) => (
-                <div key={i} className="mb-4 last:mb-0 border-b border-navy/8 pb-4 last:border-0">
-                  <p className="font-bold text-navy">{i + 1}. {o.title} <span className="text-orange text-xs">~{o.estimatedTimeSavedHrsPerWeek}h/wk</span></p>
-                  <p className="text-navy/60 text-sm mt-1">Ideas: {o.solutionIdeas?.join(" · ")}</p>
-                  <p className="text-navy/45 text-xs mt-0.5">Tools: {o.toolOptions?.join(", ")}</p>
+                <div key={i} className="mb-4 last:mb-0 border-b border-canvas-border pb-4 last:border-0">
+                  <p className="font-bold text-canvas-text">{i + 1}. {o.title} <span className="text-blue text-xs">~{o.estimatedTimeSavedHrsPerWeek}h/wk</span></p>
+                  <p className="text-canvas-text text-sm mt-1">Ideas: {o.solutionIdeas?.join(" · ")}</p>
+                  <p className="text-canvas-text text-xs mt-0.5">Tools: {o.toolOptions?.join(", ")}</p>
                 </div>
               ))}
             </Section>
           )}
-          {Array.isArray(adminReport.callAgenda) && <Section title="Call agenda"><ul className="space-y-1 text-sm text-navy/70">{(adminReport.callAgenda as string[]).map((a, i) => <li key={i} className="flex gap-2"><span className="text-orange font-bold">{i + 1}.</span>{a}</li>)}</ul></Section>}
-          {Array.isArray(adminReport.discoveryQuestions) && <Section title="Discovery questions"><ul className="space-y-1.5 text-sm text-navy/70">{(adminReport.discoveryQuestions as string[]).map((q, i) => <li key={i} className="flex gap-2"><span className="text-orange">→</span>{q}</li>)}</ul></Section>}
-          {Array.isArray(adminReport.likelyObjections) && <Section title="Likely objections"><ul className="space-y-1.5 text-sm text-navy/70">{(adminReport.likelyObjections as string[]).map((o, i) => <li key={i} className="flex gap-2"><span className="text-red-400">⚠</span>{o}</li>)}</ul></Section>}
+          {Array.isArray(adminReport.callAgenda) && <Section title="Call agenda"><ul className="space-y-1 text-sm text-canvas-text">{(adminReport.callAgenda as string[]).map((a, i) => <li key={i} className="flex gap-2"><span className="text-blue font-bold">{i + 1}.</span>{a}</li>)}</ul></Section>}
+          {Array.isArray(adminReport.discoveryQuestions) && <Section title="Discovery questions"><ul className="space-y-1.5 text-sm text-canvas-text">{(adminReport.discoveryQuestions as string[]).map((q, i) => <li key={i} className="flex gap-2"><span className="text-blue">→</span>{q}</li>)}</ul></Section>}
+          {Array.isArray(adminReport.likelyObjections) && <Section title="Likely objections"><ul className="space-y-1.5 text-sm text-canvas-text">{(adminReport.likelyObjections as string[]).map((o, i) => <li key={i} className="flex gap-2"><span className="text-red-400">⚠</span>{o}</li>)}</ul></Section>}
           {renderAdminReportSection("Recommended scope", adminReport.recommendedScope as string)}
-          {Array.isArray(adminReport.risks) && <Section title="Risks & red flags"><ul className="space-y-1.5 text-sm text-navy/70">{(adminReport.risks as string[]).map((r, i) => <li key={i} className="flex gap-2"><span className="text-red-500">🔴</span>{r}</li>)}</ul></Section>}
-          {Array.isArray(adminReport.nextSteps) && <Section title="Next steps"><ul className="space-y-1.5 text-sm text-navy/70">{(adminReport.nextSteps as string[]).map((s, i) => <li key={i} className="flex gap-2"><span className="text-green-600">✓</span>{s}</li>)}</ul></Section>}
+          {Array.isArray(adminReport.risks) && <Section title="Risks & red flags"><ul className="space-y-1.5 text-sm text-canvas-text">{(adminReport.risks as string[]).map((r, i) => <li key={i} className="flex gap-2"><span className="text-red-500">🔴</span>{r}</li>)}</ul></Section>}
+          {Array.isArray(adminReport.nextSteps) && <Section title="Next steps"><ul className="space-y-1.5 text-sm text-canvas-text">{(adminReport.nextSteps as string[]).map((s, i) => <li key={i} className="flex gap-2"><span className="text-green-600">✓</span>{s}</li>)}</ul></Section>}
         </>
       ) : (
         <Section title="Suggested talking points">
-          <ul className="space-y-2">{talkingPoints.map((t, i) => <li key={i} className="flex gap-2 text-sm text-navy/70"><span className="text-orange font-bold flex-shrink-0">→</span>{t}</li>)}</ul>
+          <ul className="space-y-2">{talkingPoints.map((t, i) => <li key={i} className="flex gap-2 text-sm text-canvas-text"><span className="text-blue font-bold flex-shrink-0">→</span>{t}</li>)}</ul>
         </Section>
       )}
 
@@ -262,32 +262,32 @@ function PrepTab({ prep }: { prep: PrepView | null }) {
 
 function renderAdminReportSection(title: string, content: string | undefined) {
   if (!content) return null;
-  return <Section title={title}><p className="text-sm text-navy/70 leading-relaxed">{content}</p></Section>;
+  return <Section title={title}><p className="text-sm text-canvas-text leading-relaxed">{content}</p></Section>;
 }
 
 function PlanTab({ plan }: { plan: PlanAdmin | null }) {
-  if (!plan) return <p className="text-navy/50">No plan generated yet.</p>;
+  if (!plan) return <p className="text-canvas-text">No plan generated yet.</p>;
   const focusAreas: { area: string; name: string; whyItMatters: string }[] = (() => { try { return JSON.parse(plan.focusAreas); } catch { return []; } })();
 
   return (
     <div className="space-y-4">
       <Section title="AI readiness">
-        <p className="font-bold text-navy">{plan.aiReadinessLabel}</p>
-        <p className="text-navy/65 text-sm mt-1">{plan.aiReadinessSummary}</p>
+        <p className="font-bold text-canvas-text">{plan.aiReadinessLabel}</p>
+        <p className="text-canvas-text text-sm mt-1">{plan.aiReadinessSummary}</p>
       </Section>
       <Section title="Focus areas">
         {focusAreas.map((a) => (
           <div key={a.area} className="mb-2 last:mb-0">
-            <p className="font-semibold text-navy text-sm">{a.name}</p>
-            <p className="text-navy/60 text-xs">{a.whyItMatters}</p>
+            <p className="font-semibold text-canvas-text text-sm">{a.name}</p>
+            <p className="text-canvas-text text-xs">{a.whyItMatters}</p>
           </div>
         ))}
       </Section>
       <Section title="Recommended engagement">
-        <p className="font-bold text-navy capitalize">{plan.recommendedTier.replace("_", " ")}</p>
-        <p className="text-navy/65 text-sm mt-1">{plan.tierRationale}</p>
+        <p className="font-bold text-canvas-text capitalize">{plan.recommendedTier.replace("_", " ")}</p>
+        <p className="text-canvas-text text-sm mt-1">{plan.tierRationale}</p>
       </Section>
-      <p className="text-navy/35 text-xs">Source: {plan.source} · Created {new Date(plan.createdAt).toLocaleDateString()}</p>
+      <p className="text-canvas-text text-xs">Source: {plan.source} · Created {new Date(plan.createdAt).toLocaleDateString()}</p>
     </div>
   );
 }
@@ -306,19 +306,19 @@ function ConsultationsTab({ client, onRefresh }: { client: ClientDetail; onRefre
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-navy/10 bg-white p-5">
-        <p className="font-bold text-navy mb-3">Add consultation</p>
+      <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-5">
+        <p className="font-bold text-canvas-text mb-3">Add consultation</p>
         <div className="grid sm:grid-cols-2 gap-3">
-          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Title" className="rounded-xl border border-navy/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange" />
-          <input type="datetime-local" value={form.scheduledAt} onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })} className="rounded-xl border border-navy/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange" />
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Title" className="rounded-xl border border-canvas-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue" />
+          <input type="datetime-local" value={form.scheduledAt} onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })} className="rounded-xl border border-canvas-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue" />
         </div>
-        <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Session notes (markdown)" className="w-full mt-3 rounded-xl border border-navy/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange resize-none" />
+        <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Session notes (markdown)" className="w-full mt-3 rounded-xl border border-canvas-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue resize-none" />
         <button onClick={submit} disabled={creating || !form.title} className="btn-primary text-sm mt-3">Add consultation</button>
       </div>
       {client.consultations.map((c) => (
-        <div key={c.id} className="rounded-2xl border border-navy/10 bg-white p-5">
-          <p className="font-bold text-navy">{c.title}</p>
-          <p className="text-navy/50 text-sm">{c.scheduledAt ? new Date(c.scheduledAt).toLocaleDateString() : "No date"} · {c.status}</p>
+        <div key={c.id} className="rounded-2xl border border-canvas-border bg-canvas-1 p-5">
+          <p className="font-bold text-canvas-text">{c.title}</p>
+          <p className="text-canvas-text text-sm">{c.scheduledAt ? new Date(c.scheduledAt).toLocaleDateString() : "No date"} · {c.status}</p>
         </div>
       ))}
     </div>
@@ -328,11 +328,11 @@ function ConsultationsTab({ client, onRefresh }: { client: ClientDetail; onRefre
 function DocumentsTab({ client }: { client: ClientDetail }) {
   return (
     <div className="space-y-3">
-      {client.documents.length === 0 ? <p className="text-navy/50">No documents yet.</p> : client.documents.map((d) => (
-        <div key={d.id} className="rounded-2xl border border-navy/10 bg-white p-4 flex items-center justify-between gap-3">
+      {client.documents.length === 0 ? <p className="text-canvas-text">No documents yet.</p> : client.documents.map((d) => (
+        <div key={d.id} className="rounded-2xl border border-canvas-border bg-canvas-1 p-4 flex items-center justify-between gap-3">
           <div>
-            <p className="font-semibold text-navy text-sm">{d.title}</p>
-            <p className="text-navy/45 text-xs">{d.type} · {new Date(d.createdAt).toLocaleDateString()} · {d.visibleToClient ? "Visible to client" : "Admin only"}</p>
+            <p className="font-semibold text-canvas-text text-sm">{d.title}</p>
+            <p className="text-canvas-text text-xs">{d.type} · {new Date(d.createdAt).toLocaleDateString()} · {d.visibleToClient ? "Visible to client" : "Admin only"}</p>
           </div>
           <a href={`/api/documents/${d.id}/download`} className="btn-secondary text-xs py-1 px-3">Download</a>
         </div>
@@ -351,11 +351,11 @@ function ReportsTab({ client }: { client: ClientDetail }) {
 
   return (
     <div className="space-y-3">
-      {reports.length === 0 ? <p className="text-navy/50">No reports yet. Run the daily cron to generate them.</p> : reports.map((r) => (
-        <div key={r.id} className="rounded-2xl border border-navy/10 bg-white p-4 flex items-center justify-between gap-3">
+      {reports.length === 0 ? <p className="text-canvas-text">No reports yet. Run the daily cron to generate them.</p> : reports.map((r) => (
+        <div key={r.id} className="rounded-2xl border border-canvas-border bg-canvas-1 p-4 flex items-center justify-between gap-3">
           <div>
-            <p className="font-semibold text-navy text-sm">{r.date}</p>
-            <p className="text-navy/45 text-xs capitalize">{r.status.toLowerCase()}</p>
+            <p className="font-semibold text-canvas-text text-sm">{r.date}</p>
+            <p className="text-canvas-text text-xs capitalize">{r.status.toLowerCase()}</p>
           </div>
           {r.status === "DRAFT" && <button onClick={() => publish(r.id)} className="btn-primary text-xs py-1 px-3">Publish</button>}
           {r.status === "PUBLISHED" && <span className="text-green-600 text-xs font-semibold">Published</span>}
@@ -367,8 +367,8 @@ function ReportsTab({ client }: { client: ClientDetail }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-navy/10 bg-white p-5">
-      <p className="text-xs font-bold text-orange tracking-widest uppercase mb-3">{title}</p>
+    <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-5">
+      <p className="text-xs font-bold text-blue tracking-widest uppercase mb-3">{title}</p>
       {children}
     </div>
   );

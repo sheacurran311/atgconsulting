@@ -57,7 +57,7 @@ export default function WhatWeAutomate() {
               <div className="flex items-center gap-2 mb-4">
                 <span
                   className="font-mono text-xs font-bold px-2 py-1 rounded"
-                  style={{ background: "var(--accent-subtle-lt)", color: "var(--accent-btn)", letterSpacing: "0.1em" }}
+                  style={{ background: "var(--blue-subtle-lt)", color: "var(--blue-btn)", letterSpacing: "0.1em" }}
                 >
                   {area.mono}
                 </span>
@@ -69,12 +69,12 @@ export default function WhatWeAutomate() {
               >
                 {area.label}
               </h3>
-              <p className="text-xs mb-4" style={{ color: "var(--accent)" }}>{area.tagline}</p>
+              <p className="text-xs mb-4" style={{ color: "var(--blue)" }}>{area.tagline}</p>
 
               <ul className="space-y-1.5 flex-1">
                 {area.bullets.map((b) => (
                   <li key={b} className="flex gap-2 text-sm" style={{ color: "var(--canvas-text-2)" }}>
-                    <svg className="flex-shrink-0 w-3.5 h-3.5 mt-0.5" style={{ color: "var(--accent)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <svg className="flex-shrink-0 w-3.5 h-3.5 mt-0.5" style={{ color: "var(--blue)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                     </svg>
                     {b}

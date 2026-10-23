@@ -96,7 +96,7 @@ export default function Tiers() {
                   <span
                     className="font-mono text-2xs font-bold px-2 py-1 rounded"
                     style={t.featured
-                      ? { background: "var(--accent-subtle-dk)", color: "var(--accent)", letterSpacing: "0.08em" }
+                      ? { background: "var(--blue-subtle-dk)", color: "var(--blue)", letterSpacing: "0.08em" }
                       : { background: "var(--canvas-2)", color: "var(--canvas-text-3)", letterSpacing: "0.08em" }
                     }
                   >
@@ -108,7 +108,7 @@ export default function Tiers() {
               <div className="flex flex-col flex-1 p-6">
                 <span
                   className="font-mono text-2xs font-bold mb-3"
-                  style={{ color: t.featured ? "var(--accent)" : "var(--canvas-text-3)", letterSpacing: "0.1em" }}
+                  style={{ color: t.featured ? "var(--blue)" : "var(--canvas-text-3)", letterSpacing: "0.1em" }}
                 >
                   {t.mono}
                 </span>
@@ -128,7 +128,7 @@ export default function Tiers() {
 
                 <p
                   className="font-extrabold text-2xl mb-5"
-                  style={{ color: t.featured ? "var(--accent)" : "var(--canvas-text)", letterSpacing: "-0.03em" }}
+                  style={{ color: t.featured ? "var(--blue)" : "var(--canvas-text)", letterSpacing: "-0.03em" }}
                 >
                   {t.price}
                 </p>
@@ -138,7 +138,7 @@ export default function Tiers() {
                     <li key={f} className="flex gap-2.5 text-sm">
                       <svg
                         className="flex-shrink-0 w-4 h-4 mt-0.5"
-                        style={{ color: "var(--accent)" }}
+                        style={{ color: "var(--blue)" }}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
