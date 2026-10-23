@@ -1,46 +1,25 @@
 import { PrismaClient } from "@prisma/client";
 
-// Preserve the imported app's SQLite database rather than replacing its storage.
+// PrismaClient singleton — prevents multiple instances during hot reload in dev.
+// Works with any DATABASE_URL: postgresql://, file: (local SQLite dev), etc.
+// The provider in schema.prisma is "postgresql"; to use SQLite locally change it
+// to "sqlite" and set DATABASE_URL="file:./prisma/dev.db".
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    ...(process.env.DATABASE_URL?.startsWith("file:")
-      ? { datasources: { db: { url: process.env.DATABASE_URL } } }
-      : {}),
-    log: ["error"],
+    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-// SQLite is retained from the import. Initialize only missing tables, never
-// replace existing records. Run before listening so health cannot pass early.
-export async function initializeDatabase() {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "IntakeSubmission" (
-      "id" TEXT NOT NULL PRIMARY KEY,
-      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "updatedAt" DATETIME NOT NULL,
-      "name" TEXT NOT NULL,
-      "email" TEXT NOT NULL,
-      "role" TEXT NOT NULL,
-      "industry" TEXT NOT NULL,
-      "bizSize" TEXT NOT NULL,
-      "areas" TEXT NOT NULL,
-      "aiComfort" INTEGER NOT NULL,
-      "tools" TEXT NOT NULL,
-      "timeSinks" TEXT NOT NULL,
-      "automateFirst" TEXT,
-      "hoursLost" INTEGER NOT NULL,
-      "preferredHelp" TEXT NOT NULL,
-      "freeText" TEXT,
-      "honeypot" TEXT NOT NULL DEFAULT '',
-      "ipHash" TEXT,
-      "llmResponse" TEXT,
-      "responseType" TEXT,
-      "emailSent" BOOLEAN NOT NULL DEFAULT false
-    )
-  `);
+/**
+ * Verifies the database connection is live before the HTTP server starts.
+ * Prisma manages the schema (via `db:push` or `migrate deploy`); this
+ * function does NOT create or alter tables — it just pings the connection.
+ */
+export async function initializeDatabase(): Promise<void> {
+  await prisma.$connect();
 }
