@@ -38,7 +38,11 @@ Express proxy trust is disabled because no verified proxy-address allowlist was 
 - Original provider options: `OPENAI_API_KEY`, `XAI_API_KEY`, or `LLM_API_KEY`, with optional `LLM_BASE_URL` and `LLM_MODEL`. Configure credentials via Replit integrations/secrets, never in source.
 - Email stays off unless `EMAIL_ENABLED=true` and SMTP settings are configured. The original `SMTP_*`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, and `SHEA_EMAIL` options are preserved.
 - Optional `IP_HASH_SALT` controls hashed-IP logging.
-- No authentication flow or client portal existed in the shipped routes; the unused imported header-auth placeholder was not installed as real authentication.
+- Clerk authentication is provisioned through Replit: users can sign up, verify their email, sign in, recover access, and sign out. `/sign-in` and `/sign-up` use branded embedded Clerk forms.
+- `/user-portal` is the authenticated account page. `/api/account` checks the verified Clerk session and retrieves only that user's profile. Neither request parameters nor legacy Replit identity headers establish identity.
+- The homepage and `/start` questionnaire remain public. Signed-in users visiting `/` without a section anchor go to their account; sign-out returns to the public homepage.
+- The canonical Clerk proxy middleware is mounted before JSON parsing; managed production publishing supplies its production configuration. Keep the hostname-aware key resolution and proxy URL provider props intact.
+- Accounts live in Clerk, not in the original SQLite intake table. Existing anonymous submissions are not automatically claimed by email, and no submission-history or admin roles were added.
 
 ## Migration boundaries
 

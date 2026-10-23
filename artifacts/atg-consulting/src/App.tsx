@@ -1,9 +1,13 @@
 import { useEffect } from "react";
-import { Route, Switch, Router, useLocation } from "wouter";
+import { Route, Switch, Router, useLocation, Redirect } from "wouter";
+import { ClerkProvider, useUser } from "@clerk/react";
+import { clerkPubKey, clerkProxyUrl, clerkAppearance, basePath, stripBase } from "@/lib/clerk";
 import Nav from "@/components/Nav";
 import HomePage from "@/pages/home";
 import StartPage from "@/pages/start";
 import NotFound from "@/pages/not-found";
+import { SignInPage, SignUpPage } from "@/pages/auth";
+import AccountPage from "@/pages/account";
 
 function Metadata() {
   const [location] = useLocation();
@@ -15,10 +19,13 @@ function Metadata() {
     const description = intake
       ? "Answer a few quick questions and get a personalised AI workflow plan for your role and industry. Free, no signup required."
       : "Let AI handle the busywork in your sales process: prospecting, research, outreach drafts, follow-ups, and CRM upkeep. Self-serve, guided, or done for you. Based in Castle Rock, CO.";
-    document.title = title;
+    const authTitle = location.startsWith("/sign-in") ? "Sign in"
+      : location.startsWith("/sign-up") ? "Create an account"
+      : location === "/user-portal" ? "My account" : "";
+    document.title = authTitle ? `${authTitle} | ATG Consulting` : title;
     for (const [attribute, key, content] of [
       ["name", "description", description],
-      ["name", "robots", intake ? "noindex, nofollow" : "index, follow"],
+      ["name", "robots", intake || authTitle ? "noindex, nofollow" : "index, follow"],
       ["property", "og:title", title],
       ["property", "og:description", description],
       ["name", "twitter:title", title],
@@ -36,17 +43,45 @@ function Metadata() {
   return null;
 }
 
-export default function App() {
+function HomeRedirect() {
+  const { isLoaded, isSignedIn } = useUser();
+  if (isLoaded && isSignedIn && !window.location.hash) return <Redirect to="/user-portal" />;
+  return <HomePage />;
+}
+
+function AuthenticatedApp() {
+  const [, setLocation] = useLocation();
   return (
-    <Router base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+    <ClerkProvider
+      publishableKey={clerkPubKey}
+      proxyUrl={clerkProxyUrl}
+      appearance={clerkAppearance}
+      signInUrl={`${basePath}/sign-in`}
+      signUpUrl={`${basePath}/sign-up`}
+      signInFallbackRedirectUrl={`${basePath}/user-portal`}
+      signUpFallbackRedirectUrl={`${basePath}/user-portal`}
+      localization={{
+        signIn: { start: { title: "Welcome back", subtitle: "Sign in to your ATG Consulting account" } },
+        signUp: { start: { title: "Create your account", subtitle: "Get started with ATG Consulting" } },
+      }}
+      routerPush={(to) => setLocation(stripBase(to))}
+      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+    >
       <Metadata />
       <Nav />
       <Switch>
-        <Route path="/" component={HomePage} />
+        <Route path="/" component={HomeRedirect} />
+        <Route path="/sign-in/*?" component={SignInPage} />
+        <Route path="/sign-up/*?" component={SignUpPage} />
+        <Route path="/user-portal" component={AccountPage} />
         <Route path="/start" component={StartPage} />
         <Route path="/start/" component={StartPage} />
         <Route component={NotFound} />
       </Switch>
-    </Router>
+    </ClerkProvider>
   );
+}
+
+export default function App() {
+  return <Router base={basePath}><AuthenticatedApp /></Router>;
 }

@@ -9,6 +9,17 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Get the current authenticated user's profile
+ */
+export const GetAccountResponse = zod.object({
+  "id": zod.string(),
+  "firstName": zod.string(),
+  "lastName": zod.string(),
+  "email": zod.string()
+})
+
+
+/**
  * @summary Submit the original three-step questionnaire
  */
 export const submitIntakeBodyNameMax = 100;

@@ -17,6 +17,11 @@ test("fresh SQLite initializes, intake persists, and spoofed headers cannot evad
   const { initializeDatabase, prisma } = await import("./lib/db");
   const { default: app } = await import("./app");
   try {
+    const anonymousAccount = await request(app).get("/api/account");
+    assert.equal(anonymousAccount.status, 401);
+    const forgedAccount = await request(app).get("/api/account?userId=someone-else")
+      .set("X-Replit-User-Id", "forged-user").set("X-User-Id", "forged-user");
+    assert.equal(forgedAccount.status, 401);
     // The target file did not exist. This is the same initialization that
     // index.ts awaits before opening its listening socket.
     await initializeDatabase();

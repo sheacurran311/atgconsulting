@@ -93,8 +93,22 @@ try {
     const assetResponse = await context.request.get(asset);
     assert.equal(assetResponse.status(), 200, asset);
   }
+  const accountResponse = await context.request.get("/api/account");
+  assert.equal(accountResponse.status(), 401);
+  await page.goto("/sign-in");
+  await page.locator(".cl-signIn-root").waitFor();
+  await page.getByText("Welcome back", { exact: true }).waitFor();
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await page.screenshot({ path: `${output}/mobile-sign-in.png`, fullPage: true });
+  await page.goto("/sign-up");
+  await page.locator(".cl-signUp-root").waitFor();
+  await page.getByText("Create your account", { exact: true }).waitFor();
+  await page.goto("/user-portal");
+  await page.waitForURL("**/sign-in");
+  await page.locator(".cl-signIn-root").waitFor();
+  assert.equal(await page.getByRole("heading", { name: "Your account", exact: true }).count(), 0);
   assert.deepEqual(errors, []);
-  console.log("PASS: desktop navigation, FAQ, form validation, three-step UI with stubbed API response, Back state, recommendations rendering, mobile menu/layout, original assets, and no browser errors.");
+  console.log("PASS: desktop navigation, FAQ, form validation, three-step UI with stubbed API response, Back state, recommendations rendering, mobile menu/layout, original assets, branded sign-in/sign-up, account route protection, and no browser errors.");
 } finally {
   await browser.close();
 }

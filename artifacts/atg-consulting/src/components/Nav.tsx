@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import AuthControls from "./AuthControls";
 
 const navLinks = [
   { label: "How it works", href: "/#how-it-works" },
@@ -38,9 +39,7 @@ export default function Nav() {
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
-            <a href="/#tiers" className="text-sm font-semibold text-orange hover:text-orange-500 transition-colors">
-              Free seminar
-            </a>
+            <AuthControls />
             <a href="/start" className="btn-primary text-sm py-2 px-4">
               Get my plan
             </a>
@@ -76,6 +75,7 @@ export default function Nav() {
             </a>
           ))}
           <div className="pt-3 flex flex-col gap-2">
+            <AuthControls onNavigate={() => setOpen(false)} />
             <a href="/#tiers" onClick={() => setOpen(false)} className="btn-secondary text-center">
               Free seminar
             </a>

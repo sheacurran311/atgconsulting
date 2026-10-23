@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+.cl-formFieldInput::placeholder { color: #536078; opacity: 1; }
+.cl-formButtonPrimary:hover { background-color: #2a4a73; }
+.cl-footerActionLink:hover { text-decoration: underline; }
+
 @layer base {
   html {
     scroll-behavior: smooth;

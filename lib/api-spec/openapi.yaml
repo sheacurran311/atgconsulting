@@ -11,6 +11,19 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /account:
+    get:
+      operationId: getAccount
+      summary: Get the current authenticated user's profile
+      responses:
+        "200":
+          description: Verified account profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountProfile"
+        "401":
+          description: No authenticated session
   /intake:
     post:
       operationId: submitIntake
@@ -51,6 +64,14 @@ paths:
                 $ref: "#/components/schemas/HealthStatus"
 components:
   schemas:
+    AccountProfile:
+      type: object
+      required: [id, firstName, lastName, email]
+      properties:
+        id: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        email: { type: string }
     IntakeInput:
       type: object
       required: [name, email, role, industry, bizSize, areas, aiComfort, tools, timeSinks, hoursLost, preferredHelp]

@@ -5,6 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface AccountProfile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
 export type IntakeInputBizSize = typeof IntakeInputBizSize[keyof typeof IntakeInputBizSize];
 
 

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './accountProfile';
 export * from './healthStatus';
 export * from './intakeInput';
 export * from './intakeInputAreasItem';
