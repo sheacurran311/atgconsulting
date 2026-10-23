@@ -26,8 +26,8 @@ export function useAccount(): AccountState {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    api.account.get()
-      .then((data) => { if (!cancelled) setAccount(data as ClientProfile); })
+    api.client.me()
+      .then((data) => { if (!cancelled) setAccount(data); })
       .catch((e: Error) => { if (!cancelled) setError(e.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

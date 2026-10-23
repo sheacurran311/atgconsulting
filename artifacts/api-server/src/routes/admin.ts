@@ -53,6 +53,7 @@ router.get("/admin/clients/:id", async (req, res) => {
       },
       documents: { orderBy: { createdAt: "desc" } },
       reports: { orderBy: { date: "desc" }, take: 10 },
+      workflows: { orderBy: { createdAt: "desc" }, select: { id: true, name: true, area: true, description: true } },
     },
   });
   if (!client) { res.status(404).json({ error: "Not found." }); return; }
@@ -321,19 +322,50 @@ router.post("/admin/clients/:id/workflows", async (req, res) => {
   res.status(201).json(wf);
 });
 
+const WorkflowPatchSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().min(1).max(2000).optional(),
+  area: z.enum(["ea", "marketing", "sales", "cs"]).optional(),
+  status: z.enum(["designing", "building", "live", "paused"]).optional(),
+  schedule: z.string().max(200).nullable().optional(),
+  setupNote: z.string().max(500).nullable().optional(),
+});
+
 router.patch("/admin/workflows/:id", async (req, res) => {
-  const wf = await prisma.workflow.update({ where: { id: req.params.id as string }, data: req.body as Parameters<typeof prisma.workflow.update>[0]["data"] });
+  const parsed = WorkflowPatchSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "Validation failed." }); return; }
+  const data = Object.fromEntries(Object.entries(parsed.data).filter(([, value]) => value !== undefined));
+  if (Object.keys(data).length === 0) { res.status(422).json({ error: "No editable fields." }); return; }
+  const existing = await prisma.workflow.findUnique({ where: { id: req.params.id as string } });
+  if (!existing) { res.status(404).json({ error: "Workflow not found." }); return; }
+  const wf = await prisma.workflow.update({ where: { id: existing.id }, data });
   res.json(wf);
+});
+
+const OutputCreateSchema = z.object({
+  workflowId: z.string().min(1),
+  type: z.enum(["briefing", "email_draft", "lead_list", "social_post", "quote_followup", "review_request"]),
+  subject: z.string().min(1).max(200),
+  content: z.string().min(1).max(20000),
 });
 
 router.post("/admin/clients/:id/outputs", async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const client = await prisma.client.findUnique({ where: { id: req.params.id as string } });
   if (!client) { res.status(404).json({ error: "Client not found." }); return; }
-  const { workflowId, type, subject, content } = req.body as Record<string, string>;
-  if (!workflowId || !type || !subject || !content) { res.status(422).json({ error: "workflowId, type, subject, and content are required." }); return; }
+  const parsed = OutputCreateSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "workflowId, type, subject, and content are required." }); return; }
+  const workflow = await prisma.workflow.findFirst({ where: { id: parsed.data.workflowId, clientId: client.id } });
+  if (!workflow) { res.status(404).json({ error: "Workflow not found for this client." }); return; }
   const item = await prisma.outputItem.create({
-    data: { workflowId, clientId: client.id, type, subject, content, sheaBadge: `Reviewed by ${actor.name ?? "Shea"}` },
+    data: {
+      workflowId: workflow.id,
+      clientId: client.id,
+      type: parsed.data.type,
+      subject: parsed.data.subject,
+      content: parsed.data.content,
+      sheaBadge: `Reviewed by ${actor.name ?? "Shea"}`,
+    },
   });
   res.status(201).json(item);
 });

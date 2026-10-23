@@ -17,7 +17,8 @@
  */
 
 import OpenAI from "openai";
-import { sanitiseText, promptSafe } from "./sanitize";
+import { z } from "zod";
+import { sanitiseText, sanitiseShortText, promptSafe } from "./sanitize";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -382,4 +383,63 @@ function getAreaToolOptions(area: string, intake: IntakeInput): string[] {
   if (hasClaude && !tools.some((t) => t.includes("Claude"))) tools.unshift("Claude (already using)");
   if (hasZapier) tools.push("Zapier/Make (already using — extend it)");
   return tools;
+}
+
+// ── Follow-up draft (workbench) ───────────────────────────────────────────────
+
+const FollowUpSchema = z.object({
+  subject: z.string().min(1).max(200),
+  body: z.string().min(1).max(8000),
+});
+
+const FOLLOW_UP_SYSTEM = `You write one follow-up email for a small-business owner to review and copy into their own mail app.
+
+Rules:
+- Use only the facts inside the tagged fields. Do not invent dates, amounts, products, meetings, or promises.
+- Do not mention AI, models, or that the email was drafted for them.
+- No HTML, no tracking, no sign-off that adds facts. If a sender name is provided, you may end with that name.
+- Plain language. Return JSON with "subject" and "body" only.`;
+
+export interface FollowUpInput {
+  who: string;
+  lastTouch: string;
+  wantToSay: string;
+  senderName: string | null;
+}
+
+export async function generateFollowUpDraft(input: FollowUpInput): Promise<{ subject: string; body: string; source: "LLM" | "TEMPLATE" }> {
+  const who = sanitiseShortText(input.who);
+  const lastTouch = sanitiseText(input.lastTouch, 500);
+  const wantToSay = sanitiseText(input.wantToSay, 1000);
+  const senderName = input.senderName ? sanitiseShortText(input.senderName) : null;
+  const fallback = () => buildTemplateFollowUp({ who, lastTouch, wantToSay, senderName });
+
+  const client = getClient();
+  if (!client) return fallback();
+
+  const user = [
+    `Recipient: ${promptSafe(who, "who")}`,
+    `Last touch (untrusted notes): ${promptSafe(lastTouch, "last_touch")}`,
+    `What they want to say (untrusted notes): ${promptSafe(wantToSay, "want_to_say")}`,
+    senderName ? `Sender name: ${promptSafe(senderName, "sender")}` : "No sender name was provided. Do not invent one.",
+    'Output schema: {"subject": string, "body": string}',
+  ].join("\n");
+
+  try {
+    const raw = await callLLM<unknown>(client, FOLLOW_UP_SYSTEM, user);
+    const parsed = FollowUpSchema.safeParse(raw);
+    if (!parsed.success) return fallback();
+    return { subject: parsed.data.subject, body: parsed.data.body, source: "LLM" };
+  } catch {
+    return fallback();
+  }
+}
+
+function buildTemplateFollowUp(input: { who: string; lastTouch: string; wantToSay: string; senderName: string | null }): { subject: string; body: string; source: "TEMPLATE" } {
+  const sign = input.senderName ? `\n\n${input.senderName}` : "";
+  return {
+    subject: "Following up",
+    body: `Hi ${input.who},\n\n${input.wantToSay}\n\nLast time: ${input.lastTouch}${sign}`,
+    source: "TEMPLATE",
+  };
 }

@@ -108,6 +108,13 @@ export default function Nav({ onPalette }: Props) {
             <button type="button" onClick={() => { setOpen(false); onPalette(); }} className="btn-secondary-white w-full justify-center text-sm">
               ⌘K Quick nav
             </button>
+            {isSignedIn ? (
+              <Link to="/app" onClick={() => setOpen(false)}>
+                <span className="btn-secondary-white w-full justify-center text-sm">Dashboard</span>
+              </Link>
+            ) : (
+              <a href={`${basePath}/sign-in`} onClick={() => setOpen(false)} className="btn-secondary-white w-full justify-center text-sm">Sign in</a>
+            )}
             <Link to="/start" onClick={() => setOpen(false)}>
               <span className="btn-primary w-full justify-center">Map my workflow</span>
             </Link>

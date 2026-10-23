@@ -96,7 +96,7 @@ function ClientList() {
 
 // ── Client detail ─────────────────────────────────────────────────────────────
 
-const TABS = ["overview", "prep", "plan", "consultations", "documents", "reports"];
+const TABS = ["overview", "prep", "plan", "consultations", "documents", "reports", "outputs"];
 
 function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
   const [client, setClient] = useState<ClientDetail | null>(null);
@@ -167,6 +167,7 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
         {tab === "consultations" && <ConsultationsTab client={client} onRefresh={() => api.admin.client(id).then(setClient)} />}
         {tab === "documents" && <DocumentsTab client={client} />}
         {tab === "reports" && <ReportsTab client={client} />}
+        {tab === "outputs" && <OutputsTab client={client} onRefresh={() => api.admin.client(id).then(setClient)} />}
       </div>
     </AdminShell>
   );
@@ -362,6 +363,95 @@ function ReportsTab({ client }: { client: ClientDetail }) {
         </div>
       ))}
     </div>
+  );
+}
+
+const OUTPUT_TYPES = ["email_draft", "briefing", "lead_list", "social_post", "quote_followup", "review_request"] as const;
+
+function OutputsTab({ client, onRefresh }: { client: ClientDetail; onRefresh: () => void }) {
+  const workflows = client.workflows ?? [];
+  const [workflowId, setWorkflowId] = useState(workflows[0]?.id ?? "new");
+  const [name, setName] = useState("Follow-up drafts");
+  const [description, setDescription] = useState("A follow-up email, ready for the client to review and copy.");
+  const [area, setArea] = useState("sales");
+  const [type, setType] = useState<(typeof OUTPUT_TYPES)[number]>("email_draft");
+  const [subject, setSubject] = useState("");
+  const [content, setContent] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setMessage(null);
+    try {
+      let id = workflowId;
+      if (id === "new") {
+        const created = await api.admin.createWorkflow(client.id, { name, description, area, status: "live" });
+        id = created.id;
+      }
+      await api.admin.postOutput(client.id, { workflowId: id, type, subject, content });
+      setWorkflowId(id);
+      setSubject("");
+      setContent("");
+      setMessage("Draft added to their Today list. Nothing was sent.");
+      onRefresh();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Could not add that draft.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="rounded-2xl border border-canvas-border bg-canvas-1 p-5 space-y-3 max-w-xl">
+      <p className="text-xs font-bold text-blue tracking-widest uppercase">Add a draft</p>
+      <p className="text-sm text-canvas-text">The client reviews and copies it. This does not send email.</p>
+      <label className="block text-sm font-semibold text-canvas-text">
+        Workflow
+        <select value={workflowId} onChange={(e) => setWorkflowId(e.target.value)} className="mt-1 w-full rounded-xl border border-canvas-border px-3 py-2 text-sm font-normal">
+          {workflows.map((wf) => <option key={wf.id} value={wf.id}>{wf.name}</option>)}
+          <option value="new">New workflow…</option>
+        </select>
+      </label>
+      {workflowId === "new" && (
+        <>
+          <label className="block text-sm font-semibold text-canvas-text">
+            Name
+            <input value={name} onChange={(e) => setName(e.target.value)} required className="mt-1 w-full rounded-xl border border-canvas-border px-3 py-2 text-sm font-normal" />
+          </label>
+          <label className="block text-sm font-semibold text-canvas-text">
+            Description
+            <input value={description} onChange={(e) => setDescription(e.target.value)} required className="mt-1 w-full rounded-xl border border-canvas-border px-3 py-2 text-sm font-normal" />
+          </label>
+          <label className="block text-sm font-semibold text-canvas-text">
+            Area
+            <select value={area} onChange={(e) => setArea(e.target.value)} className="mt-1 w-full rounded-xl border border-canvas-border px-3 py-2 text-sm font-normal">
+              <option value="sales">Sales</option>
+              <option value="ea">Admin and ops</option>
+              <option value="marketing">Marketing</option>
+              <option value="cs">Customer replies</option>
+            </select>
+          </label>
+        </>
+      )}
+      <label className="block text-sm font-semibold text-canvas-text">
+        Type
+        <select value={type} onChange={(e) => setType(e.target.value as (typeof OUTPUT_TYPES)[number])} className="mt-1 w-full rounded-xl border border-canvas-border px-3 py-2 text-sm font-normal">
+          {OUTPUT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </label>
+      <label className="block text-sm font-semibold text-canvas-text">
+        Subject
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} required maxLength={200} className="mt-1 w-full rounded-xl border border-canvas-border px-3 py-2 text-sm font-normal" />
+      </label>
+      <label className="block text-sm font-semibold text-canvas-text">
+        Draft
+        <textarea value={content} onChange={(e) => setContent(e.target.value)} required rows={6} className="mt-1 w-full rounded-xl border border-canvas-border px-3 py-2 text-sm font-normal" />
+      </label>
+      {message && <p className="text-sm text-canvas-text">{message}</p>}
+      <button type="submit" disabled={saving} className="btn-primary text-sm">{saving ? "Saving…" : "Add to Today"}</button>
+    </form>
   );
 }
 

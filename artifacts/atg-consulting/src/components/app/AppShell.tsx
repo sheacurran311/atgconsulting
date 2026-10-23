@@ -2,6 +2,8 @@ import { useUser } from "@clerk/react";
 import { Link, useLocation, Redirect } from "wouter";
 import LogoLockup from "@/components/LogoLockup";
 import OperatorPanel from "@/components/workbench/OperatorPanel";
+import { useAccount } from "@/lib/useAccount";
+import { hasOperator } from "@/lib/tiers";
 
 const navItems = [
   { label: "Dashboard",     to: "/app",                  icon: "◈" },
@@ -16,7 +18,9 @@ interface Props { children: React.ReactNode }
 
 export default function AppShell({ children }: Props) {
   const { isLoaded, isSignedIn } = useUser();
+  const { account } = useAccount();
   const [location] = useLocation();
+  const operator = hasOperator(account?.tier);
 
   if (!isLoaded) {
     return (
@@ -74,9 +78,8 @@ export default function AppShell({ children }: Props) {
           })}
         </nav>
 
-        {/* Operator panel */}
         <div className="p-3" style={{ borderTop: "1px solid var(--ink-border)" }}>
-          <OperatorPanel />
+          {account ? (operator ? <OperatorPanel /> : <OperatorUpgrade />) : null}
           <Link to="/">
             <span className="flex items-center gap-2 px-3 py-2 mt-2 rounded-md text-xs font-medium transition-colors cursor-pointer" style={{ color: "var(--ink-text-3)" }}>
               ← Marketing site
@@ -116,6 +119,20 @@ export default function AppShell({ children }: Props) {
           {children}
         </div>
       </main>
+    </div>
+  );
+}
+
+function OperatorUpgrade() {
+  return (
+    <div className="rounded-xl p-3" style={{ border: "1px solid var(--ink-border)", background: "var(--ink-2)" }}>
+      <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>SHEA</p>
+      <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--ink-text-3)" }}>
+        Want Shea to set this up for you?
+      </p>
+      <Link to="/app/consultations" className="text-xs font-semibold underline" style={{ color: "var(--blue)" }}>
+        See consultations
+      </Link>
     </div>
   );
 }

@@ -3,17 +3,19 @@
  * Tabs: Today (output inbox) · My Workflows · Hours Saved
  * Persistent operator panel in sidebar.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import AppShell from "@/components/app/AppShell";
 import TodayInbox from "@/components/workbench/TodayInbox";
 import MyWorkflows from "@/components/workbench/MyWorkflows";
+import EmptyWorkbench from "@/components/workbench/EmptyWorkbench";
 import { api, type HoursSavedData } from "@/lib/api";
-import { useEffect } from "react";
+import { useAccount } from "@/lib/useAccount";
+import { hasOperator } from "@/lib/tiers";
 
 const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
 
-function HoursSavedTab() {
+function HoursSavedTab({ tier, onDraft }: { tier: string; onDraft: () => void }) {
   const [data, setData] = useState<HoursSavedData | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => { api.workbench.hoursSaved().then(setData).catch(() => null).finally(() => setLoading(false)); }, []);
@@ -27,11 +29,7 @@ function HoursSavedTab() {
 
       {loading ? <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
       : !data || (data.totalRuns === 0 && data.approved === 0) ? (
-        <div className="rounded-xl p-8 text-center" style={{ border: "1px dashed var(--canvas-border)", background: "var(--canvas-2)" }}>
-          <p className="font-mono text-2xs mb-2" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>NO DATA YET</p>
-          <p className="text-sm font-semibold mb-1" style={{ color: "var(--canvas-text)" }}>Your hours ledger starts when your first workflow goes live.</p>
-          <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>Shea logs every run and you&apos;ll see what&apos;s been handled for you here.</p>
-        </div>
+        <EmptyWorkbench tier={tier} onDraft={onDraft} />
       ) : (
         <div className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-4">
@@ -64,6 +62,14 @@ const TABS = [
 
 export default function DashboardPage() {
   const [tab, setTab] = useState("today");
+  const [compose, setCompose] = useState(false);
+  const { account } = useAccount();
+  const tier = account?.tier ?? "NONE";
+
+  function openDraft() {
+    setTab("today");
+    setCompose(true);
+  }
 
   return (
     <AppShell>
@@ -101,16 +107,29 @@ export default function DashboardPage() {
         </div>
 
         {/* Tab content */}
-        {tab === "today"     && <TodayInbox />}
-        {tab === "workflows" && <MyWorkflows />}
-        {tab === "hours"     && <HoursSavedTab />}
+        {tab === "today"     && <TodayInbox tier={tier} compose={compose} onCompose={setCompose} />}
+        {tab === "workflows" && <MyWorkflows tier={tier} onDraft={openDraft} />}
+        {tab === "hours"     && <HoursSavedTab tier={tier} onDraft={openDraft} />}
 
-        {/* Request new workflow */}
         <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--canvas-border)" }}>
-          <RequestWorkflowForm />
+          {account ? (hasOperator(tier) ? <RequestWorkflowForm /> : <UpgradePrompt />) : null}
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function UpgradePrompt() {
+  return (
+    <div className="rounded-xl p-5" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-2)" }}>
+      <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>WANT SHEA INVOLVED?</p>
+      <p className="text-sm mb-3" style={{ color: "var(--canvas-text-2)" }}>
+        Want Shea to set this up for you? Guided and white-glove plans include tuning, 1:1 consults, and a message thread with Shea.
+      </p>
+      <Link to="/app/consultations" className="text-sm font-semibold underline" style={{ color: "var(--blue)" }}>
+        See consultations
+      </Link>
+    </div>
   );
 }
 

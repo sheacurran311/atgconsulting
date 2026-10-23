@@ -23,6 +23,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
+import { generateFollowUpDraft } from "../lib/llm";
 
 const router = Router();
 router.use(withUser, requireAuth);
@@ -43,7 +44,18 @@ router.get("/workbench/today", async (req, res) => {
     include: { workflow: { select: { name: true, area: true } } },
     orderBy: { createdAt: "desc" },
   });
-  res.json(items);
+  res.json(items.map((item) => ({
+    id: item.id,
+    workflowId: item.workflowId,
+    workflowName: item.workflow.name,
+    type: item.type,
+    subject: item.subject,
+    content: item.content,
+    status: item.status,
+    editedContent: item.editedContent,
+    sheaBadge: item.sheaBadge,
+    createdAt: item.createdAt,
+  })));
 });
 
 const ReviewSchema = z.object({
@@ -126,6 +138,81 @@ router.post("/workbench/messages", async (req, res) => {
 });
 
 // ── Workflow requests ─────────────────────────────────────────────────────────
+
+const FollowUpBody = z.object({
+  who: z.string().trim().min(1).max(120),
+  lastTouch: z.string().trim().min(1).max(500),
+  wantToSay: z.string().trim().min(1).max(1000),
+});
+
+const FOLLOW_UP_NAME = "Follow-up drafts";
+
+router.post("/workbench/follow-up", async (req, res) => {
+  const user = (req as AuthedRequest).atgUser;
+  if (!user?.clientId) {
+    res.status(404).json({ error: "Finish the intake and save the plan to your account before drafting a follow-up." });
+    return;
+  }
+  const parsed = FollowUpBody.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "Who, last touch, and what you want to say are required." }); return; }
+
+  const draft = await generateFollowUpDraft({
+    who: parsed.data.who,
+    lastTouch: parsed.data.lastTouch,
+    wantToSay: parsed.data.wantToSay,
+    senderName: user.name,
+  });
+
+  let workflow = await prisma.workflow.findFirst({
+    where: { clientId: user.clientId, name: FOLLOW_UP_NAME },
+  });
+  if (!workflow) {
+    workflow = await prisma.workflow.create({
+      data: {
+        clientId: user.clientId,
+        name: FOLLOW_UP_NAME,
+        description: "A follow-up email, ready for you to review and copy.",
+        area: "sales",
+        status: "live",
+      },
+    });
+  }
+
+  const now = new Date();
+  const output = await prisma.outputItem.create({
+    data: {
+      workflowId: workflow.id,
+      clientId: user.clientId,
+      type: "email_draft",
+      subject: draft.subject,
+      content: draft.body,
+      status: "pending",
+    },
+  });
+  await prisma.workflowRun.create({
+    data: {
+      workflowId: workflow.id,
+      status: "completed",
+      summary: "Follow-up draft ready",
+      outputCount: 1,
+      runAt: now,
+    },
+  });
+  await prisma.workflow.update({ where: { id: workflow.id }, data: { lastRunAt: now } });
+
+  res.status(201).json({
+    id: output.id,
+    workflowId: output.workflowId,
+    workflowName: workflow.name,
+    type: output.type,
+    subject: output.subject,
+    content: output.content,
+    status: output.status,
+    editedContent: output.editedContent,
+    sheaBadge: output.sheaBadge,
+    createdAt: output.createdAt,
+  });
+});
 
 router.post("/workbench/requests", async (req, res) => {
   const cid = clientId(req as AuthedRequest, res);

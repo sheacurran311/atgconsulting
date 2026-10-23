@@ -58,6 +58,7 @@ export const api = {
     workflows:       () => get<WorkflowListItem[]>("/workbench/workflows"),
     hoursSaved:      () => get<HoursSavedData>("/workbench/hours-saved"),
     requestWorkflow: (description: string) => post<{ id: string }>("/workbench/requests", { description }),
+    draftFollowUp:   (body: { who: string; lastTouch: string; wantToSay: string }) => post<OutputItem>("/workbench/follow-up", body),
   },
 
   // ── Learn ──────────────────────────────────────────────────────────────────
@@ -112,7 +113,8 @@ export interface Report { id: string; date: string; kind: string; contentMarkdow
 export interface Module { id: string; slug: string; title: string; description: string; minTier: string; order: number; videoUrl: string | null; body: string; status: string }
 export interface Dashboard { client: ClientAdmin | null; workflowItems: WorkflowItem[]; recentConsultation: Consultation | null; recentReport: Report | null; activeDocCount: number }
 export interface ClientAdmin { id: string; userId: string; company: string | null; tier: string; status: string; industry: string | null; aiLevel: number; createdAt: string; notes: string | null; user: { name: string | null; email: string | null }; _count?: { consultations: number; documents: number } }
-export interface ClientDetail extends ClientAdmin { intakes: IntakeRecord[]; plans: PlanAdmin[]; workflowItems: WorkflowItem[]; consultations: Consultation[]; documents: Document[]; reports: Report[] }
+export interface ClientWorkflowOption { id: string; name: string; area: string; description: string }
+export interface ClientDetail extends ClientAdmin { intakes: IntakeRecord[]; plans: PlanAdmin[]; workflowItems: WorkflowItem[]; consultations: Consultation[]; documents: Document[]; reports: Report[]; workflows?: ClientWorkflowOption[] }
 export interface IntakeRecord { id: string; email: string; name: string; areas: string; aiComfort: number; hoursLost: number; status: string; createdAt: string; plans: PlanAdmin[]; client: ClientAdmin | null }
 export interface PlanAdmin { id: string; aiReadinessLabel: string; aiReadinessSummary: string; focusAreas: string; recommendedTier: string; tierRationale: string; adminReport: string | null; source: string; createdAt: string }
 export interface PrepView { client: ClientDetail; intake: IntakeRecord | null; answers: Record<string, unknown> | null; plan: PlanAdmin | null; talkingPoints: string[] }
@@ -124,6 +126,7 @@ export interface AuditEntry { id: string; action: string; entity: string; entity
 export interface OutputItem {
   id: string; workflowId: string; workflowName?: string; type: string;
   subject: string; content: string; status: string;
+  editedContent?: string | null;
   sheaBadge: string | null; createdAt: string;
 }
 export interface WorkflowListItem {

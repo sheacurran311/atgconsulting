@@ -14,7 +14,6 @@ interface Lane {
   before: string[];
   after: string;
   tools: string;
-  time: string;
 }
 
 const LANES: Lane[] = [
@@ -22,37 +21,33 @@ const LANES: Lane[] = [
     id: "ea",
     mono: "EA",
     label: "Executive assistant",
-    before: ["Open email", "Read 40 messages", "Decide priority", "Draft replies one by one", "Update calendar", "Send", "Miss three things"],
-    after: "3 drafts flagged for your 5-min review",
+    before: ["Open email", "Read the inbox", "Decide priority", "Draft replies one by one", "Update calendar", "Send", "Miss things"],
+    after: "Drafts flagged for a short review",
     tools: "Gmail · Calendar · Notion",
-    time: "Typical: 2h → 5 min",
   },
   {
     id: "sales",
     mono: "SALES",
     label: "Sales",
-    before: ["Google for prospects", "Visit each site", "Find contact", "Open CRM", "Write email from scratch", "Send", "Forget to follow up"],
-    after: "8 personalised drafts + follow-up queue ready",
+    before: ["Look for prospects", "Visit each site", "Find a contact", "Open the CRM", "Write the email from scratch", "Send", "Forget to follow up"],
+    after: "Personalised drafts and a follow-up queue, ready for you",
     tools: "CRM · Sheets · Email",
-    time: "Typical: 3h → 10 min",
   },
   {
     id: "marketing",
     mono: "MKTG",
     label: "Marketing",
-    before: ["Stare at blank doc", "Write one post", "Reformat for LinkedIn", "Reformat for email", "Schedule manually", "Start again next week"],
-    after: "12 posts across 3 channels, scheduled for the week",
+    before: ["Stare at a blank doc", "Write one post", "Reformat for LinkedIn", "Reformat for email", "Schedule it by hand", "Start again next week"],
+    after: "Posts drafted for your channels, ready to schedule",
     tools: "Docs · Buffer · Sheets",
-    time: "Typical: 4h → 20 min",
   },
   {
     id: "cs",
     mono: "CS",
-    label: "Customer support",
-    before: ["Open helpdesk", "Read each ticket", "Search FAQ", "Write reply", "Copy to Slack", "Wait for approval", "Send"],
-    after: "14 draft replies, 3 escalations flagged",
+    label: "Customer replies",
+    before: ["Open the helpdesk", "Read each ticket", "Search the FAQ", "Write a reply", "Copy it to Slack", "Wait for approval", "Send"],
+    after: "Draft replies ready, with anything unusual flagged for you",
     tools: "Helpdesk · Slack · Docs",
-    time: "Typical: 2h → 8 min",
   },
 ];
 
@@ -93,9 +88,6 @@ function Lane({ lane }: { lane: Lane }) {
           <h3 className="font-extrabold text-lg" style={{ color: "var(--canvas-text)", letterSpacing: "-0.02em" }}>
             {lane.label}
           </h3>
-          <p className="hidden lg:block font-mono text-2xs mt-auto" style={{ color: "var(--canvas-text-3)" }}>
-            {lane.time}
-          </p>
         </div>
 
         {/* Before */}
@@ -122,9 +114,6 @@ function Lane({ lane }: { lane: Lane }) {
               </span>
             ))}
           </div>
-          <p className="font-mono text-2xs mt-3" style={{ color: "var(--canvas-text-3)" }}>
-            {lane.time}
-          </p>
         </div>
 
         {/* After */}
@@ -151,7 +140,7 @@ function Lane({ lane }: { lane: Lane }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
             <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
-              Shea designs and runs this for you
+              You review the result. Shea can tune it with you, or run it for you.
             </p>
           </div>
         </div>
@@ -173,7 +162,7 @@ export default function Services() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-12" style={{ borderBottom: "1px solid var(--canvas-border)", paddingBottom: "2rem" }}>
           <div>
-            <p className="eyebrow mb-3">Four areas · Done for you</p>
+            <p className="eyebrow mb-3">Four areas</p>
             <h2 id="services-heading" className="section-heading" style={{ color: "var(--canvas-text)" }}>
               Every repetitive task,{" "}
               <span style={{ color: "var(--blue)" }}>automated.</span>
