@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import LogoMark from "@/components/LogoMark";
 
 export default function Footer() {
   return (
@@ -9,16 +10,8 @@ export default function Footer() {
       <div className="max-w-wide mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
 
-          {/* Logo (white/inverted for dark background) */}
           <Link to="/" aria-label="ATG Consulting — back to top">
-            <img
-              src="/brand/logos/svg/optionA_icon.svg"
-              alt="ATG Consulting"
-              className="h-8 w-auto"
-              style={{ filter: "brightness(0) invert(1) opacity(0.7)" }}
-              width={32}
-              height={32}
-            />
+            <LogoMark variant="dark" size={36} aria-hidden={false} />
           </Link>
 
           <div className="text-center sm:text-left">

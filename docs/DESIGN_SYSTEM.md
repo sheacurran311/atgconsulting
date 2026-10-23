@@ -85,16 +85,59 @@ Mono used for: eyebrows, stat labels, step counters, area badges, timestamps, co
 
 ---
 
-## Logo
+## Logo — Concept 3 "terminal" mark (v2)
 
-All four SVG logos updated — the orange dot (`#F2994A`) is now **`#3B6BFF`** (electric blue):
+All logo files replaced with the terminal concept: a rounded box `>_` with blue underscore,
+lowercase `atg` in Geist Mono with a blue block cursor, and `// consulting` beneath.
 
-| File | Use | Treatment on dark bg |
+### Files
+
+| File | Dimensions | Use |
 |---|---|---|
-| `optionA_icon.svg` | Favicon, footer icon | `filter: brightness(0) invert(1) opacity(0.7)` |
-| `optionA_lockup_notag.svg` | Nav | `filter: brightness(0) invert(1)` |
-| `optionA_lockup_white.svg` | Dark surfaces | Native (already white/blue) |
-| `optionA_lockup.svg` | Light surfaces | Native (dark text, blue dot) |
+| `public/brand/v2/lockup-dark.svg` | 400×124 | Transparent, white text — dark nav, footer, admin shell |
+| `public/brand/v2/lockup-light.svg` | 400×124 | Transparent, ink text — light app shell, light backgrounds |
+| `public/brand/v2/mark-dark.svg` | 100×100 | Mark only, white stroke — dark surfaces |
+| `public/brand/v2/mark-light.svg` | 100×100 | Mark only, ink stroke — light surfaces |
+| `public/favicon.svg` | 100×100 | SVG favicon (dark mark) |
+| `public/favicon-16.png` | 16×16 | PNG favicon |
+| `public/favicon-32.png` | 32×32 | PNG favicon |
+| `public/favicon-48.png` | 48×48 | PNG favicon |
+| `public/apple-touch-icon.png` | 180×180 | Apple home screen icon (mark on `#0A0A0B` bg) |
+| `public/icon-192.png` | 192×192 | PWA manifest icon |
+| `public/icon-512.png` | 512×512 | PWA manifest icon |
+| `public/og-image.png` | 1200×630 | Open Graph / Twitter card social image |
+
+### React components
+
+Use these instead of raw `<img>` tags — they inline the SVG paths so the
+**blue block cursor can receive the `logo-cursor-blink` CSS animation**.
+
+| Component | Props | Use |
+|---|---|---|
+| `<LogoLockup>` | `variant` dark\|light · `height` px · `blink` bool | Nav (blink=true), shells |
+| `<LogoMark>` | `variant` dark\|light · `size` px · `blink` bool | Footer, hero preview, plan result |
+
+### Cursor blink animation
+
+```css
+/* Defined in src/index.css */
+@keyframes logo-cursor-blink { 0%,45%{opacity:1} 55%,100%{opacity:0} }
+.logo-cursor-blink { animation: logo-cursor-blink 1.1s step-end infinite; }
+@media (prefers-reduced-motion: reduce) { .logo-cursor-blink { animation:none; } }
+```
+
+Used on: `Nav.tsx` (blink=true) and `Hero.tsx` preview card.
+
+### Current usage
+
+| Context | Component | Variant | Blink |
+|---|---|---|---|
+| Top nav | `<LogoLockup height={32}>` | dark | ✓ |
+| Footer | `<LogoMark size={36}>` | dark | — |
+| App shell sidebar | `<LogoLockup height={28}>` | dark | — |
+| Admin shell sidebar | `<LogoLockup height={28}>` | dark | — |
+| Hero product-preview card | `<LogoMark size={18}>` | dark | ✓ |
+| Plan result page | `<LogoMark size={44}>` | light | — |
 
 ---
 

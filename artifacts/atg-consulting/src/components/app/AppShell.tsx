@@ -1,5 +1,6 @@
 import { useUser } from "@clerk/react";
 import { Link, useLocation, Redirect } from "wouter";
+import LogoLockup from "@/components/LogoLockup";
 
 const navItems = [
   { label: "Dashboard",     to: "/app",                  icon: "◈" },
@@ -41,12 +42,7 @@ export default function AppShell({ children }: Props) {
         {/* Logo */}
         <div className="p-4 pb-3" style={{ borderBottom: "1px solid var(--ink-border)" }}>
           <Link to="/">
-            <img
-              src="/brand/logos/svg/optionA_lockup_notag.svg"
-              alt="ATG Consulting"
-              className="h-7 w-auto"
-              style={{ filter: "brightness(0) invert(1)" }}
-            />
+            <LogoLockup variant="dark" height={28} aria-label="ATG Consulting — home" />
           </Link>
           <span className="font-mono text-2xs mt-2 block" style={{ color: "var(--ink-text-3)", letterSpacing: "0.1em" }}>
             CLIENT PORTAL

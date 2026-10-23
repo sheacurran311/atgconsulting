@@ -64,6 +64,21 @@
   --grid-size: 28px;
 }
 
+/* ── Logo cursor blink ──────────────────────────────────────────────────────── */
+/* Applied to the blue block cursor rect inside LogoLockup and LogoMark SVGs.  */
+/* Uses opacity-based blink (not visibility) so screen-readers don't see a      */
+/* content change. Suppressed when prefers-reduced-motion is set.               */
+@keyframes logo-cursor-blink {
+  0%, 45%  { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+.logo-cursor-blink {
+  animation: logo-cursor-blink 1.1s step-end infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-cursor-blink { animation: none; opacity: 1; }
+}
+
 /* ── Base ───────────────────────────────────────────────────────────────────── */
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }

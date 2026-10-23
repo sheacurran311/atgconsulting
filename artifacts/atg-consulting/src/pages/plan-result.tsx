@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import { useUser } from "@clerk/react";
 import { api, type PlanResult } from "@/lib/api";
+import LogoMark from "@/components/LogoMark";
 
 const AREA_ICONS: Record<string, string> = {
   sales: "◈",
@@ -62,11 +63,9 @@ export default function PlanResultPage() {
       <div className="max-w-content mx-auto">
         {/* Logo */}
         <div className="text-center mb-10">
-          <img
-            src="/brand/logos/svg/optionA_icon.svg"
-            alt="ATG Consulting"
-            className="h-9 w-auto mx-auto mb-4"
-          />
+          <div className="flex justify-center mb-4">
+            <LogoMark variant="light" size={44} />
+          </div>
           <p className="font-mono text-xs" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.1em" }}>
             YOUR SNAPSHOT
           </p>
@@ -233,12 +232,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 function Spinner() {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-4">
-      <img
-        src="/brand/logos/svg/optionA_icon.svg"
-        alt="Loading"
-        className="h-9 w-auto"
-        style={{ opacity: 0.5 }}
-      />
+      <LogoMark variant="light" size={36} aria-hidden style={{ opacity: 0.4 }} />
       <p className="font-mono text-xs" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>
         PREPARING YOUR SNAPSHOT…
       </p>

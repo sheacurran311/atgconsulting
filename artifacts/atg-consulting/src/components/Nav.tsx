@@ -1,8 +1,8 @@
-"use client";
 import { useState } from "react";
 import { Link } from "wouter";
 import { useUser } from "@clerk/react";
 import { basePath } from "@/lib/clerk";
+import LogoLockup from "./LogoLockup";
 
 const navLinks = [
   { label: "How it works", href: "/#how-it-works" },
@@ -25,12 +25,7 @@ export default function Nav() {
 
           {/* Logo */}
           <Link to="/" aria-label="ATG Consulting — home">
-            <img
-              src="/brand/logos/svg/optionA_lockup_notag.svg"
-              alt="ATG Consulting"
-              className="h-8 w-auto"
-              style={{ filter: "brightness(0) invert(1)" }} /* white on dark */
-            />
+            <LogoLockup variant="dark" height={32} blink />
           </Link>
 
           {/* Desktop links */}

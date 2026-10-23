@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import LogoMark from "@/components/LogoMark";
 
 const BOOKING_URL = typeof window !== "undefined"
   ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book")
@@ -21,10 +22,8 @@ function PlanPreview() {
         className="flex items-center gap-1.5 px-4 py-3"
         style={{ borderBottom: "1px solid var(--ink-border)", background: "var(--ink-2)" }}
       >
-        <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#3D4255" }} />
-        <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#3D4255" }} />
-        <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#3D4255" }} />
-        <span className="font-mono text-2xs ml-2" style={{ color: "var(--ink-text-3)" }}>
+        <LogoMark variant="dark" size={18} aria-hidden blink />
+        <span className="font-mono text-2xs ml-1.5" style={{ color: "var(--ink-text-3)" }}>
           atgconsulting.io/start/result
         </span>
       </div>
