@@ -16,7 +16,7 @@ export default function Footer() {
 
           <div className="text-center sm:text-left">
             <p className="text-sm font-medium" style={{ color: "var(--ink-text-2)" }}>
-              ATG Consulting — Castle Rock, CO
+              ATG Consulting — CO · USA
             </p>
             <a
               href="mailto:shea@atgconsulting.io"

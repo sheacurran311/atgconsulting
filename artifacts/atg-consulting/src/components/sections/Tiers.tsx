@@ -4,60 +4,52 @@ const BOOKING_URL = typeof window !== "undefined"
   ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book")
   : "#book";
 
-const tiers = [
+const FEATURES = [
+  "Recorded seminar & workflow templates",
+  "Setup checklists for common tools",
+  "Live sessions with Shea",
+  "Workflows built together on calls",
+  "Q&A support between sessions",
+  "Done-for-you setup (inbox, CRM, calendar)",
+  "Tailored to your voice, market, and clients",
+  "30-day tuning and check-ins",
+  "Handoff walkthrough",
+];
+
+const TIERS = [
   {
-    id: "white-glove",
-    mono: "WHITE GLOVE",
-    name: "White glove",
-    tagline: "Shea designs, builds, and tunes your AI system for you.",
+    id: "self",
+    mono: "SELF-SERVE",
+    name: "Self-serve",
     price: "[$ placeholder]",
-    cta: "Book your 1:1 with Shea",
-    ctaHref: BOOKING_URL,
-    external: true,
-    featured: true,
-    badge: "Flagship",
-    features: [
-      "1:1 consultation to map your specific situation",
-      "Done-for-you setup: inbox, CRM, calendar, and workflows",
-      "Tailored to your voice, market, and clients",
-      "30 days of tuning and check-ins with Shea",
-      "Walkthrough handoff so you know exactly how it works",
-    ],
+    tagline: "Learn it yourself at your pace.",
+    cta: "Join the seminar",
+    ctaHref: "/start",
+    external: false,
+    features: [true, true, false, false, false, false, false, false, false],
   },
   {
     id: "guided",
     mono: "GUIDED",
     name: "Guided",
-    tagline: "Build it together with Shea in live sessions.",
     price: "[$ placeholder]",
+    tagline: "Build it with Shea, live.",
     cta: "Save my spot",
     ctaHref: "/start",
     external: false,
-    featured: false,
-    badge: null,
-    features: [
-      "Live 1:1 or cohort sessions with Shea",
-      "Prospecting and follow-up workflows built on the calls",
-      "Everything in Self-serve included",
-      "Q&A support between sessions: [channel and window]",
-    ],
+    features: [true, true, true, true, true, false, false, false, false],
   },
   {
-    id: "self-serve",
-    mono: "SELF-SERVE",
-    name: "Self-serve",
-    tagline: "Learn the framework and build it yourself.",
+    id: "wg",
+    mono: "WHITE GLOVE",
+    name: "White glove",
     price: "[$ placeholder]",
-    cta: "Join the free seminar",
-    ctaHref: "/start",
-    external: false,
-    featured: false,
-    badge: "Start here free",
-    features: [
-      "Recorded seminar: your first AI system in an afternoon",
-      "Prompt and workflow templates for prospecting and outreach",
-      "Setup checklists for common inboxes and CRMs",
-    ],
+    tagline: "Shea builds and runs it. You review the output.",
+    cta: "Book a 1:1",
+    ctaHref: BOOKING_URL,
+    external: true,
+    featured: true,
+    features: [true, true, true, true, true, true, true, true, true],
   },
 ];
 
@@ -65,127 +57,89 @@ export default function Tiers() {
   return (
     <section
       id="tiers"
-      className="py-20 sm:py-28"
-      style={{ background: "var(--canvas-2)", borderTop: "1px solid var(--canvas-border)", borderBottom: "1px solid var(--canvas-border)" }}
+      className="py-16 sm:py-24"
+      style={{ background: "var(--canvas-2)", borderTop: "1px solid var(--canvas-border)" }}
       aria-labelledby="tiers-heading"
     >
       <div className="max-w-wide mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-xl mx-auto mb-14">
-          <p className="eyebrow mb-4">Three ways to work with Shea</p>
+        <div className="mb-12">
+          <p className="eyebrow mb-3">Three ways to work together</p>
           <h2 id="tiers-heading" className="section-heading" style={{ color: "var(--canvas-text)" }}>
-            Done for you — or as hands-on as you want.
+            Done for you — or as{" "}
+            <span style={{ color: "var(--blue)" }}>hands-on as you want.</span>
           </h2>
-          <p className="mt-4 text-base" style={{ color: "var(--canvas-text-2)" }}>
-            Most clients want a human to handle it. That&apos;s why White Glove is the flagship.
+          <p className="mt-3 text-base" style={{ color: "var(--canvas-text-2)" }}>
+            Most clients choose White Glove. Shea handles the design, the build, and the tuning.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-5">
-          {tiers.map((t) => (
-            <div
-              key={t.id}
-              className="relative flex flex-col rounded-xl overflow-hidden"
-              style={
-                t.featured
-                  ? { background: "var(--ink)", border: "1px solid var(--ink-border)", boxShadow: "0 0 0 1px rgba(249,115,22,0.15), 0 24px 48px rgba(0,0,0,0.3)" }
-                  : { background: "var(--canvas-1)", border: "1px solid var(--canvas-border)" }
-              }
-            >
-              {t.badge && (
-                <div className="absolute top-4 right-4">
-                  <span
-                    className="font-mono text-2xs font-bold px-2 py-1 rounded"
-                    style={t.featured
-                      ? { background: "var(--blue-subtle-dk)", color: "var(--blue)", letterSpacing: "0.08em" }
-                      : { background: "var(--canvas-2)", color: "var(--canvas-text-3)", letterSpacing: "0.08em" }
-                    }
-                  >
-                    {t.badge.toUpperCase()}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex flex-col flex-1 p-6">
-                <span
-                  className="font-mono text-2xs font-bold mb-3"
-                  style={{ color: t.featured ? "var(--blue)" : "var(--canvas-text-3)", letterSpacing: "0.1em" }}
-                >
-                  {t.mono}
-                </span>
-
-                <h3
-                  className="font-extrabold text-xl mb-2"
-                  style={{ color: t.featured ? "var(--ink-text)" : "var(--canvas-text)", letterSpacing: "-0.025em" }}
-                >
-                  {t.name}
-                </h3>
-                <p
-                  className="text-sm mb-5"
-                  style={{ color: t.featured ? "var(--ink-text-2)" : "var(--canvas-text-2)" }}
-                >
-                  {t.tagline}
-                </p>
-
-                <p
-                  className="font-extrabold text-2xl mb-5"
-                  style={{ color: t.featured ? "var(--blue)" : "var(--canvas-text)", letterSpacing: "-0.03em" }}
-                >
-                  {t.price}
-                </p>
-
-                <ul className="space-y-2.5 flex-1 mb-6">
-                  {t.features.map((f) => (
-                    <li key={f} className="flex gap-2.5 text-sm">
-                      <svg
-                        className="flex-shrink-0 w-4 h-4 mt-0.5"
-                        style={{ color: "var(--blue)" }}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span style={{ color: t.featured ? "var(--ink-text-2)" : "var(--canvas-text-2)" }}>
-                        {f}
+        {/* Comparison table */}
+        <div className="overflow-x-auto rounded-xl" style={{ border: "1px solid var(--canvas-border)" }}>
+          <table className="min-w-full" style={{ background: "var(--canvas-1)" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--canvas-border)" }}>
+                <th className="px-5 py-5 text-left w-2/5">
+                  <span className="label-mono">Feature</span>
+                </th>
+                {TIERS.map((t) => (
+                  <th key={t.id} className="px-4 py-5 text-center" style={{ background: t.featured ? "rgba(59,107,255,0.04)" : "transparent" }}>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="font-mono text-2xs font-bold" style={{ color: t.featured ? "var(--blue)" : "var(--canvas-text-3)", letterSpacing: "0.08em" }}>
+                        {t.mono}
                       </span>
-                    </li>
+                      <span className="font-extrabold text-base" style={{ color: "var(--canvas-text)", letterSpacing: "-0.02em" }}>{t.name}</span>
+                      <span className="text-xs" style={{ color: "var(--canvas-text-3)" }}>{t.tagline}</span>
+                      <span className="font-extrabold text-lg mt-1" style={{ color: t.featured ? "var(--blue)" : "var(--canvas-text)", letterSpacing: "-0.025em" }}>{t.price}</span>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {FEATURES.map((feat, fi) => (
+                <tr key={feat} style={{ borderBottom: fi < FEATURES.length - 1 ? "1px solid var(--canvas-border)" : "none" }}>
+                  <td className="px-5 py-3 text-sm font-medium" style={{ color: "var(--canvas-text)" }}>{feat}</td>
+                  {TIERS.map((t) => (
+                    <td key={t.id} className="px-4 py-3 text-center" style={{ background: t.featured ? "rgba(59,107,255,0.02)" : "transparent" }}>
+                      {t.features[fi]
+                        ? <svg className="w-4 h-4 mx-auto" style={{ color: "var(--blue)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-label="Included"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                        : <span className="text-sm" style={{ color: "var(--canvas-text-3)" }} aria-label="Not included">—</span>
+                      }
+                    </td>
                   ))}
-                </ul>
+                </tr>
+              ))}
 
-                {t.external ? (
-                  <a
-                    href={t.ctaHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-primary w-full justify-center"
-                    style={{ fontSize: "14px" }}
-                  >
-                    {t.cta}
-                  </a>
-                ) : (
-                  <Link to={t.ctaHref}>
-                    <span
-                      className="w-full justify-center flex items-center"
-                      style={{
-                        background: t.featured ? "transparent" : "var(--canvas-text)",
-                        color: t.featured ? "var(--ink-text-2)" : "var(--canvas-1)",
-                        border: `1px solid ${t.featured ? "var(--ink-border)" : "var(--canvas-text)"}`,
-                        borderRadius: "var(--radius-md)",
-                        padding: "10px 18px",
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        letterSpacing: "-0.01em",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {t.cta}
-                    </span>
-                  </Link>
-                )}
-              </div>
-            </div>
-          ))}
+              {/* CTA row */}
+              <tr style={{ borderTop: "1px solid var(--canvas-border)" }}>
+                <td className="px-5 py-4" />
+                {TIERS.map((t) => (
+                  <td key={t.id} className="px-4 py-4 text-center" style={{ background: t.featured ? "rgba(59,107,255,0.04)" : "transparent" }}>
+                    {t.external ? (
+                      <a
+                        href={t.ctaHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={t.featured ? "btn-primary text-sm" : "btn-secondary text-sm"}
+                        style={{ padding: "8px 16px" }}
+                      >
+                        {t.cta}
+                      </a>
+                    ) : (
+                      <Link to={t.ctaHref}>
+                        <span
+                          className={t.featured ? "btn-primary text-sm" : "btn-secondary text-sm"}
+                          style={{ padding: "8px 16px" }}
+                        >
+                          {t.cta}
+                        </span>
+                      </Link>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>

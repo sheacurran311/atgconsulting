@@ -58,3 +58,5 @@ Thumbs.db
 *.db-wal
 *.db-shm
 /generated-artifacts/
+dist/
+.next/
