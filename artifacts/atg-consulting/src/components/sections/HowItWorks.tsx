@@ -1,20 +1,18 @@
 const steps = [
   {
     n: "01",
-    title: "Map your sales process",
-    detail: "We walk through how you find, pitch, and close clients today, and spot the repetitive parts.",
+    title: "Tell Shea about your situation",
+    detail: "A 2-minute intake captures your role, where you lose the most time, and how you prefer to work. No tech knowledge required.",
   },
   {
     n: "02",
-    title: "Build your workflows",
-    detail:
-      "We set up AI routines for prospecting, research, outreach drafts, follow-up reminders, and inbox and CRM upkeep, using the tools that fit you.",
+    title: "Get a tailored plan on the call",
+    detail: "Shea reviews your answers, prepares a personalised proposal, and walks you through it on a 1:1 call — what she'd build, which tools, and what it would save you.",
   },
   {
     n: "03",
-    title: "Tune it until it's yours",
-    detail:
-      "You stay in charge of every message that goes out. We adjust until the drafts sound like you and the leads look like your best clients.",
+    title: "She builds it, you run it",
+    detail: "Shea sets up your system, tunes it to your voice and clients, and hands it off with a walkthrough. You stay in control of every message that goes out.",
   },
 ];
 
@@ -23,19 +21,15 @@ export default function HowItWorks() {
     <section id="how-it-works" className="py-20 sm:py-28 bg-navy/[0.02]" aria-labelledby="how-heading">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto">
-          <p className="section-eyebrow mb-3">The process</p>
-          <h2 id="how-heading" className="section-heading">Three steps from busywork to a system.</h2>
+          <p className="section-eyebrow mb-3">How it works</p>
+          <h2 id="how-heading" className="section-heading">Human-led from start to finish.</h2>
           <p className="mt-4 text-navy/65 text-lg">
-            Built around your business and your existing tools, not the other way around.
+            Shea handles the design. You don&apos;t need to become an AI expert.
           </p>
         </div>
 
         <div className="mt-16 grid md:grid-cols-3 gap-8 relative">
-          {/* Connector line (desktop only) */}
-          <div
-            className="hidden md:block absolute top-12 left-[calc(16.67%+2rem)] right-[calc(16.67%+2rem)] h-px bg-orange/25"
-            aria-hidden="true"
-          />
+          <div className="hidden md:block absolute top-12 left-[calc(16.67%+2rem)] right-[calc(16.67%+2rem)] h-px bg-orange/25" aria-hidden="true" />
           {steps.map((s) => (
             <div key={s.n} className="relative flex flex-col items-center text-center">
               <div className="relative z-10 w-24 h-24 rounded-full bg-navy flex flex-col items-center justify-center shadow-lg mb-6">
@@ -47,11 +41,6 @@ export default function HowItWorks() {
             </div>
           ))}
         </div>
-
-        <p className="mt-14 text-center text-navy/55 max-w-2xl mx-auto">
-          I&apos;m tool-agnostic. I&apos;ve built with ChatGPT, Cursor, Replit, Grok Bot, and plenty more, and
-          I&apos;ll pick what fits your budget, your comfort level, and the tools you already use.
-        </p>
       </div>
     </section>
   );

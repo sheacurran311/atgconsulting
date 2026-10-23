@@ -1,75 +1,67 @@
-// Pluggable email sender – off by default.
-// Set EMAIL_ENABLED=true and configure SMTP_* env vars to activate.
-// Currently uses Nodemailer, which works with any SMTP provider (SendGrid, Gmail, Mailgun, Resend, etc.)
+/**
+ * Email provider — pluggable, off by default.
+ * EMAIL_PROVIDER=console (default) | resend | postmark | smtp
+ *
+ * Login emails are handled by Clerk. This sends:
+ *  - New intake alert to Shea (EMAIL_SEND_INTAKE_ALERTS=true)
+ *  - Daily digest to client (EMAIL_SEND_DIGESTS=true)
+ *  - Plan PDF to client (EMAIL_SEND_PLANS=true)
+ *
+ * contact / from: shea@atgconsulting.io (configurable via EMAIL_FROM)
+ */
 
-import type { IntakeFormData, TailoredResponse } from "../types/intake";
-import { AREA_LABELS } from "../types/intake";
-import { logger } from "./logger";
+const EMAIL_FROM = process.env.EMAIL_FROM ?? "shea@atgconsulting.io";
+const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME ?? "Shea at ATG Consulting";
+const SHEA_EMAIL = process.env.SHEA_EMAIL ?? "shea@atgconsulting.io";
+const APP_URL = process.env.APP_URL ?? "https://atgconsulting.io";
 
-interface EmailResult {
-  sent: boolean;
-  error?: string;
-}
+interface EmailResult { sent: boolean; error?: string }
 
-function formatResponseAsText(response: TailoredResponse): string {
-  const lines: string[] = [];
-  lines.push(`YOUR AI LEVEL\n${response.aiLevelSummary}\n`);
-  lines.push("STARTER WORKFLOWS");
-  for (const w of response.workflows) {
-    lines.push(`• ${AREA_LABELS[w.area]}: ${w.title}\n  ${w.description}`);
-  }
-  lines.push(`\nQUICK WIN THIS WEEK\n${response.quickWin}`);
-  lines.push(`\nRECOMMENDED TIER\n${response.tierRationale}`);
-  lines.push(`\n${response.ctaText}`);
-  return lines.join("\n");
-}
+async function getTransport() {
+  const provider = process.env.EMAIL_PROVIDER ?? "console";
+  if (provider === "console") return null;
 
-export async function sendResponseEmail(
-  data: IntakeFormData,
-  response: TailoredResponse
-): Promise<EmailResult> {
-  if (process.env.EMAIL_ENABLED !== "true") return { sent: false };
-
-  try {
-    const nodemailer = await import("nodemailer");
-
-    const transporter = nodemailer.default.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT ?? 587),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-
-    const body = formatResponseAsText(response);
-    const fromName = process.env.EMAIL_FROM_NAME ?? "Shea at ATG Consulting";
-    const fromAddr = process.env.EMAIL_FROM ?? process.env.SMTP_USER ?? "";
-    const sheaEmail = process.env.SHEA_EMAIL ?? fromAddr;
-
-    // Email to the prospect
-    await transporter.sendMail({
-      from: `"${fromName}" <${fromAddr}>`,
-      to: data.email,
-      subject: "Your personalised AI workflow recommendations — ATG Consulting",
-      text: `Hi ${data.name.split(" ")[0]},\n\nHere are your personalised recommendations:\n\n${body}\n\n— Shea\nATG Consulting | atgconsulting.io`,
-    });
-
-    // Blind-copy Shea on every submission
-    if (sheaEmail && sheaEmail !== data.email) {
-      await transporter.sendMail({
-        from: `"${fromName}" <${fromAddr}>`,
-        to: sheaEmail,
-        subject: `New intake from ${data.name} (${data.role}, ${data.industry})`,
-        text: `Name: ${data.name}\nEmail: ${data.email}\nRole: ${data.role}\nIndustry: ${data.industry}\n\n${body}`,
-      });
+  if (provider === "smtp" || provider === "resend" || provider === "postmark") {
+    const nm = await import("nodemailer");
+    if (provider === "resend") {
+      return nm.default.createTransport({ host: "smtp.resend.com", port: 465, secure: true, auth: { user: "resend", pass: process.env.RESEND_API_KEY } });
     }
+    if (provider === "postmark") {
+      return nm.default.createTransport({ host: "smtp.postmarkapp.com", port: 587, auth: { user: process.env.POSTMARK_TOKEN, pass: process.env.POSTMARK_TOKEN } });
+    }
+    return nm.default.createTransport({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT ?? 587), secure: process.env.SMTP_SECURE === "true", auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } });
+  }
+  return null;
+}
 
+async function send(to: string, subject: string, text: string): Promise<EmailResult> {
+  const transport = await getTransport();
+  if (!transport) {
+    console.log(`[email:console] To: ${to}\nSubject: ${subject}\n${text}\n`);
+    return { sent: false };
+  }
+  try {
+    await transport.sendMail({ from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`, to, subject, text });
     return { sent: true };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ error: msg }, "Email delivery failed");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[email] Failed:", msg);
     return { sent: false, error: msg };
   }
+}
+
+export async function sendIntakeNotification(intake: { name: string; email: string; role: string; industry: string; hoursLost: number }, intakeId: string): Promise<EmailResult> {
+  return send(
+    SHEA_EMAIL,
+    `New intake from ${intake.name} (${intake.role}, ${intake.industry})`,
+    `New intake submitted.\n\nName: ${intake.name}\nEmail: ${intake.email}\nRole: ${intake.role}\nIndustry: ${intake.industry}\nHours/week lost: ${intake.hoursLost}\n\nView pre-call report:\n${APP_URL}/admin/clients — search for ${intake.email}\n\nIntake ID: ${intakeId}`,
+  );
+}
+
+export async function sendDigestEmail(clientEmail: string, clientName: string, contentMarkdown: string, date: string): Promise<EmailResult> {
+  return send(
+    clientEmail,
+    `Your daily digest — ${date} | ATG Consulting`,
+    `Hi ${clientName.split(" ")[0]},\n\n${contentMarkdown.replace(/[#*`]/g, "")}\n\n— Shea\nATG Consulting | ${APP_URL}`,
+  );
 }

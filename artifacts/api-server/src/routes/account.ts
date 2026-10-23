@@ -1,21 +1,22 @@
 import { Router } from "express";
-import { clerkClient, getAuth } from "@clerk/express";
+import { withUser, type AuthedRequest } from "../lib/auth";
 
 const router = Router();
 
-router.get("/account", async (req, res) => {
-  const { userId } = getAuth(req);
-  if (!userId) {
+router.get("/account", withUser, async (req, res) => {
+  const user = (req as AuthedRequest).atgUser;
+  if (!user) {
     res.status(401).json({ error: "Sign in to view your account." });
     return;
   }
-  // Identity always comes from the verified session, never a submitted user ID.
-  const user = await clerkClient.users.getUser(userId);
   res.json({
     id: user.id,
-    firstName: user.firstName ?? "",
-    lastName: user.lastName ?? "",
-    email: user.emailAddresses.find((email) => email.id === user.primaryEmailAddressId)?.emailAddress ?? "",
+    email: user.email,
+    name: user.name,
+    imageUrl: user.imageUrl,
+    role: user.role,
+    isAdmin: user.role === "ADMIN",
+    clientId: user.clientId,
   });
 });
 

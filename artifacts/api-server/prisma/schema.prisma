@@ -1,5 +1,6 @@
 // Prisma schema for ATG Consulting
-// SQLite locally and on Replit; swap provider to "postgresql" and update DATABASE_URL for production Postgres.
+// SQLite in dev/Replit; set DATABASE_URL to a postgres:// connection string for production.
+// Switch provider to "postgresql" and run `prisma migrate dev` when moving to Postgres.
 
 generator client {
   provider = "prisma-client-js"
@@ -7,64 +8,294 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./intake.db"
+  url      = env("DATABASE_URL")
 }
 
-/// One record per intake-form submission.
+// ── Auth ───────────────────────────────────────────────────────────────────────
+
+/// Auth provider identity (Clerk, dev, etc.). A User can have multiple identities.
+model AuthIdentity {
+  id             String   @id @default(cuid())
+  provider       String   // "clerk" | "dev"
+  providerUserId String   // stable id from the provider (Clerk user id, etc.)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String?      @unique // lowercased; null if provider didn't supply one
+  name        String?
+  imageUrl    String?
+  role        String       @default("CLIENT") // CLIENT | ADMIN
+  createdAt   DateTime     @default(now())
+  lastLoginAt DateTime?
+
+  identities  AuthIdentity[]
+  client      Client?
+  auditLogs   AuditLog[]
+  moduleProgress ModuleProgress[]
+}
+
+// ── Client profile ─────────────────────────────────────────────────────────────
+
+model Client {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  company           String?
+  roleTitle         String?
+  industry          String?
+  size              String?  // solo|2-10|11-50|50+
+  tier              String   @default("NONE") // NONE|SELF_SERVE|GUIDED|WHITE_GLOVE
+  aiLevel           Int      @default(0) // 0–4
+  areas             String   @default("[]") // JSON array
+  status            String   @default("PROSPECT") // PROSPECT|ACTIVE|PAUSED|CHURNED
+  helpStyle         String?  // self_serve|guided|done_for_you|not_sure (from intake)
+  digestEmailOptIn  Boolean  @default(true)
+  stripeCustomerId  String?
+  notes             String?  // admin-only markdown notes
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  intakes           Intake[]
+  plans             Plan[]
+  workflowItems     WorkflowItem[]
+  consultations     Consultation[]
+  documents         Document[]
+  reports           Report[]
+}
+
+// ── Intake ─────────────────────────────────────────────────────────────────────
+
+model Intake {
+  id          String   @id @default(cuid())
+  email       String
+  name        String
+  answers     String   // JSON (versioned intake payload)
+  areas       String   // JSON array
+  aiComfort   Int
+  hoursLost   Int
+  helpStyle   String
+  ipHash      String?
+  userAgent   String?
+  status      String   @default("NEW") // NEW|REVIEWED|CONVERTED|SPAM
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id])
+  createdAt   DateTime @default(now())
+
+  plans       Plan[]
+}
+
+// ── Plan ──────────────────────────────────────────────────────────────────────
+
+model Plan {
+  id                String   @id @default(cuid())
+  intakeId          String
+  intake            Intake   @relation(fields: [intakeId], references: [id])
+  clientId          String?
+  client            Client?  @relation(fields: [clientId], references: [id])
+
+  // ── Client-facing snapshot (short — no implementation details) ──────────────
+  // What the client sees after intake: readiness level + 2-3 focus areas + CTA.
+  // NEVER includes tool setups, step-by-step instructions, or implementation plans.
+  aiReadinessLabel  String   // e.g. "Early Explorer", "Occasional User", "Active Builder"
+  aiReadinessSummary String  // 2-3 plain-language sentences about where they are today
+  focusAreas        String   // JSON: [{area, name, whyItMatters}] — 2-3 areas, one-line each
+  recommendedTier   String   // self_serve|guided|done_for_you
+  tierRationale     String   // 1-2 sentences, no implementation details
+  ctaText           String   // strong CTA to book 1:1 with Shea
+
+  // ── Admin pre-call report (internal only) ───────────────────────────────────
+  // Full intelligence report for Shea: situation, pains, opportunities, talking
+  // points, objections, discovery questions, risks, recommended scope, next steps.
+  // Visible only to admins. Never shown to clients.
+  adminReport       String?  // JSON: AdminPreCallReport
+  adminReportPdfId  String?  // Document.id for the admin PDF
+
+  // ── Metadata ────────────────────────────────────────────────────────────────
+  source            String   @default("TEMPLATE") // LLM|TEMPLATE
+  model             String?
+  promptVersion     String?
+  pdfDocumentId     String?  // client-facing PDF
+
+  createdAt         DateTime @default(now())
+
+  workflowItems     WorkflowItem[]
+}
+
+// ── Workflow checklist ────────────────────────────────────────────────────────
+
+model WorkflowItem {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  planId    String?
+  plan      Plan?    @relation(fields: [planId], references: [id])
+  area      String
+  title     String
+  done      Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ── Consultations ─────────────────────────────────────────────────────────────
+
+model Consultation {
+  id            String       @id @default(cuid())
+  clientId      String
+  client        Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  scheduledAt   DateTime?
+  durationMin   Int          @default(60)
+  title         String
+  notes         String?      // markdown
+  recordingUrl  String?
+  status        String       @default("SCHEDULED") // SCHEDULED|COMPLETED|CANCELLED
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  actionItems   ActionItem[]
+}
+
+model ActionItem {
+  id             String       @id @default(cuid())
+  consultationId String
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  owner          String       @default("CLIENT") // CLIENT|ADMIN
+  text           String
+  done           Boolean      @default(false)
+  dueAt          DateTime?
+  createdAt      DateTime     @default(now())
+}
+
+// ── Documents ─────────────────────────────────────────────────────────────────
+
+model Document {
+  id               String   @id @default(cuid())
+  clientId         String?  // null = shared library
+  client           Client?  @relation(fields: [clientId], references: [id])
+  title            String
+  type             String   @default("OTHER") // PLAN|ONE_PAGER|WORKFLOW|SESSION|OTHER
+  storageKey       String
+  mime             String
+  size             Int
+  visibleToClient  Boolean  @default(true)
+  minTier          String?  // null = any tier
+  uploadedById     String?  // admin user id
+  createdAt        DateTime @default(now())
+}
+
+// ── Reports ───────────────────────────────────────────────────────────────────
+
+model Report {
+  id              String    @id @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date            String    // YYYY-MM-DD
+  kind            String    @default("DAILY")
+  contentMarkdown String
+  data            String    @default("{}") // JSON
+  status          String    @default("DRAFT") // DRAFT|PUBLISHED
+  publishedAt     DateTime?
+  emailedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([clientId, date, kind])
+}
+
+// ── Learn modules ─────────────────────────────────────────────────────────────
+
+model Module {
+  id          String           @id @default(cuid())
+  slug        String           @unique
+  title       String
+  description String
+  minTier     String           @default("NONE") // NONE|SELF_SERVE|GUIDED|WHITE_GLOVE
+  order       Int              @default(0)
+  videoUrl    String?
+  body        String           // markdown
+  status      String           @default("DRAFT") // DRAFT|PUBLISHED
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  progress    ModuleProgress[]
+}
+
+model ModuleProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moduleId    String
+  module      Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  completedAt DateTime  @default(now())
+
+  @@unique([userId, moduleId])
+}
+
+// ── Prompt templates ──────────────────────────────────────────────────────────
+
+model PromptTemplate {
+  id        String   @id @default(cuid())
+  key       String   // plan|digest
+  version   Int      @default(1)
+  body      String
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([key, version])
+}
+
+// ── Intake (legacy: keep existing IntakeSubmission for backward compat) ────────
+
+/// Original intake submission table from PR #1 — kept for backward compatibility.
+/// New submissions use Intake + Plan models above.
 model IntakeSubmission {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // ── Step 1: About you ───────────────────────────────────────────────────────
-  name     String
-  email    String
-  role     String // maps to → workflow terminology (e.g. "owner" → "business owner who wears every hat")
-  industry String // maps to → example accounts/prospects in the LLM prompt
-  bizSize  String // solo|2-10|11-50|50+ → maps to → solution scale and tier recommendation
-
-  // Areas of help wanted (JSON array: executive_assistant|marketing|sales|customer_support)
-  // maps to → which workflow categories the LLM draws from
-  areas String
-
-  // ── Step 2: Your workflows ──────────────────────────────────────────────────
-  // 0=never used | 1=asks ChatGPT questions | 2=uses it weekly | 3=built automations | 4=runs agents
-  // maps to → explanation depth in LLM response (0 = very simple, 4 = can handle technical detail)
-  aiComfort Int
-
-  // JSON array: chatgpt|claude|gemini|grok|copilot|zapier_make|crm|none|other
-  // maps to → build-on-what-they-know in workflow suggestions
-  tools String
-
-  // JSON array subset of: email|prospecting|followups|research|proposals|scheduling|social_content|admin|personal_logistics
-  // filtered by selected areas; maps to → ranked pain points the LLM addresses first
-  timeSinks String
-
-  // The single thing they'd automate first (optional)
-  // maps to → LLM validates/builds on their instinct in the quick-win section
+  name          String
+  email         String
+  role          String
+  industry      String
+  bizSize       String
+  areas         String
+  aiComfort     Int
+  tools         String
+  timeSinks     String
   automateFirst String?
-
-  // ── Step 3: Preferences ─────────────────────────────────────────────────────
-  // Hours per week lost to repetitive work (1–40 slider)
-  // maps to → ROI framing in LLM response ("you could reclaim ~X hours/week")
-  hoursLost Int
-
-  // self_serve|guided|done_for_you|not_sure
-  // maps to → tier recommendation and CTA copy in LLM response
+  hoursLost     Int
   preferredHelp String
+  freeText      String?
+  honeypot      String  @default("")
+  ipHash        String?
+  llmResponse   String?
+  responseType  String?
+  emailSent     Boolean @default(false)
+}
 
-  // Optional free-text (≤280 chars), sanitised before use
-  freeText String?
+// ── Audit log ─────────────────────────────────────────────────────────────────
 
-  // ── Anti-spam ────────────────────────────────────────────────────────────────
-  // Honeypot: bots fill this; humans leave it blank. Submissions with a value are silently dropped.
-  honeypot String @default("")
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actor       User?    @relation(fields: [actorUserId], references: [id])
+  action      String   // e.g. DOCUMENT_DOWNLOAD, TIER_CHANGE, ROLE_CHANGE
+  entity      String   // e.g. Document, Client
+  entityId    String?
+  meta        String   @default("{}") // JSON
+  ipHash      String?
+  createdAt   DateTime @default(now())
 
-  // Hashed IP for rate-limit logging (not stored in cleartext)
-  ipHash String?
-
-  // ── LLM output ──────────────────────────────────────────────────────────────
-  llmResponse  String? // full JSON-encoded tailored response
-  responseType String? // "llm" | "fallback"
-  emailSent    Boolean @default(false)
+  @@index([actorUserId])
+  @@index([entity, entityId])
+  @@index([createdAt])
 }

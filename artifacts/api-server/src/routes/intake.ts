@@ -1,25 +1,50 @@
-// POST /api/intake
-// Receives the intake form, validates, rate-limits, stores, calls LLM, optionally emails.
+/**
+ * POST /api/intake
+ * Validates intake, rate-limits, stores, generates:
+ *   1. ClientSnapshot (short, no implementation details) — returned to client
+ *   2. AdminPreCallReport (full internal) — stored as adminReport, never sent to client
+ *
+ * Returns: { ok, intakeId, planId, snapshot }
+ * The full plan result is fetched separately at GET /api/plan/:intakeId
+ */
 
 import { Router } from "express";
-import { SubmitIntakeBody as IntakeSchema } from "@workspace/api-zod";
 import { createHash } from "crypto";
+import { z } from "zod";
 import { prisma } from "../lib/db";
 import { checkRateLimit } from "../lib/rateLimit";
 import { sanitiseShortText, sanitiseText } from "../lib/sanitize";
-import { generateTailoredResponse } from "../lib/llm";
-import { sendResponseEmail } from "../lib/email";
+import { generateBothOutputs } from "../lib/llm";
+import { sendIntakeNotification } from "../lib/email";
+import { hashIp } from "../lib/audit";
 
-// ── Helper: hash IP for logging without storing cleartext ────────────────────
+// ── Validation schema ─────────────────────────────────────────────────────────
 
-function hashIp(ip: string | null): string | null {
-  if (!ip) return null;
-  return createHash("sha256").update(ip + (process.env.IP_HASH_SALT ?? "atg")).digest("hex").slice(0, 16);
-}
+const AREAS = ["executive_assistant", "marketing", "sales", "customer_support"] as const;
+const TOOLS = ["chatgpt", "claude", "gemini", "grok", "copilot", "zapier_make", "crm", "none", "other"] as const;
+const TIME_SINKS = ["email", "prospecting", "followups", "research", "proposals", "scheduling", "social_content", "admin", "personal_logistics"] as const;
+const BIZ_SIZES = ["solo", "2-10", "11-50", "50+"] as const;
+const HELP_STYLES = ["self_serve", "guided", "done_for_you", "not_sure"] as const;
 
-// ── Route handler ─────────────────────────────────────────────────────────────
+const IntakeSchema = z.object({
+  name: z.string().min(1).max(100),
+  email: z.string().email().max(200),
+  role: z.string().min(1).max(100),
+  industry: z.string().min(1).max(100),
+  bizSize: z.enum(BIZ_SIZES),
+  areas: z.array(z.enum(AREAS)).min(1).max(4),
+  aiComfort: z.number().int().min(0).max(4),
+  tools: z.array(z.enum(TOOLS)).min(1),
+  timeSinks: z.array(z.enum(TIME_SINKS)).min(1),
+  automateFirst: z.string().max(120).optional(),
+  hoursLost: z.number().int().min(1).max(40),
+  preferredHelp: z.enum(HELP_STYLES),
+  freeText: z.string().max(280).optional(),
+  honeypot: z.string().default(""),
+});
 
 const router = Router();
+
 router.post("/intake", async (req, res) => {
   // ── Rate limiting ────────────────────────────────────────────────────────
   const ip = req.ip ?? req.socket.remoteAddress ?? "unknown";
@@ -28,29 +53,20 @@ router.post("/intake", async (req, res) => {
     return res.status(429).json({ error: "Too many submissions. Please try again in 15 minutes." });
   }
 
-  // ── Parse & validate body ────────────────────────────────────────────────
-  let body: unknown;
-  try {
-    body = req.body;
-  } catch {
-    return res.status(400).json({ error: "Invalid request body." });
-  }
-
-  const parsed = IntakeSchema.safeParse(body);
+  // ── Validate ─────────────────────────────────────────────────────────────
+  const parsed = IntakeSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() });
   }
-
   const data = parsed.data;
 
-  // ── Honeypot check ───────────────────────────────────────────────────────
+  // ── Honeypot ─────────────────────────────────────────────────────────────
   if (data.honeypot && data.honeypot.length > 0) {
-    // Silently accept but don't process (bot trap)
-    return res.json({ ok: true });
+    return res.json({ ok: true }); // Silently discard bot submissions
   }
 
-  // ── Sanitise free-text fields ────────────────────────────────────────────
-  const safeData = {
+  // ── Sanitise free text ───────────────────────────────────────────────────
+  const safe = {
     ...data,
     name: sanitiseShortText(data.name),
     role: sanitiseShortText(data.role),
@@ -59,49 +75,79 @@ router.post("/intake", async (req, res) => {
     freeText: data.freeText ? sanitiseText(data.freeText) : undefined,
   };
 
-  // ── Store submission ─────────────────────────────────────────────────────
-  const submission = await prisma.intakeSubmission.create({
+  // ── Store Intake record ──────────────────────────────────────────────────
+  const intake = await prisma.intake.create({
     data: {
-      name: safeData.name,
-      email: safeData.email,
-      role: safeData.role,
-      industry: safeData.industry,
-      bizSize: safeData.bizSize,
-      areas: JSON.stringify(safeData.areas),
-      aiComfort: safeData.aiComfort,
-      tools: JSON.stringify(safeData.tools),
-      timeSinks: JSON.stringify(safeData.timeSinks),
-      automateFirst: safeData.automateFirst,
-      hoursLost: safeData.hoursLost,
-      preferredHelp: safeData.preferredHelp,
-      freeText: safeData.freeText,
-      honeypot: safeData.honeypot,
+      email: safe.email.toLowerCase(),
+      name: safe.name,
+      answers: JSON.stringify(safe),
+      areas: JSON.stringify(safe.areas),
+      aiComfort: safe.aiComfort,
+      hoursLost: safe.hoursLost,
+      helpStyle: safe.preferredHelp,
       ipHash: hashIp(ip),
+      userAgent: req.headers["user-agent"]?.slice(0, 500) ?? null,
+      status: "NEW",
     },
   });
 
-  // ── Generate tailored response ───────────────────────────────────────────
-  const response = await generateTailoredResponse(safeData);
+  // ── Generate client snapshot + admin report ──────────────────────────────
+  const { clientSnapshot, adminReport } = await generateBothOutputs({
+    ...safe,
+    helpStyle: safe.preferredHelp,
+  });
 
-  // ── Persist the response back to the record ──────────────────────────────
-  await prisma.intakeSubmission.update({
-    where: { id: submission.id },
+  // ── Store Plan ────────────────────────────────────────────────────────────
+  const plan = await prisma.plan.create({
     data: {
-      llmResponse: JSON.stringify(response),
-      responseType: response.type,
+      intakeId: intake.id,
+      aiReadinessLabel: clientSnapshot.aiReadinessLabel,
+      aiReadinessSummary: clientSnapshot.aiReadinessSummary,
+      focusAreas: JSON.stringify(clientSnapshot.focusAreas),
+      recommendedTier: clientSnapshot.recommendedTier,
+      tierRationale: clientSnapshot.tierRationale,
+      ctaText: clientSnapshot.ctaText,
+      adminReport: JSON.stringify(adminReport),
+      source: clientSnapshot.source,
     },
   });
 
-  // ── Optionally send email ────────────────────────────────────────────────
-  const emailResult = await sendResponseEmail(safeData, response);
-  if (emailResult.sent) {
-    await prisma.intakeSubmission.update({
-      where: { id: submission.id },
-      data: { emailSent: true },
+  // ── Also store in legacy IntakeSubmission for backward compat ────────────
+  try {
+    await prisma.intakeSubmission.create({
+      data: {
+        name: safe.name,
+        email: safe.email,
+        role: safe.role,
+        industry: safe.industry,
+        bizSize: safe.bizSize,
+        areas: JSON.stringify(safe.areas),
+        aiComfort: safe.aiComfort,
+        tools: JSON.stringify(safe.tools),
+        timeSinks: JSON.stringify(safe.timeSinks),
+        automateFirst: safe.automateFirst,
+        hoursLost: safe.hoursLost,
+        preferredHelp: safe.preferredHelp,
+        freeText: safe.freeText,
+        honeypot: safe.honeypot,
+        ipHash: hashIp(ip),
+        llmResponse: JSON.stringify(clientSnapshot),
+        responseType: clientSnapshot.source,
+      },
     });
+  } catch { /* non-critical */ }
+
+  // ── Notify Shea (off by default) ─────────────────────────────────────────
+  if (process.env.EMAIL_SEND_INTAKE_ALERTS === "true") {
+    sendIntakeNotification(safe, intake.id).catch((e) => console.error("[email] intake alert failed:", e));
   }
 
-  return res.json({ ok: true, response });
+  return res.json({
+    ok: true,
+    intakeId: intake.id,
+    planId: plan.id,
+    snapshot: clientSnapshot, // short client-facing snapshot
+  });
 });
 
 export default router;
