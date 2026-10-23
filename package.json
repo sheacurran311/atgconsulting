@@ -1,0 +1,35 @@
+{
+  "name": "atgconsulting",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p ${PORT:-3000}",
+    "build": "prisma generate && next build",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.17.0",
+    "next": "14.2.5",
+    "nodemailer": "^6.9.14",
+    "openai": "^4.56.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/nodemailer": "^6.4.15",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.5",
+    "postcss": "^8",
+    "prisma": "^5.17.0",
+    "tailwindcss": "^3.4.11",
+    "typescript": "^5"
+  }
+}
