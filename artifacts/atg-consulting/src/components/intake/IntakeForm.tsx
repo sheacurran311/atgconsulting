@@ -179,6 +179,8 @@ function WorkflowMap({ data }: { data: Partial<FormData> }) {
 export default function IntakeForm() {
   const [, setLocation] = useLocation();
   const [data, setData] = useState<FormData>(DEFAULT);
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const [qIdx, setQIdx] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -220,10 +222,16 @@ export default function IntakeForm() {
   const handleOption = useCallback((value: string) => {
     if (!q) return;
     if (q.type === "radio") {
-      if (q.key === "bizSize") setData((d) => ({ ...d, bizSize: value as BizSize }));
-      else if (q.key === "aiComfort") setData((d) => ({ ...d, aiComfort: parseInt(value, 10) }));
-      else if (q.key === "preferredHelp") setData((d) => ({ ...d, preferredHelp: value as PreferredHelp }));
-      // Auto-advance for radio
+      setData((d) => {
+        const next = { ...d };
+        if (q.key === "bizSize") next.bizSize = value as BizSize;
+        else if (q.key === "industry") next.industry = value;
+        else if (q.key === "aiComfort") next.aiComfort = parseInt(value, 10);
+        else if (q.key === "preferredHelp") next.preferredHelp = value as PreferredHelp;
+        dataRef.current = next;
+        return next;
+      });
+      // Auto-advance for radio. validate() reads dataRef so this sees the pick.
       setTimeout(() => advance(), 150);
     } else if (q.type === "multi") {
       if (q.key === "areas") {
@@ -261,7 +269,9 @@ export default function IntakeForm() {
       }
     }
     if (q.type === "radio") {
-      if (q.key === "bizSize" && !data.bizSize) { setError("Please pick one."); return false; }
+      const latest = dataRef.current;
+      if (q.key === "bizSize" && !latest.bizSize) { setError("Please pick one."); return false; }
+      if (q.key === "industry" && !latest.industry) { setError("Please pick one."); return false; }
     }
     if (q.type === "multi") {
       if (q.key === "areas" && data.areas.length === 0) { setError("Please select at least one area."); return false; }
@@ -305,6 +315,7 @@ export default function IntakeForm() {
       });
       const json = await res.json() as { intakeId?: string; error?: string };
       if (!res.ok) { setError(json.error ?? "Something went wrong."); setSubmitting(false); return; }
+      if (!json.intakeId) { setError("Something went wrong."); setSubmitting(false); return; }
       setLocation(`/start/result/${json.intakeId}`);
     } catch {
       setError("Network error. Please check your connection.");
@@ -316,6 +327,7 @@ export default function IntakeForm() {
 
   const currentRadioValue =
     q.key === "bizSize" ? data.bizSize :
+    q.key === "industry" ? data.industry :
     q.key === "aiComfort" ? String(data.aiComfort) :
     q.key === "preferredHelp" ? data.preferredHelp : "";
 

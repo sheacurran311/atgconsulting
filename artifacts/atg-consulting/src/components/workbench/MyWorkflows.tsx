@@ -3,6 +3,7 @@
  */
 import { useState, useEffect } from "react";
 import { api, type WorkflowListItem as WFItem } from "@/lib/api";
+import EmptyWorkbench from "@/components/workbench/EmptyWorkbench";
 
 const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   designing: { label: "Designing", color: "var(--canvas-text-3)", bg: "var(--canvas-2)" },
@@ -13,7 +14,7 @@ const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }
 
 const AREA_LABELS: Record<string, string> = { ea: "Admin & ops", marketing: "Marketing", sales: "Sales", cs: "Customer replies" };
 
-export default function MyWorkflows() {
+export default function MyWorkflows({ tier, onDraft }: { tier: string; onDraft: () => void }) {
   const [workflows, setWorkflows] = useState<WFItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,11 +34,7 @@ export default function MyWorkflows() {
       {loading ? (
         <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
       ) : workflows.length === 0 ? (
-        <div className="rounded-xl p-8 text-center" style={{ border: "1px dashed var(--canvas-border)", background: "var(--canvas-2)" }}>
-          <p className="font-mono text-2xs mb-2" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>NO WORKFLOWS YET</p>
-          <p className="text-sm font-semibold mb-1" style={{ color: "var(--canvas-text)" }}>Shea is working on your setup.</p>
-          <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>Your workflows will appear here once Shea has them configured and running.</p>
-        </div>
+        <EmptyWorkbench tier={tier} onDraft={onDraft} />
       ) : (
         <div className="space-y-3">
           {workflows.map((wf) => {
@@ -56,7 +53,11 @@ export default function MyWorkflows() {
                 <div className="flex items-center gap-4 mt-3">
                   <span className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>{AREA_LABELS[wf.area] ?? wf.area}</span>
                   {wf.schedule && <span className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)" }}>↻ {wf.schedule}</span>}
-                  {wf.lastRun && <span className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)" }}>Last run {new Date(wf.lastRun).toLocaleDateString()}</span>}
+                  {(wf.lastRun || wf.runs[0]?.runAt) && (
+                    <span className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)" }}>
+                      Last run {new Date(wf.lastRun || wf.runs[0]!.runAt).toLocaleDateString()}
+                    </span>
+                  )}
                   {wf.setupNote && <span className="font-mono text-2xs ml-auto" style={{ color: "var(--canvas-text-3)" }}>{wf.setupNote}</span>}
                 </div>
               </div>

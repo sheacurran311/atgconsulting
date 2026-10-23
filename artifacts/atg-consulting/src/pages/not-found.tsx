@@ -1,23 +1,21 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
+import { Link } from "wouter";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">
-              404 Page Not Found
-            </h1>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
-          </p>
-        </CardContent>
-      </Card>
+    <div className="min-h-[70vh] flex items-center justify-center px-4" style={{ background: "var(--canvas)" }}>
+      <div className="max-w-md text-center">
+        <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>404</p>
+        <h1 className="text-2xl font-extrabold mb-2" style={{ color: "var(--canvas-text)", letterSpacing: "-0.02em" }}>
+          That page is not here.
+        </h1>
+        <p className="text-sm mb-6" style={{ color: "var(--canvas-text-2)" }}>
+          The link may be old, or the page has not been published yet.
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          <Link to="/"><span className="btn-secondary text-sm">Back home</span></Link>
+          <Link to="/start"><span className="btn-primary text-sm">Map my workflow</span></Link>
+        </div>
+      </div>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import HomePage from "@/pages/home";
 import StartPage from "@/pages/start";
 import PlanResultPage from "@/pages/plan-result";
 import NotFound from "@/pages/not-found";
+import { PrivacyPage, TermsPage } from "@/pages/legal";
 import { SignInPage, SignUpPage } from "@/pages/auth";
 
 // App (client portal) pages
@@ -98,6 +99,8 @@ function AuthenticatedApp() {
         {/* Intake + plan */}
         <Route path="/start" component={StartPage} />
         <Route path="/start/result/:intakeId" component={PlanResultPage} />
+        <Route path="/privacy" component={PrivacyPage} />
+        <Route path="/terms" component={TermsPage} />
 
         {/* Client portal */}
         <Route path="/app" component={DashboardPage} />

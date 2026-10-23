@@ -1,3 +1,4 @@
+import { type MouseEvent } from "react";
 import { Link } from "wouter";
 import LogoMark from "@/components/LogoMark";
 
@@ -34,7 +35,26 @@ export default function Footer() {
               { href: import.meta.env.VITE_LINKEDIN_URL ?? "[LinkedIn]", label: "LinkedIn", external: true },
               { href: "/brand/ATG_Consulting_OnePager.pdf", label: "One-pager", download: true },
               { href: "/privacy", label: "Privacy", external: false },
-            ].map((l) => (
+              { href: "/terms", label: "Terms", external: false },
+            ].map((l) => {
+              const style = { color: "var(--ink-text-3)" };
+              const onEnter = (e: MouseEvent<HTMLElement>) => { e.currentTarget.style.color = "var(--ink-text-2)"; };
+              const onLeave = (e: MouseEvent<HTMLElement>) => { e.currentTarget.style.color = "var(--ink-text-3)"; };
+              if (!l.external && !("download" in l && l.download)) {
+                return (
+                  <Link
+                    key={l.label}
+                    to={l.href}
+                    className="text-sm font-medium transition-colors"
+                    style={style}
+                    onMouseEnter={onEnter}
+                    onMouseLeave={onLeave}
+                  >
+                    {l.label}
+                  </Link>
+                );
+              }
+              return (
               <a
                 key={l.label}
                 href={l.href}
@@ -42,13 +62,14 @@ export default function Footer() {
                 target={"external" in l && l.external ? "_blank" : undefined}
                 rel={"external" in l && l.external ? "noopener noreferrer" : undefined}
                 className="text-sm font-medium transition-colors"
-                style={{ color: "var(--ink-text-3)" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "var(--ink-text-2)")}
-                onMouseLeave={e => (e.currentTarget.style.color = "var(--ink-text-3)")}
+                style={style}
+                onMouseEnter={onEnter}
+                onMouseLeave={onLeave}
               >
                 {l.label}
               </a>
-            ))}
+              );
+            })}
           </nav>
         </div>
 

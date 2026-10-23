@@ -50,7 +50,7 @@ test(
 
       const input = {
         name: "Migration Test", email: "migration@example.com", role: "Owner",
-        industry: "Consulting", bizSize: "solo", areas: ["sales"], aiComfort: 1,
+        industry: "salesrep", bizSize: "solo", areas: ["sales"], aiComfort: 1,
         tools: ["none"], timeSinks: ["email"], hoursLost: 10,
         preferredHelp: "not_sure", honeypot: "",
       };
@@ -62,6 +62,7 @@ test(
 
       const record = await prisma.intakeSubmission.findFirstOrThrow();
       assert.equal(record.email, input.email);
+      assert.equal(record.industry, "salesrep");
       assert.equal(record.emailSent, false);
 
       // Re-initialization must not reset a populated database
@@ -71,18 +72,17 @@ test(
       await prisma.$connect();
       assert.equal(await prisma.intakeSubmission.count(), 1);
 
-      // Validation: missing fields
+      // Validation: missing fields, including a blank business type
       assert.equal((await request(app).post("/api/intake").send({})).status, 422);
+      assert.equal((await request(app).post("/api/intake").send({ ...input, industry: "" })).status, 422);
 
       // Honeypot: bot submission silently accepted but not stored
       const bot = await request(app).post("/api/intake").send({ ...input, honeypot: "bot" });
       assert.deepEqual(bot.body, { ok: true });
       assert.equal(await prisma.intakeSubmission.count(), 1);
 
-      // Rate limit: exhaust remaining budget then confirm 429
-      for (let n = 0; n < 2; n++) {
-        assert.equal((await request(app).post("/api/intake").send({})).status, 422);
-      }
+      // Rate limit: one more invalid post uses the fifth slot, then spoofed IPs still share it
+      assert.equal((await request(app).post("/api/intake").send({})).status, 422);
       for (let n = 1; n <= 3; n++) {
         const spoof = await request(app)
           .post("/api/intake")

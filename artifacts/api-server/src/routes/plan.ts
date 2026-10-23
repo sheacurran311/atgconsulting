@@ -57,6 +57,19 @@ router.post("/plan/:intakeId/claim", withUser, requireAuth, async (req, res) => 
 
   const intake = await prisma.intake.findUnique({ where: { id: intakeId } });
   if (!intake) { res.status(404).json({ error: "Plan not found." }); return; }
+
+  if (user.role !== "ADMIN") {
+    const userEmail = user.email?.trim().toLowerCase() ?? "";
+    if (!userEmail) {
+      res.status(403).json({ error: "Add an email to your account before saving this plan." });
+      return;
+    }
+    if (userEmail !== intake.email.trim().toLowerCase()) {
+      res.status(403).json({ error: "Sign in with the email you used on the intake to save this plan." });
+      return;
+    }
+  }
+
   if (intake.clientId) { res.json({ ok: true, message: "Plan already claimed." }); return; }
 
   const ageDays = (Date.now() - intake.createdAt.getTime()) / 86_400_000;
