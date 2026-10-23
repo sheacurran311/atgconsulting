@@ -128,12 +128,14 @@ router.get("/workbench/messages", async (req, res) => {
   res.json(messages);
 });
 
+const MessageBodySchema = z.object({ body: z.string().trim().min(1).max(2000) });
+
 router.post("/workbench/messages", async (req, res) => {
   const cid = clientId(req as AuthedRequest, res);
   if (!cid) return;
-  const { body } = req.body as { body?: string };
-  if (!body?.trim() || body.length > 2000) { res.status(422).json({ error: "Message is required (max 2000 chars)." }); return; }
-  const msg = await prisma.clientMessage.create({ data: { clientId: cid, body: body.trim(), fromAdmin: false } });
+  const parsed = MessageBodySchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "body is required (max 2000 chars)." }); return; }
+  const msg = await prisma.clientMessage.create({ data: { clientId: cid, body: parsed.data.body, fromAdmin: false } });
   res.status(201).json(msg);
 });
 
@@ -214,12 +216,14 @@ router.post("/workbench/follow-up", async (req, res) => {
   });
 });
 
+const WorkflowRequestSchema = z.object({ description: z.string().trim().min(1).max(1000) });
+
 router.post("/workbench/requests", async (req, res) => {
   const cid = clientId(req as AuthedRequest, res);
   if (!cid) return;
-  const { description } = req.body as { description?: string };
-  if (!description?.trim() || description.length > 1000) { res.status(422).json({ error: "Description required (max 1000 chars)." }); return; }
-  const req2 = await prisma.workflowRequest.create({ data: { clientId: cid, description: description.trim() } });
+  const parsed = WorkflowRequestSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "description is required (max 1000 chars)." }); return; }
+  const req2 = await prisma.workflowRequest.create({ data: { clientId: cid, description: parsed.data.description } });
   res.status(201).json(req2);
 });
 
