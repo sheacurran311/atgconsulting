@@ -39,7 +39,7 @@ export default function About() {
             </h2>
             <div className="space-y-4 text-base leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>
               <p>
-                I&apos;m Shea Curran, founder of ATG Consulting and Fandomly.ai, based in Castle Rock, Colorado.
+                I&apos;m Shea Curran, founder of ATG Consulting and Fandomly.ai, based in Colorado, USA.
                 I&apos;ve spent the last three years building with AI every day — from ChatGPT to Cursor, Replit,
                 Grok, and whatever comes out next.
               </p>

@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Route, Switch, Router, useLocation, Redirect } from "wouter";
 import { ClerkProvider, useUser } from "@clerk/react";
 import { clerkPubKey, clerkProxyUrl, clerkAppearance, basePath, stripBase } from "@/lib/clerk";
 import Nav from "@/components/Nav";
+import CommandPalette from "@/components/CommandPalette";
 import HomePage from "@/pages/home";
 import StartPage from "@/pages/start";
 import PlanResultPage from "@/pages/plan-result";
@@ -33,23 +34,23 @@ function Metadata() {
     const isAdmin = location.startsWith("/admin");
     const title =
       isResult ? "Your AI snapshot | ATG Consulting"
-      : intake ? "Get my free snapshot | ATG Consulting"
+      : intake ? "Map my workflow | ATG Consulting"
       : isApp ? "Client portal | ATG Consulting"
       : isAdmin ? "Admin | ATG Consulting"
-      : "ATG Consulting | Tailored AI solutions for your business";
-    const description = intake || isResult
-      ? "A personalised AI readiness snapshot for your role and business. Based in Castle Rock, CO."
-      : "Shea designs and delivers AI systems tailored to your specific role, clients, and daily life. Based in Castle Rock, CO.";
+      : "ATG Consulting | We build the AI workflows. You get the hours back.";
+    const desc = intake || isResult
+      ? "A personalised AI readiness snapshot for your role and business. Based in Colorado, USA."
+      : "Shea designs and delivers AI systems tailored to your specific role, clients, and daily life. Based in Colorado, USA.";
     document.title = title;
-    for (const [attribute, key, content] of [
-      ["name", "description", description],
+    for (const [attr, key, content] of [
+      ["name", "description", desc],
       ["name", "robots", (intake || isResult || isApp || isAdmin) ? "noindex, nofollow" : "index, follow"],
       ["property", "og:title", title],
-      ["property", "og:description", description],
+      ["property", "og:description", desc],
     ] as [string, string, string][]) {
-      let element = document.querySelector(`meta[${attribute}="${key}"]`);
-      if (!element) { element = document.createElement("meta"); element.setAttribute(attribute, key); document.head.appendChild(element); }
-      element.setAttribute("content", content);
+      let el = document.querySelector(`meta[${attr}="${key}"]`);
+      if (!el) { el = document.createElement("meta"); el.setAttribute(attr, key); document.head.appendChild(el); }
+      el.setAttribute("content", content);
     }
   }, [location]);
   return null;
@@ -63,6 +64,11 @@ function HomeRedirect() {
 
 function AuthenticatedApp() {
   const [, setLocation] = useLocation();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [location] = useLocation();
+
+  const isShell = location.startsWith("/app") || location.startsWith("/admin");
+
   return (
     <ClerkProvider
       publishableKey={clerkPubKey}
@@ -77,12 +83,10 @@ function AuthenticatedApp() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <Metadata />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+
       {/* Nav is hidden inside /app and /admin (their shells provide navigation) */}
-      <Switch>
-        <Route path="/app/*?" component={() => null} />
-        <Route path="/admin/*?" component={() => null} />
-        <Route component={() => <Nav />} />
-      </Switch>
+      {!isShell && <Nav onPalette={() => setPaletteOpen(true)} />}
 
       <Switch>
         {/* Marketing */}
