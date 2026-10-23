@@ -1,12 +1,10 @@
-"use client";
-
 import { useState } from "react";
+import { useLocation } from "wouter";
 import ProgressBar from "./ProgressBar";
 import Step1About from "./Step1About";
 import Step2Workflows from "./Step2Workflows";
 import Step3Preferences from "./Step3Preferences";
-import TailoredResponseView from "./TailoredResponse";
-import type { IntakeFormData, BizSize, PreferredHelp, TailoredResponse } from "@/types/intake";
+import type { IntakeFormData, BizSize, PreferredHelp } from "@/types/intake";
 
 // ── Default form state ──────────────────────────────────────────────────────
 
@@ -58,12 +56,12 @@ function validateStep(step: number, data: IntakeFormData): FieldErrors {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function IntakeForm() {
+  const [, setLocation] = useLocation();
   const [step, setStep] = useState(1);
   const [data, setData] = useState<IntakeFormData>(DEFAULT_DATA);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [response, setResponse] = useState<TailoredResponse | null>(null);
 
   function update(updates: Partial<IntakeFormData>) {
     setData((prev) => ({ ...prev, ...updates }));
@@ -106,6 +104,7 @@ export default function IntakeForm() {
     try {
       const res = await fetch("/api/intake", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
@@ -113,26 +112,19 @@ export default function IntakeForm() {
       const json = await res.json();
 
       if (!res.ok) {
-        setSubmitError(json.error ?? "Something went wrong. Please try again.");
+        setSubmitError((json as { error?: string }).error ?? "Something went wrong. Please try again.");
         setSubmitting(false);
         return;
       }
 
-      setResponse(json.response as TailoredResponse);
+      // Redirect to the plan result page
+      const { intakeId } = json as { intakeId: string };
+      setLocation(`/start/result/${intakeId}`);
     } catch {
       setSubmitError("Network error. Please check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
-  }
-
-  // ── Response view ──────────────────────────────────────────────────────────
-  if (response) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <TailoredResponseView response={response} name={data.name} />
-      </div>
-    );
   }
 
   // ── Form ───────────────────────────────────────────────────────────────────

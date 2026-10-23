@@ -5,38 +5,50 @@ import { clerkPubKey, clerkProxyUrl, clerkAppearance, basePath, stripBase } from
 import Nav from "@/components/Nav";
 import HomePage from "@/pages/home";
 import StartPage from "@/pages/start";
+import PlanResultPage from "@/pages/plan-result";
 import NotFound from "@/pages/not-found";
 import { SignInPage, SignUpPage } from "@/pages/auth";
-import AccountPage from "@/pages/account";
+
+// App (client portal) pages
+import DashboardPage from "@/pages/app/dashboard";
+import ConsultationsPage from "@/pages/app/consultations";
+import DocumentsPage from "@/pages/app/documents";
+import ReportsPage from "@/pages/app/reports";
+import LearnPage from "@/pages/app/learn";
+import AppAccountPage from "@/pages/app/account";
+
+// Admin pages
+import AdminClientsPage from "@/pages/admin/clients";
+import AdminIntakesPage from "@/pages/admin/intakes";
+import AdminReportsPage from "@/pages/admin/reports";
+import AdminContentPage from "@/pages/admin/content";
+import AdminAuditPage from "@/pages/admin/audit";
 
 function Metadata() {
   const [location] = useLocation();
   useEffect(() => {
     const intake = location.replace(/\/$/, "") === "/start";
-    const title = intake
-      ? "Get my free plan | ATG Consulting"
-      : "ATG Consulting | AI Sales Workflows for Small Businesses and Independent Reps";
-    const description = intake
-      ? "Answer a few quick questions and get a personalised AI workflow plan for your role and industry. Free, no signup required."
-      : "Let AI handle the busywork in your sales process: prospecting, research, outreach drafts, follow-ups, and CRM upkeep. Self-serve, guided, or done for you. Based in Castle Rock, CO.";
-    const authTitle = location.startsWith("/sign-in") ? "Sign in"
-      : location.startsWith("/sign-up") ? "Create an account"
-      : location === "/user-portal" ? "My account" : "";
-    document.title = authTitle ? `${authTitle} | ATG Consulting` : title;
+    const isResult = location.startsWith("/start/result");
+    const isApp = location.startsWith("/app");
+    const isAdmin = location.startsWith("/admin");
+    const title =
+      isResult ? "Your AI snapshot | ATG Consulting"
+      : intake ? "Get my free snapshot | ATG Consulting"
+      : isApp ? "Client portal | ATG Consulting"
+      : isAdmin ? "Admin | ATG Consulting"
+      : "ATG Consulting | Tailored AI solutions for your business";
+    const description = intake || isResult
+      ? "A personalised AI readiness snapshot for your role and business. Based in Castle Rock, CO."
+      : "Shea designs and delivers AI systems tailored to your specific role, clients, and daily life. Based in Castle Rock, CO.";
+    document.title = title;
     for (const [attribute, key, content] of [
       ["name", "description", description],
-      ["name", "robots", intake || authTitle ? "noindex, nofollow" : "index, follow"],
+      ["name", "robots", (intake || isResult || isApp || isAdmin) ? "noindex, nofollow" : "index, follow"],
       ["property", "og:title", title],
       ["property", "og:description", description],
-      ["name", "twitter:title", title],
-      ["name", "twitter:description", description],
-    ]) {
+    ] as [string, string, string][]) {
       let element = document.querySelector(`meta[${attribute}="${key}"]`);
-      if (!element) {
-        element = document.createElement("meta");
-        element.setAttribute(attribute, key);
-        document.head.appendChild(element);
-      }
+      if (!element) { element = document.createElement("meta"); element.setAttribute(attribute, key); document.head.appendChild(element); }
       element.setAttribute("content", content);
     }
   }, [location]);
@@ -45,7 +57,7 @@ function Metadata() {
 
 function HomeRedirect() {
   const { isLoaded, isSignedIn } = useUser();
-  if (isLoaded && isSignedIn && !window.location.hash) return <Redirect to="/user-portal" />;
+  if (isLoaded && isSignedIn && !window.location.hash) return <Redirect to="/app" />;
   return <HomePage />;
 }
 
@@ -58,24 +70,53 @@ function AuthenticatedApp() {
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
-      signInFallbackRedirectUrl={`${basePath}/user-portal`}
-      signUpFallbackRedirectUrl={`${basePath}/user-portal`}
-      localization={{
-        signIn: { start: { title: "Welcome back", subtitle: "Sign in to your ATG Consulting account" } },
-        signUp: { start: { title: "Create your account", subtitle: "Get started with ATG Consulting" } },
-      }}
+      signInFallbackRedirectUrl={`${basePath}/app`}
+      signUpFallbackRedirectUrl={`${basePath}/app`}
+      localization={{ signIn: { start: { title: "Welcome back", subtitle: "Sign in to your ATG Consulting account" } }, signUp: { start: { title: "Create your account", subtitle: "Get started with ATG Consulting" } } }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <Metadata />
-      <Nav />
+      {/* Nav is hidden inside /app and /admin (their shells provide navigation) */}
       <Switch>
+        <Route path="/app/*?" component={() => null} />
+        <Route path="/admin/*?" component={() => null} />
+        <Route component={() => <Nav />} />
+      </Switch>
+
+      <Switch>
+        {/* Marketing */}
         <Route path="/" component={HomeRedirect} />
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
-        <Route path="/user-portal" component={AccountPage} />
+
+        {/* Intake + plan */}
         <Route path="/start" component={StartPage} />
-        <Route path="/start/" component={StartPage} />
+        <Route path="/start/result/:intakeId" component={PlanResultPage} />
+
+        {/* Client portal */}
+        <Route path="/app" component={DashboardPage} />
+        <Route path="/app/consultations/:id" component={ConsultationsPage} />
+        <Route path="/app/consultations" component={ConsultationsPage} />
+        <Route path="/app/documents" component={DocumentsPage} />
+        <Route path="/app/reports/:date" component={ReportsPage} />
+        <Route path="/app/reports" component={ReportsPage} />
+        <Route path="/app/learn/:slug" component={LearnPage} />
+        <Route path="/app/learn" component={LearnPage} />
+        <Route path="/app/account" component={AppAccountPage} />
+
+        {/* Admin */}
+        <Route path="/admin" component={() => <Redirect to="/admin/clients" />} />
+        <Route path="/admin/clients/:id/:tab?" component={AdminClientsPage} />
+        <Route path="/admin/clients" component={AdminClientsPage} />
+        <Route path="/admin/intakes" component={AdminIntakesPage} />
+        <Route path="/admin/reports" component={AdminReportsPage} />
+        <Route path="/admin/content" component={AdminContentPage} />
+        <Route path="/admin/audit" component={AdminAuditPage} />
+
+        {/* Legacy */}
+        <Route path="/user-portal" component={() => <Redirect to="/app" />} />
+
         <Route component={NotFound} />
       </Switch>
     </ClerkProvider>

@@ -1,217 +1,385 @@
-// LLM integration – provider-agnostic via the OpenAI-compatible API.
-//
-// Supported providers (set env vars to switch):
-//   OpenAI:  OPENAI_API_KEY              → baseURL defaults to OpenAI
-//   xAI:     XAI_API_KEY                 → set LLM_BASE_URL=https://api.x.ai/v1
-//   Together/Fireworks/local Ollama etc. → set LLM_BASE_URL and LLM_API_KEY
-//
-// Model: defaults to "gpt-4o-mini" (low cost, fast). Override with LLM_MODEL.
+/**
+ * LLM layer — provider-agnostic via OpenAI-compatible API.
+ * Produces TWO separate outputs from every intake:
+ *
+ *  1. ClientSnapshot — what the client sees (short, no implementation details).
+ *     Strictly: readiness level + 2-3 focus areas (one-line each) + CTA.
+ *     The LLM is explicitly forbidden from including workflows, tools, or steps.
+ *
+ *  2. AdminPreCallReport — full internal report for Shea only.
+ *     Situation, pains, opportunities with concrete solution ideas, objections,
+ *     call agenda, discovery questions, risks, scope, next steps.
+ *
+ * Without an API key (or on error), both fall back to deterministic templates.
+ *
+ * Providers: set OPENAI_API_KEY, XAI_API_KEY, or LLM_API_KEY + LLM_BASE_URL.
+ * Model: LLM_MODEL (default: gpt-4o-mini). 20-second timeout.
+ */
 
 import OpenAI from "openai";
-import { logger } from "./logger";
-import { promptSafe } from "./sanitize";
-import type { IntakeFormData, TailoredResponse, Area } from "../types/intake";
-import {
-  AI_COMFORT_LABELS,
-  AREA_LABELS,
-  AREA_DESCRIPTIONS,
-  TIME_SINK_LABELS,
-  TOOL_LABELS,
-  PREFERRED_HELP_LABELS,
-} from "../types/intake";
+import { sanitiseText, promptSafe } from "./sanitize";
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+export interface FocusArea {
+  area: "executive_assistant" | "marketing" | "sales" | "customer_support";
+  name: string;
+  whyItMatters: string; // one line — why THIS person would save time here
+}
+
+/** What the client sees after their intake. Keep it short and human. */
+export interface ClientSnapshot {
+  aiReadinessLabel: string;  // e.g. "Early Explorer"
+  aiReadinessSummary: string; // 2-3 plain sentences. No jargon. No tools.
+  focusAreas: FocusArea[];   // 2-3 areas max. ONE LINE each. No how-to.
+  recommendedTier: "self_serve" | "guided" | "done_for_you";
+  tierRationale: string;     // 1-2 sentences. No implementation detail.
+  ctaText: string;           // Strong "Book your 1:1 with Shea" CTA, 15-30 words.
+  source: "LLM" | "TEMPLATE";
+}
+
+export interface OpportunityArea {
+  area: string;
+  title: string;
+  estimatedTimeSavedHrsPerWeek: number;
+  situationNote: string;  // what Shea observed from the intake
+  solutionIdeas: string[]; // concrete things Shea could build/propose
+  toolOptions: string[];   // specific tools that fit this client
+}
+
+/** Full internal report. Shown only to admins. Never sent to clients. */
+export interface AdminPreCallReport {
+  intakeSummary: string;
+  situationAndPains: string;
+  aiReadinessAssessment: string; // with reasoning from their answers
+  opportunityAreas: OpportunityArea[];
+  likelyObjections: string[];
+  callAgenda: string[];          // ordered agenda for the 1:1 call
+  talkingPoints: string[];
+  discoveryQuestions: string[];
+  recommendedTier: "self_serve" | "guided" | "done_for_you";
+  recommendedScope: string;      // what the engagement would look like
+  risks: string[];               // red flags or complexity issues
+  nextSteps: string[];
+  source: "LLM" | "TEMPLATE";
+}
+
+// ── Client ────────────────────────────────────────────────────────────────────
 
 function getClient(): OpenAI | null {
-  const apiKey =
-    process.env.OPENAI_API_KEY ||
-    process.env.XAI_API_KEY ||
-    process.env.LLM_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY ?? process.env.XAI_API_KEY ?? process.env.LLM_API_KEY;
   if (!apiKey) return null;
-
-  return new OpenAI({
-    apiKey,
-    baseURL: process.env.LLM_BASE_URL, // undefined → defaults to OpenAI
-  });
+  return new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL, timeout: 20_000 });
 }
 
-const MODEL = process.env.LLM_MODEL || "gpt-4o-mini";
+const MODEL = process.env.LLM_MODEL ?? "gpt-4o-mini";
 
-// ── Prompt builder ──────────────────────────────────────────────────────────
+// ── Labels ────────────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(): string {
-  return `You are Shea Curran, founder of ATG Consulting. You help small business owners, independent salespeople, and AI beginners set up AI workflows that run their sales, marketing, executive assistant tasks, and customer support.
+const AI_READINESS_LABELS = [
+  "AI Newcomer",          // 0 — never used AI tools
+  "Curious Explorer",     // 1 — asks ChatGPT occasionally
+  "Regular User",         // 2 — uses AI weekly for work
+  "Active Builder",       // 3 — has built a few automations
+  "AI-Native Operator",   // 4 — runs agents daily
+] as const;
 
-When a prospective client fills out your intake form you write them a short, plain-English, personalised recommendation. Respond ONLY with a JSON object matching this TypeScript type (no markdown, no prose outside the JSON):
+const AREA_NAMES: Record<string, string> = {
+  executive_assistant: "Executive assistant",
+  marketing: "Marketing",
+  sales: "Sales",
+  customer_support: "Customer support",
+};
 
-{
-  "aiLevelSummary": string,        // 1-2 sentences: where they are on their AI journey
-  "workflows": [                   // 3 or 4 items; at least one per selected area
-    {
-      "area": "executive_assistant"|"marketing"|"sales"|"customer_support",
-      "title": string,             // short title
-      "description": string        // 2-3 sentences: what the workflow does and the concrete benefit
-    }
+// ── Prompt builders ──────────────────────────────────────────────────────────
+
+function buildContext(intake: IntakeInput): string {
+  return `
+Name: ${promptSafe(intake.name, "name")}
+Role: ${promptSafe(intake.role, "role")}
+Industry: ${promptSafe(intake.industry, "industry")}
+Business size: ${intake.bizSize}
+Areas wanting help: ${intake.areas.map((a) => AREA_NAMES[a] ?? a).join(", ")}
+AI comfort (0–4): ${intake.aiComfort} — ${AI_READINESS_LABELS[intake.aiComfort] ?? "unknown"}
+Tools used today: ${intake.tools.join(", ") || "none listed"}
+Biggest time sinks: ${intake.timeSinks.join(", ") || "not specified"}
+Hours/week lost to repetitive work: ${intake.hoursLost}
+Preferred way to get help: ${intake.helpStyle}
+${intake.automateFirst ? `Would first automate: ${promptSafe(intake.automateFirst, "automate_first")}` : ""}
+${intake.freeText ? `Additional context: ${promptSafe(intake.freeText, "free_text")}` : ""}`.trim();
+}
+
+const CLIENT_SYSTEM_PROMPT = `You are Shea Curran, founder of ATG Consulting. A prospective client just completed an intake form. Write a short, warm, human snapshot of where they are and how you can help.
+
+STRICT RULES — violating any of these is a critical error:
+- Do NOT include any implementation steps, workflows, tool setup instructions, or "how-to" content.
+- Do NOT name specific AI tools or apps (no "ChatGPT", "Zapier", "Notion", etc.) in the client output.
+- Do NOT describe what any automation would do step by step.
+- Keep it under 200 words total.
+- Use plain language — no jargon, no acronyms.
+- The tone is warm, direct, and confident. This is a human-led service.
+- ATG's differentiator is a HUMAN-DESIGNED, tailored solution for the client's specific life and business, set up and run FOR them by Shea. Not a course. Not a tool.
+
+Return ONLY valid JSON. No markdown, no prose outside JSON.`;
+
+const CLIENT_OUTPUT_SCHEMA = `{
+  "aiReadinessLabel": string,     // 2-3 words: e.g. "Curious Explorer"
+  "aiReadinessSummary": string,   // 2-3 sentences: where they are TODAY. No tools. No steps.
+  "focusAreas": [                 // 2-3 areas max. EXACTLY one sentence each for whyItMatters.
+    { "area": "sales"|"marketing"|"executive_assistant"|"customer_support",
+      "name": string,
+      "whyItMatters": string }    // ONE LINE. Why THIS person specifically. No how-to.
   ],
-  "quickWin": string,              // 1-3 sentences: the single most impactful thing to do THIS week
   "recommendedTier": "self_serve"|"guided"|"done_for_you",
-  "tierRationale": string,         // 1-2 sentences: why this tier fits them specifically
-  "ctaText": string                // 15-25 words: personalised CTA to book a call or join the seminar
+  "tierRationale": string,        // 1-2 sentences. Why this tier. No implementation detail.
+  "ctaText": string               // 15-30 words. Strong, personal CTA to book a 1:1 with Shea.
+}`;
+
+const ADMIN_SYSTEM_PROMPT = `You are preparing a confidential pre-call intelligence report for Shea Curran (ATG Consulting founder) to use before her 1:1 consultation with a prospective client. This report is for Shea's eyes only — it will never be shown to the client.
+
+Be specific, opinionated, and actionable. Shea is an expert at identifying where AI workflows can transform a small business or solopreneur's daily life. She delivers human-designed, tailored solutions — not generic courses or off-the-shelf tools.
+
+Return ONLY valid JSON. No markdown, no prose outside JSON.`;
+
+const ADMIN_OUTPUT_SCHEMA = `{
+  "intakeSummary": string,           // 3-5 sentences: who this person is and what they said
+  "situationAndPains": string,       // inferred deeper pains and root causes beyond what they stated
+  "aiReadinessAssessment": string,   // readiness level with specific reasoning from their answers
+  "opportunityAreas": [
+    {
+      "area": string,
+      "title": string,
+      "estimatedTimeSavedHrsPerWeek": number,
+      "situationNote": string,       // what the intake reveals about this pain
+      "solutionIdeas": string[],     // concrete things Shea could build or propose
+      "toolOptions": string[]        // specific tools that fit this client's stack and comfort level
+    }
+  ],                                  // ranked by estimated time saved, most impactful first
+  "likelyObjections": string[],      // objections they may raise on the call
+  "callAgenda": string[],            // ordered agenda for the 1:1 call
+  "talkingPoints": string[],         // key things Shea should say
+  "discoveryQuestions": string[],    // questions to ask to deepen understanding
+  "recommendedTier": "self_serve"|"guided"|"done_for_you",
+  "recommendedScope": string,        // what the engagement would look like in plain terms
+  "risks": string[],                 // red flags, complexity issues, or reasons it might not work
+  "nextSteps": string[]              // suggested next steps after the call
+}`;
+
+// ── Generate both outputs ────────────────────────────────────────────────────
+
+export interface IntakeInput {
+  name: string;
+  email: string;
+  role: string;
+  industry: string;
+  bizSize: string;
+  areas: string[];
+  aiComfort: number;
+  tools: string[];
+  timeSinks: string[];
+  automateFirst?: string;
+  hoursLost: number;
+  helpStyle: string;
+  freeText?: string;
 }
 
-Guidelines:
-- No jargon (no "LLM", "vector DB", "RAG" etc.)
-- Use their name, role, and industry naturally
-- Match explanation depth to their AI comfort level (0=very simple, 4=technical is fine)
-- Build on the specific tools they already use
-- Address their top time-sinks first
-- The quick win should be something they can start TODAY with tools they already have
-- Keep total response under 500 words across all fields
-- Do NOT invent testimonials, stats, or client names`;
+export interface LLMResult {
+  clientSnapshot: ClientSnapshot;
+  adminReport: AdminPreCallReport;
 }
 
-function buildUserPrompt(data: IntakeFormData): string {
-  const areas = data.areas.map((a) => `${AREA_LABELS[a]}: ${AREA_DESCRIPTIONS[a]}`).join("; ");
-  const tools = data.tools.map((t) => TOOL_LABELS[t]).join(", ") || "none listed";
-  const timeSinks = data.timeSinks.map((s) => TIME_SINK_LABELS[s]).join(", ") || "not specified";
-  const comfortLabel = AI_COMFORT_LABELS[data.aiComfort] ?? "unknown";
-  const helpLabel = PREFERRED_HELP_LABELS[data.preferredHelp];
-
-  return `Generate a personalised recommendation for this prospective client:
-
-Name: ${promptSafe(data.name, "name")}
-Role: ${promptSafe(data.role, "role")}
-Industry: ${promptSafe(data.industry, "industry")}
-Business size: ${data.bizSize} employees
-Areas they want help with: ${areas}
-
-AI comfort level (${data.aiComfort}/4): ${comfortLabel}
-Tools they use today: ${tools}
-Biggest time sinks: ${timeSinks}
-${data.automateFirst ? `The one thing they'd automate first: ${promptSafe(data.automateFirst, "automate_first")}` : ""}
-Hours per week lost to repetitive work: ~${data.hoursLost}
-Preferred way to get help: ${helpLabel}
-${data.freeText ? `Additional context: ${promptSafe(data.freeText, "additional_context")}` : ""}
-
-Return ONLY the JSON object. No other text.`;
-}
-
-// ── Main export ─────────────────────────────────────────────────────────────
-
-export async function generateTailoredResponse(
-  data: IntakeFormData
-): Promise<TailoredResponse> {
+export async function generateBothOutputs(intake: IntakeInput): Promise<LLMResult> {
   const client = getClient();
+  const context = buildContext(intake);
 
   if (!client) {
-    return buildFallbackResponse(data);
+    return {
+      clientSnapshot: buildTemplateClientSnapshot(intake),
+      adminReport: buildTemplateAdminReport(intake),
+    };
   }
 
-  try {
-    const completion = await client.chat.completions.create({
-      model: MODEL,
-      temperature: 0.7,
-      max_tokens: 900,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: buildSystemPrompt() },
-        { role: "user", content: buildUserPrompt(data) },
-      ],
-    });
+  // Run both calls in parallel
+  const [snapshotResult, reportResult] = await Promise.allSettled([
+    callLLM<ClientSnapshot>(client, CLIENT_SYSTEM_PROMPT, `${context}\n\nOutput schema:\n${CLIENT_OUTPUT_SCHEMA}`),
+    callLLM<AdminPreCallReport>(client, ADMIN_SYSTEM_PROMPT, `${context}\n\nOutput schema:\n${ADMIN_OUTPUT_SCHEMA}`),
+  ]);
 
-    const raw = completion.choices[0]?.message?.content ?? "";
-    const parsed = JSON.parse(raw) as TailoredResponse;
-    return { ...parsed, type: "llm" };
-  } catch (err) {
-    logger.warn({ err }, "Recommendation provider failed; using original rule-based recommendations");
-    return buildFallbackResponse(data);
-  }
+  return {
+    clientSnapshot:
+      snapshotResult.status === "fulfilled"
+        ? { ...snapshotResult.value, source: "LLM" }
+        : buildTemplateClientSnapshot(intake),
+    adminReport:
+      reportResult.status === "fulfilled"
+        ? { ...reportResult.value, source: "LLM" }
+        : buildTemplateAdminReport(intake),
+  };
 }
 
-// ── Rule-based fallback ──────────────────────────────────────────────────────
+async function callLLM<T>(client: OpenAI, system: string, user: string): Promise<T> {
+  const completion = await client.chat.completions.create({
+    model: MODEL,
+    temperature: 0.7,
+    max_tokens: 1200,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+  });
+  return JSON.parse(completion.choices[0]?.message?.content ?? "{}") as T;
+}
 
-function buildFallbackResponse(data: IntakeFormData): TailoredResponse {
-  const comfortLabel = AI_COMFORT_LABELS[data.aiComfort] ?? "familiar with AI";
-  const name = data.name.split(" ")[0];
+// ── Template fallbacks ───────────────────────────────────────────────────────
 
-  const aiLevelSummary =
-    data.aiComfort <= 1
-      ? `${name}, you're at the very beginning of your AI journey — and that's the perfect place to start. Everything we'll set up together will be explained in plain English.`
-      : data.aiComfort <= 3
-      ? `${name}, you've already got some hands-on experience with AI, which means we can skip the basics and move straight to building workflows that save you real hours.`
-      : `${name}, you're already running automations — we'll build on what you know and layer in more powerful, connected workflows.`;
+function buildTemplateClientSnapshot(intake: IntakeInput): ClientSnapshot {
+  const label = AI_READINESS_LABELS[intake.aiComfort] ?? "Explorer";
+  const firstName = intake.name.split(" ")[0] ?? intake.name;
 
-  // Build one workflow per selected area (max 4)
-  const workflows = buildFallbackWorkflows(data);
+  const summaries: Record<number, string> = {
+    0: `${firstName}, you're at the very beginning of your AI journey — and that's exactly where Shea starts with most clients. You don't need to know anything about AI; that's her job.`,
+    1: `${firstName}, you've dipped your toes in — and now it's time to turn those one-off experiments into something that actually runs your business. That's what Shea builds.`,
+    2: `${firstName}, you're already getting value from AI weekly. Shea will take that foundation and build a tailored system around your specific role and business.`,
+    3: `${firstName}, you've built automations before. Shea will go deeper — designing a connected system that fits your specific life, clients, and industry.`,
+    4: `${firstName}, you're already running agents. Shea will focus on the gaps, the integration points, and the parts that are still manual — and design a solution that fits your exact context.`,
+  };
 
-  const quickWin = buildQuickWin(data);
+  const focusAreas: FocusArea[] = intake.areas.slice(0, 3).map((a) => ({
+    area: a as FocusArea["area"],
+    name: AREA_NAMES[a] ?? a,
+    whyItMatters: buildAreaWhy(a, intake),
+  }));
 
-  const recommendedTier: TailoredResponse["recommendedTier"] =
-    data.preferredHelp === "done_for_you" || data.aiComfort <= 1
+  const recommendedTier: ClientSnapshot["recommendedTier"] =
+    intake.helpStyle === "done_for_you" || intake.aiComfort <= 1
       ? "done_for_you"
-      : data.preferredHelp === "self_serve" && data.aiComfort >= 3
+      : intake.helpStyle === "self_serve" && intake.aiComfort >= 3
       ? "self_serve"
       : "guided";
 
-  const tierRationale =
-    recommendedTier === "done_for_you"
-      ? "Given your comfort level and preference, the White Glove tier makes the most sense: I'll set everything up and hand you a working system."
-      : recommendedTier === "self_serve"
-      ? "You have the technical confidence to build this yourself. The Self-Serve tier gets you the templates and checklists to move fast."
-      : "The Guided tier is the best fit: we'll build your workflows together on live calls so it actually gets done.";
-
-  const ctaText = `Book a free 20-minute call and let's map exactly where AI can take ${data.hoursLost}+ hours a week off your plate.`;
-
   return {
-    aiLevelSummary,
-    workflows,
-    quickWin,
+    aiReadinessLabel: label,
+    aiReadinessSummary: summaries[intake.aiComfort] ?? summaries[1]!,
+    focusAreas,
     recommendedTier,
-    tierRationale,
-    ctaText,
-    type: "fallback",
+    tierRationale: buildTierRationale(recommendedTier, intake),
+    ctaText: `Book your free 1:1 with Shea — she'll review your answers and map out exactly what a tailored setup would look like for your ${intake.industry} business.`,
+    source: "TEMPLATE",
   };
 }
 
-function buildFallbackWorkflows(data: IntakeFormData): TailoredResponse["workflows"] {
-  const areaWorkflows: Record<Area, TailoredResponse["workflows"][number]> = {
-    sales: {
-      area: "sales",
-      title: "Weekly prospect list builder",
-      description: `Each week, an AI workflow finds new ${data.industry} prospects that match your ideal client profile and builds a list you review on Monday morning. No more blank-page prospecting.`,
-    },
-    marketing: {
-      area: "marketing",
-      title: "Content repurposing pipeline",
-      description: `Turn one piece of content into a week of social posts, a newsletter snippet, and an SEO summary — automatically. You approve, then publish.`,
-    },
-    executive_assistant: {
-      area: "executive_assistant",
-      title: "Smart inbox triage and draft replies",
-      description: `Your inbox is scanned each morning: urgent emails are flagged, routine ones get a draft reply ready for one-click send. You stay in control without living in your inbox.`,
-    },
-    customer_support: {
-      area: "customer_support",
-      title: "First-response draft generator",
-      description: `When a support request comes in, AI drafts a personalised first response based on your FAQ and past replies. You review and send — response times drop without more effort.`,
-    },
+function buildAreaWhy(area: string, intake: IntakeInput): string {
+  const map: Record<string, string> = {
+    sales: `With ${intake.hoursLost}+ hours a week going to repetitive work, a tailored sales system would put prospecting and follow-up on autopilot.`,
+    marketing: `A human-designed content and campaign system would free you from the grind while keeping everything on-brand.`,
+    executive_assistant: `Inbox, scheduling, and logistics are the biggest hidden time drains — the right setup changes your whole day.`,
+    customer_support: `Faster, more consistent responses without spending more time: that's what a tailored support system delivers.`,
   };
-
-  return data.areas.slice(0, 4).map((a) => areaWorkflows[a]);
+  return map[area] ?? `This area is a high-impact opportunity given what you shared about your role.`;
 }
 
-function buildQuickWin(data: IntakeFormData): string {
-  const topSink = data.timeSinks[0];
+function buildTierRationale(tier: ClientSnapshot["recommendedTier"], intake: IntakeInput): string {
+  if (tier === "done_for_you") return `Given your comfort level and preference, Shea would design and deliver everything — you just show up to the handoff call.`;
+  if (tier === "self_serve") return `You have the confidence to run with the right framework. Shea will give you the templates and a clear plan.`;
+  return `Working together in live sessions is the fastest way to get a real system built around your specific situation.`;
+}
 
-  if (topSink === "prospecting" || data.areas.includes("sales")) {
-    return `This week: open ChatGPT and paste in the description of your single best client. Ask it to "write 10 search queries I can use to find companies just like this one." That's your prospecting shortlist for the week.`;
-  }
-  if (topSink === "email" || topSink === "followups") {
-    return `This week: pick your most common follow-up situation and ask ChatGPT to write three versions of that email in your voice. Save the best one as a template — you'll send it in seconds next time.`;
-  }
-  if (topSink === "social_content" || data.areas.includes("marketing")) {
-    return `This week: take your last blog post or newsletter and ask ChatGPT to turn it into five LinkedIn posts and three tweet-length ideas. That's a week of content done in 20 minutes.`;
-  }
-  if (data.areas.includes("executive_assistant")) {
-    return `This week: write out the three emails you send most often. Ask ChatGPT to draft a reusable template for each. Paste them into your email client as canned responses — you'll save 20 minutes tomorrow.`;
-  }
-  return `This week: write down the single task that eats the most time in your week. Ask ChatGPT to suggest three ways AI could handle part of it. Pick the one that sounds easiest and try it today.`;
+function buildTemplateAdminReport(intake: IntakeInput): AdminPreCallReport {
+  const firstName = intake.name.split(" ")[0] ?? intake.name;
+  return {
+    intakeSummary: `${intake.name} is a ${intake.role} in the ${intake.industry} industry with a ${intake.bizSize}-person business. They selected ${intake.areas.map((a) => AREA_NAMES[a] ?? a).join(" and ")} as their priority areas and estimate losing ~${intake.hoursLost} hours/week to repetitive work. They prefer a ${intake.helpStyle} engagement style.`,
+    situationAndPains: `Their top time sinks (${intake.timeSinks.slice(0, 3).join(", ")}) suggest they're in a manual execution loop with no systematic delegation. At ${intake.bizSize} team size, every hour lost is directly Shea's opportunity to quantify ROI. Their AI comfort level (${intake.aiComfort}/4) means ${intake.aiComfort <= 1 ? "we need to lead with simplicity and outcome, not technology" : "we can move faster and discuss tools directly"}.`,
+    aiReadinessAssessment: `Comfort level ${intake.aiComfort}/4 (${AI_READINESS_LABELS[intake.aiComfort]}). ${intake.tools.includes("none") || intake.tools.length === 0 ? "No current AI tool usage — start from scratch." : `Currently using: ${intake.tools.join(", ")}.`} ${intake.automateFirst ? `Their instinct to automate "${intake.automateFirst}" is a strong signal of readiness.` : "No clear automation instinct stated yet — probe for one on the call."}`,
+    opportunityAreas: intake.areas.slice(0, 4).map((a, i) => ({
+      area: a,
+      title: AREA_NAMES[a] ?? a,
+      estimatedTimeSavedHrsPerWeek: Math.round((intake.hoursLost / intake.areas.length) * 0.6),
+      situationNote: `Client flagged this as a priority area with ${intake.timeSinks.filter((s) => getAreaSinks(a).includes(s)).join(", ") || "general workflow"} as key pain points.`,
+      solutionIdeas: getAreaSolutionIdeas(a, intake),
+      toolOptions: getAreaToolOptions(a, intake),
+    })),
+    likelyObjections: [
+      "\"I don't have time to learn new tools\"",
+      "\"I've tried this before and it didn't stick\"",
+      "\"I'm not sure how much this will actually save me\"",
+      intake.bizSize === "solo" ? "\"I can't afford it right now\"" : "\"My team won't adopt it\"",
+    ],
+    callAgenda: [
+      "5 min — Welcome and confirm their goals",
+      "10 min — Walk through their intake answers and clarify pains",
+      "15 min — Present opportunity areas and get reactions",
+      "10 min — Walkthrough of what a tailored setup would look like",
+      "10 min — Discuss recommended tier and investment",
+      "5 min — Next steps and scheduling",
+      "5 min — Q&A",
+    ],
+    talkingPoints: [
+      `They're losing ~${intake.hoursLost} hrs/week — at even $50/hr that's $${intake.hoursLost * 50 * 52 / 1000}k/year in hidden cost.`,
+      "ATG's differentiator: a human-designed system built around your specific life, clients, and industry — not a generic tool or course.",
+      "You don't need to become an AI expert. Shea handles the setup and runs it for you.",
+      `Their comfort level (${intake.aiComfort}/4) means we ${intake.aiComfort <= 1 ? "keep it simple and outcome-focused" : "can move quickly into tool discussions"}.`,
+    ],
+    discoveryQuestions: [
+      "Walk me through a typical Monday morning — what's the first thing that makes you feel behind?",
+      `You mentioned losing ${intake.hoursLost} hours a week — what does that cost you in stress, not just time?`,
+      `You said you'd automate "${intake.automateFirst ?? "something"}" first — tell me more about why that one.`,
+      "What has to be perfect before you'd trust a system to handle it?",
+      "What happened the last time you tried to systematize something in your business?",
+    ],
+    recommendedTier: buildTemplateClientSnapshot(intake).recommendedTier,
+    recommendedScope: `${intake.helpStyle === "done_for_you" ? "White Glove" : intake.helpStyle === "guided" ? "Guided (1:1 or cohort)" : "Self-serve with Guided upgrade path"}: focus on ${intake.areas.slice(0, 2).map((a) => AREA_NAMES[a] ?? a).join(" and ")} first. Estimated ${intake.aiComfort <= 1 ? "4-6 weeks" : "2-4 weeks"} to first working system.`,
+    risks: [
+      intake.aiComfort <= 1 ? "Low AI comfort — may need more hand-holding than expected" : "Higher comfort may create scope creep (\"can we also add...\").",
+      intake.bizSize === "solo" ? "Solo operator — budget sensitivity is real; be ready with ROI numbers." : "Multi-person team — adoption and change management may be a factor.",
+      "If they've had a bad experience with AI tools before, address it head-on early.",
+    ],
+    nextSteps: [
+      "Send a calendar invite for the consultation",
+      "Prepare a 1-page tailored proposal based on their intake",
+      "Identify 1 quick win to show them in the first call",
+      "Review any industry-specific context before the call",
+    ],
+    source: "TEMPLATE",
+  };
+}
+
+function getAreaSinks(area: string): string[] {
+  const map: Record<string, string[]> = {
+    executive_assistant: ["email", "scheduling", "admin", "personal_logistics"],
+    marketing: ["social_content", "research", "email", "proposals"],
+    sales: ["prospecting", "followups", "research", "proposals", "email"],
+    customer_support: ["email", "followups", "research"],
+  };
+  return map[area] ?? [];
+}
+
+function getAreaSolutionIdeas(area: string, intake: IntakeInput): string[] {
+  const map: Record<string, string[]> = {
+    executive_assistant: ["AI inbox triage and draft replies", "Automated calendar management", "Smart meeting notes and action item capture", "Travel and logistics coordination workflow"],
+    marketing: ["Content repurposing pipeline (one piece → multiple formats)", "AI-drafted email campaigns with brand voice", "Competitor and market research digest", "SEO content brief generator"],
+    sales: [`Automated prospect list for ${intake.industry}`, "First-touch outreach in their voice", "Follow-up sequence and nudge system", "CRM auto-logging and deal tracking"],
+    customer_support: ["FAQ-powered first-response drafts", "Ticket triage and prioritization", "Customer sentiment and feedback digest", "Help doc generator from conversations"],
+  };
+  return map[area] ?? ["Custom workflow to be defined on the call"];
+}
+
+function getAreaToolOptions(area: string, intake: IntakeInput): string[] {
+  const hasGPT = intake.tools.includes("chatgpt");
+  const hasClaude = intake.tools.includes("claude");
+  const hasZapier = intake.tools.includes("zapier_make");
+  const hasCRM = intake.tools.includes("crm");
+
+  const base: Record<string, string[]> = {
+    executive_assistant: ["ChatGPT or Claude for drafts", "Zapier/Make for automation triggers", "Google Calendar + AI scheduling"],
+    marketing: ["Claude for brand voice", "ChatGPT for research and ideation", "Buffer/Hootsuite + AI scheduling"],
+    sales: [hasCRM ? "Existing CRM + AI enrichment" : "HubSpot or Airtable as lightweight CRM", "Clay or Apollo for prospecting", "ChatGPT or Claude for outreach drafts"],
+    customer_support: ["Intercom or Freshdesk + AI", "ChatGPT for reply drafts", "Zapier/Make for ticket routing"],
+  };
+
+  const tools = base[area] ?? [];
+  if (hasGPT && !tools.some((t) => t.includes("ChatGPT"))) tools.unshift("ChatGPT (already using)");
+  if (hasClaude && !tools.some((t) => t.includes("Claude"))) tools.unshift("Claude (already using)");
+  if (hasZapier) tools.push("Zapier/Make (already using — extend it)");
+  return tools;
 }
