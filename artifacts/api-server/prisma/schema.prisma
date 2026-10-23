@@ -1,13 +1,16 @@
 // Prisma schema for ATG Consulting
-// SQLite in dev/Replit; set DATABASE_URL to a postgres:// connection string for production.
-// Switch provider to "postgresql" and run `prisma migrate dev` when moving to Postgres.
+// Provider: PostgreSQL (Replit Postgres / Neon / Supabase / any Postgres URL).
+// For local dev with SQLite: change provider back to "sqlite" and set
+// DATABASE_URL="file:./prisma/dev.db" in .env.local (not committed).
+// All String fields map to TEXT in Postgres (no length limits).
+// JSON data is stored serialised as text (no Json type used) for portability.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
