@@ -137,10 +137,12 @@ export default function IntakeForm() {
 
       {/* Step heading */}
       <div className="mb-6">
-        <p className="text-xs font-bold text-orange tracking-widest uppercase">
+        <p className="font-mono text-xs font-medium mb-1" style={{ color: "var(--blue)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
           Step {step} of {TOTAL_STEPS}
         </p>
-        <h2 className="mt-1 text-2xl font-extrabold text-navy">{STEP_LABELS[step - 1]}</h2>
+        <h2 className="font-extrabold text-2xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.025em" }}>
+          {STEP_LABELS[step - 1]}
+        </h2>
       </div>
 
       {/* Honeypot – visually hidden, filled only by bots */}
@@ -181,7 +183,8 @@ export default function IntakeForm() {
 
       {/* Submit error */}
       {submitError && (
-        <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm" role="alert">
+        <div className="mt-4 p-4 rounded-lg text-sm" role="alert"
+          style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.2)", color: "#DC2626" }}>
           {submitError}
         </div>
       )}
@@ -232,12 +235,12 @@ export default function IntakeForm() {
       </div>
 
       {/* Time estimate */}
-      <p className="mt-4 text-center text-navy/35 text-xs">
+      <p className="mt-4 text-center font-mono text-2xs" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.04em" }}>
         {step === 1
-          ? "~2 min total · Mostly taps, no signing up"
+          ? "~2 MIN TOTAL · MOSTLY TAPS · NO SIGN-UP"
           : step === 2
-          ? "Almost there — one more step"
-          : "Last step — your plan is moments away"}
+          ? "ALMOST THERE — ONE MORE STEP"
+          : "LAST STEP — YOUR SNAPSHOT IS MOMENTS AWAY"}
       </p>
     </div>
   );

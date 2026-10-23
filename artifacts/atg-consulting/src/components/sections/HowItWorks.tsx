@@ -18,26 +18,62 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-20 sm:py-28 bg-navy/[0.02]" aria-labelledby="how-heading">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto">
-          <p className="section-eyebrow mb-3">How it works</p>
-          <h2 id="how-heading" className="section-heading">Human-led from start to finish.</h2>
-          <p className="mt-4 text-navy/65 text-lg">
+    <section
+      id="how-it-works"
+      className="py-20 sm:py-28"
+      style={{ background: "var(--canvas-2)", borderTop: "1px solid var(--canvas-border)", borderBottom: "1px solid var(--canvas-border)" }}
+      aria-labelledby="how-heading"
+    >
+      <div className="max-w-wide mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-xl mx-auto mb-14">
+          <p className="eyebrow mb-4">How it works</p>
+          <h2 id="how-heading" className="section-heading" style={{ color: "var(--canvas-text)" }}>
+            Human-led from start to finish.
+          </h2>
+          <p className="mt-4 text-base" style={{ color: "var(--canvas-text-2)" }}>
             Shea handles the design. You don&apos;t need to become an AI expert.
           </p>
         </div>
 
-        <div className="mt-16 grid md:grid-cols-3 gap-8 relative">
-          <div className="hidden md:block absolute top-12 left-[calc(16.67%+2rem)] right-[calc(16.67%+2rem)] h-px bg-orange/25" aria-hidden="true" />
-          {steps.map((s) => (
-            <div key={s.n} className="relative flex flex-col items-center text-center">
-              <div className="relative z-10 w-24 h-24 rounded-full bg-navy flex flex-col items-center justify-center shadow-lg mb-6">
-                <span className="text-orange font-bold text-[10px] tracking-widest uppercase">Step</span>
-                <span className="text-white font-extrabold text-3xl leading-none">{s.n}</span>
+        <div className="grid md:grid-cols-3 gap-6">
+          {steps.map((s, i) => (
+            <div
+              key={s.n}
+              className="relative p-6 rounded-xl"
+              style={{
+                background: "var(--canvas-1)",
+                border: "1px solid var(--canvas-border)",
+              }}
+            >
+              {/* Step indicator */}
+              <div className="flex items-center gap-3 mb-5">
+                <span
+                  className="font-mono text-xs font-bold px-2 py-1 rounded"
+                  style={{
+                    background: i === 1 ? "var(--blue-subtle-lt)" : "var(--canvas-2)",
+                    color: i === 1 ? "var(--blue-btn)" : "var(--canvas-text-3)",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  STEP {s.n}
+                </span>
+                {i < steps.length - 1 && (
+                  <div
+                    className="hidden md:block absolute top-8 -right-3 w-6 h-px"
+                    style={{ background: "var(--canvas-border)", zIndex: 1 }}
+                    aria-hidden="true"
+                  />
+                )}
               </div>
-              <h3 className="font-bold text-navy text-xl mb-3">{s.title}</h3>
-              <p className="text-navy/60 leading-relaxed">{s.detail}</p>
+              <h3
+                className="font-semibold text-base mb-2"
+                style={{ color: "var(--canvas-text)", letterSpacing: "-0.015em" }}
+              >
+                {s.title}
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>
+                {s.detail}
+              </p>
             </div>
           ))}
         </div>

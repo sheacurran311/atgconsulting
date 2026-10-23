@@ -1,8 +1,3 @@
-// Step 1 — About you
-// Collects: name, email, role, industry, bizSize, areas
-// All chips; name/email/role/industry are short text inputs.
-// 'areas' (where they want help) drives filtered time-sinks in Step 2.
-
 import Chip from "./Chip";
 import type { IntakeFormData, Area, BizSize } from "@/types/intake";
 import { AREA_LABELS, AREA_DESCRIPTIONS, BIZ_SIZE_LABELS } from "@/types/intake";
@@ -18,11 +13,21 @@ interface Props {
 const AREAS: Area[] = ["executive_assistant", "marketing", "sales", "customer_support"];
 const BIZ_SIZES: BizSize[] = ["solo", "2-10", "11-50", "50+"];
 
-const inputCls =
-  "w-full rounded-xl border border-navy/20 px-4 py-3 text-navy placeholder:text-navy/35 focus:outline-none focus:ring-2 focus:ring-orange focus:border-transparent text-sm";
-
 function toggleArea(current: Area[], a: Area): Area[] {
   return current.includes(a) ? current.filter((x) => x !== a) : [...current, a];
+}
+
+function FieldLabel({ id, children, required }: { id: string; children: React.ReactNode; required?: boolean }) {
+  return (
+    <label htmlFor={id} className="block text-sm font-medium mb-1.5" style={{ color: "var(--canvas-text)" }}>
+      {children}
+      {required && <span style={{ color: "var(--blue)", marginLeft: 2 }} aria-hidden="true">*</span>}
+    </label>
+  );
+}
+
+function FieldError({ msg }: { msg?: string }) {
+  return msg ? <p className="mt-1 font-mono text-2xs" style={{ color: "#DC2626", letterSpacing: "0.02em" }}>{msg}</p> : null;
 }
 
 export default function Step1About({ data, onChange, errors }: Props) {
@@ -31,126 +36,92 @@ export default function Step1About({ data, onChange, errors }: Props) {
       {/* Name + Email */}
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="name">
-            Name <span className="text-orange" aria-hidden="true">*</span>
-          </label>
-          <input
-            id="name"
-            type="text"
-            autoComplete="name"
-            value={data.name}
+          <FieldLabel id="name" required>Name</FieldLabel>
+          <input id="name" type="text" autoComplete="name" value={data.name}
             onChange={(e) => onChange({ name: e.target.value })}
-            className={inputCls}
-            placeholder="Shea Curran"
-            maxLength={100}
-            aria-required="true"
-            aria-invalid={!!errors.name}
-            aria-describedby={errors.name ? "name-err" : undefined}
-          />
-          {errors.name && <p id="name-err" className="mt-1 text-xs text-red-500">{errors.name}</p>}
+            className="field-input" placeholder="Shea Curran" maxLength={100}
+            aria-required="true" aria-invalid={!!errors.name} />
+          <FieldError msg={errors.name} />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="email">
-            Email <span className="text-orange" aria-hidden="true">*</span>
-          </label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            value={data.email}
+          <FieldLabel id="email" required>Email</FieldLabel>
+          <input id="email" type="email" autoComplete="email" value={data.email}
             onChange={(e) => onChange({ email: e.target.value })}
-            className={inputCls}
-            placeholder="shea@example.com"
-            maxLength={200}
-            aria-required="true"
-            aria-invalid={!!errors.email}
-            aria-describedby={errors.email ? "email-err" : undefined}
-          />
-          {errors.email && <p id="email-err" className="mt-1 text-xs text-red-500">{errors.email}</p>}
+            className="field-input" placeholder="shea@example.com" maxLength={200}
+            aria-required="true" aria-invalid={!!errors.email} />
+          <FieldError msg={errors.email} />
         </div>
       </div>
 
       {/* Role + Industry */}
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="role">
-            Role / position <span className="text-orange" aria-hidden="true">*</span>
-          </label>
-          <input
-            id="role"
-            type="text"
-            value={data.role}
+          <FieldLabel id="role" required>Role / position</FieldLabel>
+          <input id="role" type="text" value={data.role}
             onChange={(e) => onChange({ role: e.target.value })}
-            className={inputCls}
-            placeholder="Owner, sales rep, consultant…"
-            maxLength={100}
-            aria-required="true"
-            aria-invalid={!!errors.role}
-          />
-          {errors.role && <p className="mt-1 text-xs text-red-500">{errors.role}</p>}
+            className="field-input" placeholder="Owner, sales rep, consultant…" maxLength={100}
+            aria-required="true" />
+          <FieldError msg={errors.role} />
         </div>
         <div>
-          <label className="block text-sm font-semibold text-navy mb-1.5" htmlFor="industry">
-            Industry <span className="text-orange" aria-hidden="true">*</span>
-          </label>
-          <input
-            id="industry"
-            type="text"
-            value={data.industry}
+          <FieldLabel id="industry" required>Industry</FieldLabel>
+          <input id="industry" type="text" value={data.industry}
             onChange={(e) => onChange({ industry: e.target.value })}
-            className={inputCls}
-            placeholder="Printing, real estate, consulting…"
-            maxLength={100}
-            aria-required="true"
-            aria-invalid={!!errors.industry}
-          />
-          {errors.industry && <p className="mt-1 text-xs text-red-500">{errors.industry}</p>}
+            className="field-input" placeholder="Printing, real estate, consulting…" maxLength={100}
+            aria-required="true" />
+          <FieldError msg={errors.industry} />
         </div>
       </div>
 
       {/* Business size */}
       <div>
-        <p className="text-sm font-semibold text-navy mb-2" id="bizsize-label">
-          Business size <span className="text-orange" aria-hidden="true">*</span>
+        <p className="text-sm font-medium mb-2" id="bizsize-label" style={{ color: "var(--canvas-text)" }}>
+          Business size <span style={{ color: "var(--blue)" }} aria-hidden="true">*</span>
         </p>
         <div className="flex flex-wrap gap-2" role="group" aria-labelledby="bizsize-label">
           {BIZ_SIZES.map((s) => (
-            <Chip
-              key={s}
-              label={BIZ_SIZE_LABELS[s]}
-              selected={data.bizSize === s}
-              onToggle={() => onChange({ bizSize: s })}
-            />
+            <Chip key={s} label={BIZ_SIZE_LABELS[s]} selected={data.bizSize === s}
+              onToggle={() => onChange({ bizSize: s })} />
           ))}
         </div>
-        {errors.bizSize && <p className="mt-1 text-xs text-red-500">{errors.bizSize}</p>}
+        <FieldError msg={errors.bizSize} />
       </div>
 
-      {/* Areas of help */}
+      {/* Areas */}
       <div>
-        <p className="text-sm font-semibold text-navy mb-1" id="areas-label">
-          Where do you want help? <span className="text-orange" aria-hidden="true">*</span>
+        <p className="text-sm font-medium mb-0.5" id="areas-label" style={{ color: "var(--canvas-text)" }}>
+          Where do you want help? <span style={{ color: "var(--blue)" }} aria-hidden="true">*</span>
         </p>
-        <p className="text-xs text-navy/50 mb-2">Pick all that apply — we&apos;ll show relevant options in the next step.</p>
+        <p className="text-xs mb-3" style={{ color: "var(--canvas-text-3)" }}>
+          Pick all that apply — we&apos;ll show relevant options in the next step.
+        </p>
         <div className="grid sm:grid-cols-2 gap-3" role="group" aria-labelledby="areas-label">
-          {AREAS.map((a) => (
-            <button
-              key={a}
-              type="button"
-              onClick={() => onChange({ areas: toggleArea(data.areas, a) })}
-              aria-pressed={data.areas.includes(a)}
-              className={`flex flex-col items-start text-left p-3 rounded-xl border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-orange ${
-                data.areas.includes(a)
-                  ? "border-orange bg-orange/8 text-navy"
-                  : "border-navy/15 bg-white hover:border-orange/40 text-navy/70"
-              }`}
-            >
-              <span className="font-semibold text-sm">{AREA_LABELS[a]}</span>
-              <span className="text-xs mt-0.5 text-navy/50">{AREA_DESCRIPTIONS[a]}</span>
-            </button>
-          ))}
+          {AREAS.map((a) => {
+            const selected = data.areas.includes(a);
+            return (
+              <button
+                key={a}
+                type="button"
+                onClick={() => onChange({ areas: toggleArea(data.areas, a) })}
+                aria-pressed={selected}
+                className="text-left p-3 rounded-lg transition-all focus:outline-none focus-visible:ring-2"
+                style={{
+                  border: `1px solid ${selected ? "var(--blue)" : "var(--canvas-border)"}`,
+                  background: selected ? "var(--blue-subtle-lt)" : "var(--canvas-1)",
+                  boxShadow: selected ? "0 0 0 1px rgba(249,115,22,0.15)" : "none",
+                }}
+              >
+                <span className="font-semibold text-sm block" style={{ color: "var(--canvas-text)" }}>
+                  {AREA_LABELS[a]}
+                </span>
+                <span className="text-xs mt-0.5 block" style={{ color: "var(--canvas-text-3)" }}>
+                  {AREA_DESCRIPTIONS[a]}
+                </span>
+              </button>
+            );
+          })}
         </div>
-        {errors.areas && <p className="mt-1 text-xs text-red-500">{errors.areas}</p>}
+        <FieldError msg={errors.areas} />
       </div>
     </div>
   );

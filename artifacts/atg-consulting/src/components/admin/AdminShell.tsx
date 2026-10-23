@@ -1,15 +1,12 @@
-/**
- * Admin portal shell. Redirects non-admins to /app.
- */
 import { Link, useLocation, Redirect } from "wouter";
 import { useAccount } from "@/lib/useAccount";
 
 const navItems = [
-  { label: "Clients", to: "/admin/clients" },
-  { label: "Intakes", to: "/admin/intakes" },
-  { label: "Reports", to: "/admin/reports" },
-  { label: "Content", to: "/admin/content" },
-  { label: "Audit log", to: "/admin/audit" },
+  { label: "Clients",     to: "/admin/clients"  },
+  { label: "Intakes",     to: "/admin/intakes"  },
+  { label: "Reports",     to: "/admin/reports"  },
+  { label: "Content",     to: "/admin/content"  },
+  { label: "Audit log",   to: "/admin/audit"    },
 ];
 
 interface Props { children: React.ReactNode }
@@ -18,47 +15,88 @@ export default function AdminShell({ children }: Props) {
   const { account, loading } = useAccount();
   const [location] = useLocation();
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-navy/50">Loading…</p></div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--ink)" }}>
+        <span className="font-mono text-xs" style={{ color: "var(--ink-text-3)", letterSpacing: "0.08em" }}>
+          LOADING ADMIN…
+        </span>
+      </div>
+    );
+  }
   if (!account) return <Redirect to="/sign-in" />;
   if (!account.isAdmin) return <Redirect to="/app" />;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <aside className="hidden md:flex flex-col w-56 bg-navy-800 bg-navy text-white flex-shrink-0">
-        <div className="p-5 border-b border-white/10">
+    <div className="min-h-screen flex" style={{ background: "var(--canvas)" }}>
+
+      {/* Sidebar */}
+      <aside
+        className="hidden md:flex flex-col w-52 flex-shrink-0"
+        style={{ background: "var(--ink)", borderRight: "1px solid var(--ink-border)" }}
+      >
+        <div className="p-4 pb-3" style={{ borderBottom: "1px solid var(--ink-border)" }}>
           <Link to="/">
-            <img src="/brand/logos/svg/optionA_lockup_white.svg" alt="ATG Consulting" className="h-7 w-auto mb-1" />
+            <img
+              src="/brand/logos/svg/optionA_lockup_notag.svg"
+              alt="ATG Consulting"
+              className="h-7 w-auto"
+              style={{ filter: "brightness(0) invert(1)" }}
+            />
           </Link>
-          <span className="text-orange text-xs font-bold tracking-widest uppercase">Admin</span>
+          <span className="font-mono text-2xs mt-2 block" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
+            ADMIN CONSOLE
+          </span>
         </div>
-        <nav className="flex-1 p-3 space-y-0.5" aria-label="Admin navigation">
+
+        <nav className="flex-1 p-2 space-y-0.5 mt-1" aria-label="Admin navigation">
           {navItems.map((item) => {
             const active = location.startsWith(item.to);
             return (
               <Link key={item.to} to={item.to}>
-                <span className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? "bg-white/15 text-white" : "text-white/60 hover:text-white hover:bg-white/8"}`}>
+                <span
+                  className="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer"
+                  style={{
+                    color: active ? "var(--ink-text)" : "var(--ink-text-3)",
+                    background: active ? "var(--ink-2)" : "transparent",
+                  }}
+                >
                   {item.label}
                 </span>
               </Link>
             );
           })}
         </nav>
-        <div className="p-3 border-t border-white/10">
-          <Link to="/app"><span className="flex px-3 py-2 text-white/50 hover:text-white text-sm rounded-lg">← Client view</span></Link>
+
+        <div className="p-2" style={{ borderTop: "1px solid var(--ink-border)" }}>
+          <Link to="/app">
+            <span className="flex px-3 py-2 text-xs font-medium rounded-md cursor-pointer" style={{ color: "var(--ink-text-3)" }}>
+              ← Client view
+            </span>
+          </Link>
         </div>
       </aside>
 
-      {/* Mobile tabs */}
-      <div className="md:hidden fixed top-16 left-0 right-0 z-40 bg-navy px-4 py-2 flex gap-2 overflow-x-auto border-b border-white/10">
+      {/* Mobile top tabs */}
+      <div
+        className="md:hidden fixed top-14 left-0 right-0 z-40 flex overflow-x-auto"
+        style={{ background: "var(--ink)", borderBottom: "1px solid var(--ink-border)" }}
+      >
         {navItems.map((item) => (
           <Link key={item.to} to={item.to}>
-            <span className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${location.startsWith(item.to) ? "bg-white/20 text-white" : "text-white/60"}`}>{item.label}</span>
+            <span
+              className="flex-shrink-0 px-4 py-2.5 text-xs font-semibold whitespace-nowrap cursor-pointer"
+              style={{ color: location.startsWith(item.to) ? "var(--blue)" : "var(--ink-text-3)" }}
+            >
+              {item.label}
+            </span>
           </Link>
         ))}
       </div>
 
-      <main className="flex-1 min-w-0">
-        <div className="p-4 sm:p-8 mt-16 md:mt-0">
+      {/* Main */}
+      <main className="flex-1 min-w-0 overflow-auto">
+        <div className="p-5 sm:p-8 mt-10 md:mt-0">
           {children}
         </div>
       </main>

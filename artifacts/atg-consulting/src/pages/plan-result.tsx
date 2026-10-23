@@ -1,28 +1,28 @@
 /**
- * /start/result/:intakeId — Client-facing plan result.
- * Shows the SHORT snapshot only: readiness level, 2-3 focus areas, CTA.
- * No implementation details, no tool lists, no step-by-step instructions.
+ * /start/result/:intakeId — Client-facing plan snapshot.
+ * Short, no implementation details, no tool lists, no step-by-step.
  */
-
 import { useState, useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import { useUser } from "@clerk/react";
 import { api, type PlanResult } from "@/lib/api";
 
 const AREA_ICONS: Record<string, string> = {
-  sales: "📈",
-  marketing: "📣",
-  executive_assistant: "🗓️",
-  customer_support: "💬",
+  sales: "◈",
+  marketing: "◉",
+  executive_assistant: "◷",
+  customer_support: "◎",
 };
 
 const TIER_LABELS: Record<string, string> = {
   self_serve: "Self-serve",
-  guided: "Guided (with Shea)",
+  guided: "Guided — with Shea",
   done_for_you: "White Glove — done for you",
 };
 
-const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
+const BOOKING_URL = typeof window !== "undefined"
+  ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book")
+  : "#book";
 
 export default function PlanResultPage() {
   const [, params] = useRoute("/start/result/:intakeId");
@@ -44,58 +44,87 @@ export default function PlanResultPage() {
   }, [intakeId]);
 
   async function handleClaim() {
-    if (!intakeId) return;
     setClaiming(true);
-    try {
-      await api.plan.claim(intakeId);
-      setClaimed(true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save plan.");
-    } finally {
-      setClaiming(false);
-    }
+    try { await api.plan.claim(intakeId); setClaimed(true); }
+    catch (e) { setError(e instanceof Error ? e.message : "Failed to save."); }
+    finally { setClaiming(false); }
   }
 
-  if (loading) return <LoadingState />;
-  if (error) return <ErrorState message={error} />;
-  if (!result?.plan) return <ErrorState message="Plan not found." />;
+  if (loading) return <Shell><Spinner /></Shell>;
+  if (error) return <Shell><ErrorState message={error} /></Shell>;
+  if (!result?.plan) return <Shell><ErrorState message="Plan not found." /></Shell>;
 
   const { plan, name } = result;
   const firstName = name.split(" ")[0];
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-navy/[0.04] to-white">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-
-        {/* Header */}
+    <Shell>
+      <div className="max-w-content mx-auto">
+        {/* Logo */}
         <div className="text-center mb-10">
-          <img src="/brand/logos/svg/optionA_icon.svg" alt="ATG Consulting" className="h-10 w-auto mx-auto mb-5" />
-          <p className="section-eyebrow mb-2">Your snapshot</p>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-navy">
+          <img
+            src="/brand/logos/svg/optionA_icon.svg"
+            alt="ATG Consulting"
+            className="h-9 w-auto mx-auto mb-4"
+          />
+          <p className="font-mono text-xs" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.1em" }}>
+            YOUR SNAPSHOT
+          </p>
+          <h1
+            className="mt-3 font-extrabold text-2xl"
+            style={{ color: "var(--canvas-text)", letterSpacing: "-0.025em" }}
+          >
             Here&apos;s where you are, {firstName}.
           </h1>
-          <p className="mt-3 text-navy/55 text-sm">
-            This is a preliminary read based on your answers. Shea will refine it with you on your call.
+          <p className="mt-2 text-sm" style={{ color: "var(--canvas-text-3)" }}>
+            A preliminary read from your intake. Shea will refine this with you on your call.
           </p>
         </div>
 
         {/* AI Readiness */}
-        <div className="bg-navy rounded-2xl p-6 text-white mb-5">
-          <p className="text-orange font-bold text-xs tracking-widest uppercase mb-2">AI readiness level</p>
-          <p className="text-xl font-extrabold">{plan.aiReadinessLabel}</p>
-          <p className="mt-2 text-white/70 leading-relaxed">{plan.aiReadinessSummary}</p>
+        <div
+          className="rounded-xl p-5 mb-4"
+          style={{ background: "var(--ink)", border: "1px solid var(--ink-border)" }}
+        >
+          <span
+            className="font-mono text-2xs font-bold block mb-2"
+            style={{ color: "var(--blue)", letterSpacing: "0.1em" }}
+          >
+            AI READINESS LEVEL
+          </span>
+          <p className="font-extrabold text-xl mb-2" style={{ color: "var(--ink-text)", letterSpacing: "-0.025em" }}>
+            {plan.aiReadinessLabel}
+          </p>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--ink-text-2)" }}>
+            {plan.aiReadinessSummary}
+          </p>
         </div>
 
         {/* Focus areas */}
-        <div className="mb-5">
-          <p className="text-xs font-bold text-orange tracking-widest uppercase mb-3">Where tailored help would save you the most time</p>
-          <div className="space-y-3">
+        <div className="mb-4">
+          <p
+            className="font-mono text-2xs font-bold mb-3"
+            style={{ color: "var(--canvas-text-3)", letterSpacing: "0.1em" }}
+          >
+            WHERE TAILORED HELP WOULD SAVE YOU THE MOST TIME
+          </p>
+          <div className="space-y-2.5">
             {plan.focusAreas.map((area, i) => (
-              <div key={i} className="rounded-2xl border border-navy/10 bg-white p-5 shadow-sm flex gap-4">
-                <span className="text-2xl flex-shrink-0">{AREA_ICONS[area.area] ?? "⚡"}</span>
+              <div
+                key={i}
+                className="rounded-xl p-4 flex gap-3"
+                style={{ background: "var(--canvas-1)", border: "1px solid var(--canvas-border)" }}
+              >
+                <span className="font-mono text-lg flex-shrink-0 mt-0.5" style={{ color: "var(--blue)" }}>
+                  {AREA_ICONS[area.area] ?? "◆"}
+                </span>
                 <div>
-                  <h3 className="font-bold text-navy">{area.name}</h3>
-                  <p className="text-navy/65 text-sm mt-1 leading-relaxed">{area.whyItMatters}</p>
+                  <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)", letterSpacing: "-0.01em" }}>
+                    {area.name}
+                  </p>
+                  <p className="text-sm mt-0.5 leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>
+                    {area.whyItMatters}
+                  </p>
                 </div>
               </div>
             ))}
@@ -103,84 +132,130 @@ export default function PlanResultPage() {
         </div>
 
         {/* Recommended engagement */}
-        <div className="rounded-2xl border-2 border-navy/15 bg-white p-5 mb-6">
-          <p className="text-xs font-bold text-orange tracking-widest uppercase mb-2">Recommended engagement</p>
-          <p className="text-lg font-extrabold text-navy">{TIER_LABELS[plan.recommendedTier] ?? plan.recommendedTier}</p>
-          <p className="text-navy/65 text-sm mt-1 leading-relaxed">{plan.tierRationale}</p>
+        <div
+          className="rounded-xl p-5 mb-5"
+          style={{ background: "var(--canvas-1)", border: `1px solid var(--canvas-border)` }}
+        >
+          <p className="font-mono text-2xs font-bold mb-2" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.1em" }}>
+            RECOMMENDED ENGAGEMENT
+          </p>
+          <p className="font-extrabold text-lg mb-1.5" style={{ color: "var(--canvas-text)", letterSpacing: "-0.02em" }}>
+            {TIER_LABELS[plan.recommendedTier] ?? plan.recommendedTier}
+          </p>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>
+            {plan.tierRationale}
+          </p>
         </div>
 
-        {/* Preliminary plan note */}
-        <div className="rounded-xl bg-orange/8 border border-orange/20 p-4 mb-7 flex gap-3">
-          <svg className="w-5 h-5 text-orange flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        {/* Preliminary note */}
+        <div
+          className="flex gap-3 items-start p-4 rounded-lg mb-7"
+          style={{ background: "var(--blue-subtle-lt)", border: "1px solid rgba(249,115,22,0.2)" }}
+          role="note"
+        >
+          <svg className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "var(--blue)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-sm text-navy/70 leading-relaxed">
-            <strong className="text-navy">This is a preliminary snapshot.</strong> On your 1:1 call, Shea will review your
-            specific situation in depth and build a tailored plan just for you.
+          <p className="text-sm leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>
+            <strong style={{ color: "var(--canvas-text)" }}>This is a preliminary snapshot.</strong>{" "}
+            On your 1:1 call, Shea will review your specific situation in depth and build a tailored plan just for you.
           </p>
         </div>
 
         {/* Primary CTA */}
         <div className="text-center space-y-4">
-          <p className="text-navy font-semibold text-lg">{plan.ctaText}</p>
+          <p className="font-medium text-base" style={{ color: "var(--canvas-text)" }}>
+            {plan.ctaText}
+          </p>
           <a
             href={BOOKING_URL}
             target={BOOKING_URL.startsWith("http") ? "_blank" : undefined}
             rel="noopener noreferrer"
-            className="btn-primary w-full sm:w-auto px-8 py-4 text-base"
+            className="btn-primary w-full sm:w-auto"
+            style={{ fontSize: "15px", padding: "13px 28px", justifyContent: "center" }}
           >
             Book your 1:1 with Shea
           </a>
 
-          {/* Save plan */}
+          {/* Save / Sign up */}
           {!claimed && isSignedIn && (
-            <div>
-              <button onClick={handleClaim} disabled={claiming} className="btn-ghost text-sm">
-                {claiming ? "Saving…" : "Save this to my account"}
-              </button>
-            </div>
+            <button
+              onClick={handleClaim}
+              disabled={claiming}
+              className="btn-ghost w-full sm:w-auto text-sm"
+            >
+              {claiming ? "Saving…" : "Save this to my account"}
+            </button>
           )}
           {!claimed && !isSignedIn && (
-            <p className="text-navy/45 text-sm">
-              <Link to="/sign-up" className="underline text-navy/60 hover:text-navy">Create a free account</Link> to save this plan and access your client dashboard.
+            <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>
+              <Link to="/sign-up">
+                <span className="underline cursor-pointer" style={{ color: "var(--canvas-text-2)" }}>
+                  Create a free account
+                </span>
+              </Link>{" "}
+              to save this snapshot and access your client dashboard.
             </p>
           )}
           {claimed && (
-            <p className="text-green-600 text-sm font-medium">
-              ✓ Saved to your account — <Link to="/app" className="underline">view your dashboard</Link>
+            <p className="text-sm font-medium" style={{ color: "#16A34A" }}>
+              ✓ Saved to your account —{" "}
+              <Link to="/app">
+                <span className="underline cursor-pointer">view your dashboard</span>
+              </Link>
             </p>
           )}
         </div>
 
         {plan.source === "TEMPLATE" && (
-          <p className="mt-8 text-center text-navy/30 text-xs">
-            Generated from your answers · Full personalisation available with your free 1:1 call
+          <p className="mt-8 text-center font-mono text-2xs" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.04em" }}>
+            GENERATED FROM YOUR ANSWERS · FULL PERSONALISATION ON YOUR FREE 1:1 CALL
           </p>
         )}
+      </div>
+    </Shell>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <main
+      className="min-h-screen py-14 sm:py-20"
+      style={{ background: "var(--canvas)" }}
+    >
+      <div className="max-w-wide mx-auto px-4 sm:px-6 lg:px-8">
+        {children}
       </div>
     </main>
   );
 }
 
-function LoadingState() {
+function Spinner() {
   return (
-    <main className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <img src="/brand/logos/svg/optionA_icon.svg" alt="ATG Consulting" className="h-10 w-auto mx-auto mb-4 animate-pulse" />
-        <p className="text-navy/60">Preparing your snapshot…</p>
-      </div>
-    </main>
+    <div className="flex flex-col items-center justify-center py-20 gap-4">
+      <img
+        src="/brand/logos/svg/optionA_icon.svg"
+        alt="Loading"
+        className="h-9 w-auto"
+        style={{ opacity: 0.5 }}
+      />
+      <p className="font-mono text-xs" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>
+        PREPARING YOUR SNAPSHOT…
+      </p>
+    </div>
   );
 }
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
-      <div className="text-center max-w-md">
-        <p className="text-navy font-semibold mb-3">We couldn&apos;t load your plan</p>
-        <p className="text-navy/60 text-sm mb-6">{message}</p>
-        <Link to="/start" className="btn-primary">Start over</Link>
-      </div>
-    </main>
+    <div className="text-center max-w-md mx-auto py-20">
+      <p className="font-semibold text-base mb-2" style={{ color: "var(--canvas-text)" }}>
+        Couldn&apos;t load your plan
+      </p>
+      <p className="text-sm mb-6" style={{ color: "var(--canvas-text-2)" }}>{message}</p>
+      <Link to="/start">
+        <span className="btn-primary">Start over</span>
+      </Link>
+    </div>
   );
 }

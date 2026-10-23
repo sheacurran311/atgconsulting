@@ -9,20 +9,20 @@ export default function StartPage() {
           {/* Page header */}
           <div className="text-center mb-12">
             <p className="section-eyebrow mb-3">Free · No account needed</p>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy leading-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-canvas-text leading-tight">
               Get your personalised AI plan.
             </h1>
-            <p className="mt-4 text-lg text-navy/60 max-w-xl mx-auto leading-relaxed">
+            <p className="mt-4 text-lg text-canvas-text max-w-xl mx-auto leading-relaxed">
               Tell us about your role and biggest time drains. We&apos;ll generate starter workflows,
               a quick win for this week, and a tier recommendation — instantly.
             </p>
-            <p className="mt-2 text-sm text-navy/40">
+            <p className="mt-2 text-sm text-canvas-text">
               Under 2 minutes · Mostly taps · 3 short steps
             </p>
           </div>
 
           {/* Form */}
-          <div className="bg-white rounded-3xl shadow-sm border border-navy/10 p-6 sm:p-10">
+          <div className="bg-canvas-1 rounded-3xl shadow-sm border border-canvas-border p-6 sm:p-10">
             <IntakeForm />
           </div>
         </div>

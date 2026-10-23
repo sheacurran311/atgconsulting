@@ -1,47 +1,281 @@
+/* ── ATG Consulting design system v3 — monochrome + electric blue ──────────── */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-.cl-formFieldInput::placeholder { color: #536078; opacity: 1; }
-.cl-formButtonPrimary:hover { background-color: #2a4a73; }
-.cl-footerActionLink:hover { text-decoration: underline; }
+/* ── CSS custom properties ──────────────────────────────────────────────────── */
+:root {
+  /* ── Dark canvas (marketing, hero, nav, CTA) — true neutral graphite ──── */
+  --ink:          #0A0A0B;   /* page bg — near-pure black                    */
+  --ink-1:        #111112;   /* surface 1                                     */
+  --ink-2:        #18181A;   /* elevated card                                 */
+  --ink-3:        #232325;   /* strong divider                                */
+  --ink-border:   #2E2E31;   /* hairline border (neutral, no blue tint)       */
+  --ink-text:     #FAFAF9;   /* primary text (off-white)                      */
+  --ink-text-2:   #A1A1A4;   /* secondary — true neutral mid-gray             */
+  --ink-text-3:   #6E6E72;   /* muted/tertiary — neutral                      */
 
-@layer base {
-  html {
-    scroll-behavior: smooth;
-  }
-  body {
-    @apply font-sans text-navy antialiased;
-  }
+  /* ── Light canvas (app/admin, body sections) — neutral grays ─────────── */
+  --canvas:         #FAFAF9; /* page bg                                       */
+  --canvas-1:       #FFFFFF; /* card surface                                  */
+  --canvas-2:       #F2F2F2; /* secondary surface / hover                     */
+  --canvas-border:  #E0E0E0; /* true neutral border                           */
+  --canvas-text:    #0A0A0B; /* primary text                                  */
+  --canvas-text-2:  #6B6B6E; /* secondary — neutral                           */
+  --canvas-text-3:  #9E9EA1; /* muted/tertiary                                */
+
+  /* ── Electric blue accent ─────────────────────────────────────────────── */
+  --blue:           #3B6BFF; /* display, borders, glow, text on dark          */
+  --blue-btn:       #2557E8; /* button bg — 4.9:1 with white, WCAG AA ✅     */
+  --blue-pressed:   #1B45CC; /* pressed / active state                        */
+  --blue-subtle-dk: rgba(59,107,255,0.12); /* tinted bg on dark canvas       */
+  --blue-subtle-lt: rgba(59,107,255,0.08); /* tinted bg on light canvas      */
+  --blue-glow:      0 0 0 1px rgba(59,107,255,0.3), 0 0 28px rgba(59,107,255,0.12);
+
+  /* ── Legacy aliases (keeps --accent refs working during migration) ─────── */
+  --accent:           var(--blue);
+  --blue-btn:       var(--blue-btn);
+  --blue-pressed:   var(--blue-pressed);
+  --blue-subtle-dk: var(--blue-subtle-dk);
+  --blue-subtle-lt: var(--blue-subtle-lt);
+
+  /* ── Radius ───────────────────────────────────────────────────────────── */
+  --radius-sm: 4px;
+  --radius:    8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* ── Motion ───────────────────────────────────────────────────────────── */
+  --ease-standard:  cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast:  120ms;
+  --duration-base:  200ms;
+  --duration-slow:  360ms;
+
+  /* ── Fonts ────────────────────────────────────────────────────────────── */
+  --font-sans: "Geist Variable", "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", "JetBrains Mono", monospace;
+
+  /* ── Dot grid ─────────────────────────────────────────────────────────── */
+  --grid-size: 28px;
 }
 
+/* ── Base ───────────────────────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+  body {
+    @apply font-sans;
+    background-color: var(--canvas);
+    color: var(--canvas-text);
+    font-feature-settings: "cv02","cv03","cv04","cv11";
+  }
+  ::selection {
+    background-color: rgba(59,107,255,0.18);
+    color: inherit;
+  }
+  * { scrollbar-width: thin; scrollbar-color: var(--ink-3) transparent; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--ink-3); border-radius: 9999px; }
+
+  /* Clerk overrides */
+  .cl-formFieldInput::placeholder { color: var(--canvas-text-3); }
+  .cl-formButtonPrimary { background-color: var(--blue-btn) !important; }
+  .cl-formButtonPrimary:hover { background-color: var(--blue-pressed) !important; }
+  .cl-card { border: 1px solid var(--canvas-border) !important; box-shadow: none !important; }
+  .cl-headerTitle { font-family: var(--font-sans) !important; letter-spacing: -0.03em; }
+}
+
+/* ── Components ─────────────────────────────────────────────────────────────── */
 @layer components {
+
+  /* ── Buttons ─────────────────────────────────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-semibold transition-all;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    letter-spacing: -0.01em;
+    padding: 10px 18px;
+    line-height: 1;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-standard);
+  }
+  /* Primary — white text on blue-btn (#2557E8) = 4.9:1 WCAG AA ✅ */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-orange text-white font-semibold text-base hover:bg-orange-500 active:bg-orange-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2;
+    @apply btn;
+    background-color: var(--blue-btn);
+    color: #ffffff;
+    border: 1px solid transparent;
+    @apply focus-visible:ring-blue;
   }
+  .btn-primary:hover  { background-color: var(--blue-pressed); }
+  .btn-primary:active { transform: scale(0.98); }
+
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg border-2 border-navy text-navy font-semibold text-base hover:bg-navy hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2;
+    @apply btn;
+    background-color: transparent;
+    color: var(--canvas-text);
+    border: 1px solid var(--canvas-border);
   }
+  .btn-secondary:hover { background-color: var(--canvas-2); }
+
   .btn-secondary-white {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg border-2 border-white text-white font-semibold text-base hover:bg-white hover:text-navy transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2;
+    @apply btn;
+    background-color: transparent;
+    color: #ffffff;
+    border: 1px solid rgba(255,255,255,0.22);
   }
+  .btn-secondary-white:hover { background-color: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.38); }
+
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-navy/60 hover:text-navy hover:bg-navy/5 transition-colors text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2;
+    @apply btn;
+    background: transparent;
+    color: var(--canvas-text-2);
+    border: 1px solid transparent;
+    padding: 8px 12px;
   }
-  .section-eyebrow {
-    @apply text-orange font-semibold tracking-widest text-sm uppercase;
+  .btn-ghost:hover { background-color: var(--canvas-2); color: var(--canvas-text); }
+
+  .btn-ghost-dark {
+    @apply btn;
+    background: transparent;
+    color: var(--ink-text-2);
+    border: 1px solid transparent;
+    padding: 8px 12px;
+  }
+  .btn-ghost-dark:hover { background: rgba(255,255,255,0.06); color: var(--ink-text); }
+
+  /* ── Typography ──────────────────────────────────────────────────────── */
+  .eyebrow {
+    @apply font-mono font-medium;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--blue);
+  }
+  .section-eyebrow { @apply eyebrow; }
+  .label-mono {
+    @apply font-mono font-medium;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--canvas-text-3);
+  }
+  .label-mono-blue {
+    @apply font-mono font-medium;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--blue);
+  }
+  .display-xl {
+    @apply font-sans font-extrabold;
+    font-size: clamp(40px, 6vw, 72px);
+    line-height: 1.03;
+    letter-spacing: -0.055em;
+  }
+  .display-lg {
+    @apply font-sans font-extrabold;
+    font-size: clamp(32px, 4.5vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.045em;
   }
   .section-heading {
-    @apply text-3xl sm:text-4xl font-extrabold text-navy leading-tight;
+    @apply font-sans font-extrabold;
+    font-size: clamp(26px, 3.5vw, 40px);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
   }
-  /* Chip: a pill-shaped selectable button used in the form */
+
+  /* ── Cards ───────────────────────────────────────────────────────────── */
+  .card {
+    background-color: var(--canvas-1);
+    border: 1px solid var(--canvas-border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+  }
+  .card-hover {
+    @apply card;
+    transition: border-color var(--duration-base) var(--ease-standard),
+                box-shadow var(--duration-base) var(--ease-standard);
+  }
+  .card-hover:hover {
+    border-color: rgba(59,107,255,0.3);
+    box-shadow: 0 0 0 1px rgba(59,107,255,0.08);
+  }
+  .card-dark {
+    background-color: var(--ink-1);
+    border: 1px solid var(--ink-border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+  }
+  .card-dark-hover {
+    @apply card-dark;
+    transition: border-color var(--duration-base), background-color var(--duration-base);
+  }
+  .card-dark-hover:hover {
+    border-color: rgba(59,107,255,0.25);
+    background-color: var(--ink-2);
+  }
+
+  /* ── Inputs ──────────────────────────────────────────────────────────── */
+  .field-input {
+    @apply w-full font-sans text-sm transition-all;
+    background-color: var(--canvas-1);
+    border: 1px solid var(--canvas-border);
+    border-radius: var(--radius-md);
+    color: var(--canvas-text);
+    padding: 10px 14px;
+    outline: none;
+    transition-duration: var(--duration-fast);
+  }
+  .field-input::placeholder { color: var(--canvas-text-3); }
+  .field-input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(59,107,255,0.12);
+  }
+
+  /* ── Chips ───────────────────────────────────────────────────────────── */
   .chip {
-    @apply inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border text-sm font-medium cursor-pointer select-none transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1;
+    @apply inline-flex items-center gap-1.5 font-medium cursor-pointer select-none transition-all;
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--canvas-border);
+    background: var(--canvas-1);
+    color: var(--canvas-text-2);
+    transition-duration: var(--duration-fast);
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-blue focus-visible:ring-offset-1;
   }
-  .chip-unselected {
-    @apply border-navy/20 text-navy/70 hover:border-orange/50 hover:text-navy bg-white;
-  }
+  .chip:hover { border-color: rgba(59,107,255,0.35); color: var(--canvas-text); }
   .chip-selected {
-    @apply border-orange bg-orange/10 text-orange;
+    @apply chip;
+    border-color: var(--blue);
+    background-color: var(--blue-subtle-light);
+    color: var(--blue-btn);
+    font-weight: 600;
+  }
+  .chip-unselected { @apply chip; }
+
+  /* ── Backgrounds ─────────────────────────────────────────────────────── */
+  .bg-dot-dark {
+    background-image: radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px);
+    background-size: var(--grid-size) var(--grid-size);
+  }
+  .bg-dot-light {
+    background-image: radial-gradient(circle, rgba(10,10,11,0.04) 1px, transparent 1px);
+    background-size: var(--grid-size) var(--grid-size);
+  }
+  .bg-grid-dark {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
 }

@@ -30,31 +30,31 @@ export default function DashboardPage() {
       <div className="max-w-3xl mx-auto space-y-8">
         <div>
           <p className="section-eyebrow mb-1">Your dashboard</p>
-          <h1 className="text-2xl font-extrabold text-navy">
+          <h1 className="text-2xl font-extrabold text-canvas-text">
             {data?.client?.user?.name ? `Welcome back, ${data.client.user.name.split(" ")[0]}.` : "Welcome back."}
           </h1>
         </div>
 
-        {loading && <p className="text-navy/50">Loading…</p>}
+        {loading && <p className="text-canvas-text">Loading…</p>}
         {error && <p className="text-red-600 text-sm">{error}</p>}
 
         {data && (
           <>
             {/* Next consultation */}
             {data.recentConsultation ? (
-              <div className="rounded-2xl border-2 border-orange/30 bg-orange/5 p-5">
-                <p className="text-xs font-bold text-orange tracking-widest uppercase mb-1">Upcoming consultation</p>
-                <p className="font-bold text-navy">{data.recentConsultation.title}</p>
+              <div className="rounded-2xl border-2 border-blue/30 bg-blue/5 p-5">
+                <p className="text-xs font-bold text-blue tracking-widest uppercase mb-1">Upcoming consultation</p>
+                <p className="font-bold text-canvas-text">{data.recentConsultation.title}</p>
                 {data.recentConsultation.scheduledAt && (
-                  <p className="text-navy/60 text-sm mt-1">{new Date(data.recentConsultation.scheduledAt).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
+                  <p className="text-canvas-text text-sm mt-1">{new Date(data.recentConsultation.scheduledAt).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
                 )}
-                <Link to="/app/consultations" className="text-orange text-sm font-semibold mt-2 inline-flex hover:underline">View details →</Link>
+                <Link to="/app/consultations" className="text-blue text-sm font-semibold mt-2 inline-flex hover:underline">View details →</Link>
               </div>
             ) : (
-              <div className="rounded-2xl border border-navy/10 bg-white p-5 flex items-center justify-between gap-4">
+              <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-5 flex items-center justify-between gap-4">
                 <div>
-                  <p className="font-bold text-navy">Book your 1:1 with Shea</p>
-                  <p className="text-navy/60 text-sm mt-0.5">Schedule your consultation to get your tailored AI plan.</p>
+                  <p className="font-bold text-canvas-text">Book your 1:1 with Shea</p>
+                  <p className="text-canvas-text text-sm mt-0.5">Schedule your consultation to get your tailored AI plan.</p>
                 </div>
                 <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn-primary whitespace-nowrap">Book now</a>
               </div>
@@ -62,20 +62,20 @@ export default function DashboardPage() {
 
             {/* Workflow checklist */}
             {data.workflowItems.length > 0 && (
-              <div className="rounded-2xl border border-navy/10 bg-white p-6">
-                <p className="font-bold text-navy mb-4">Your workflow checklist</p>
+              <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-6">
+                <p className="font-bold text-canvas-text mb-4">Your workflow checklist</p>
                 <ul className="space-y-2">
                   {data.workflowItems.map((item) => (
                     <li key={item.id} className="flex items-center gap-3">
                       <button
                         onClick={() => toggleWorkflow(item.id)}
                         aria-label={item.done ? `Mark "${item.title}" as not done` : `Mark "${item.title}" as done`}
-                        className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${item.done ? "bg-orange border-orange text-white" : "border-navy/30 hover:border-orange"}`}
+                        className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${item.done ? "bg-blue border-blue text-white" : "border-canvas-border hover:border-blue"}`}
                       >
                         {item.done && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                       </button>
-                      <span className={`text-sm ${item.done ? "line-through text-navy/40" : "text-navy"}`}>{item.title}</span>
-                      <span className="text-xs text-navy/30 capitalize">{item.area.replace("_", " ")}</span>
+                      <span className={`text-sm ${item.done ? "line-through text-canvas-text" : "text-canvas-text"}`}>{item.title}</span>
+                      <span className="text-xs text-canvas-text capitalize">{item.area.replace("_", " ")}</span>
                     </li>
                   ))}
                 </ul>
@@ -93,9 +93,9 @@ export default function DashboardPage() {
 
         {/* No client profile yet */}
         {!loading && !data?.client && (
-          <div className="rounded-2xl border border-navy/10 bg-white p-8 text-center">
-            <p className="font-bold text-navy mb-2">Complete your intake to get started</p>
-            <p className="text-navy/60 text-sm mb-5">Answer a few quick questions and get a personalised AI snapshot from Shea.</p>
+          <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-8 text-center">
+            <p className="font-bold text-canvas-text mb-2">Complete your intake to get started</p>
+            <p className="text-canvas-text text-sm mb-5">Answer a few quick questions and get a personalised AI snapshot from Shea.</p>
             <Link to="/start" className="btn-primary">Get my free snapshot</Link>
           </div>
         )}
@@ -107,11 +107,11 @@ export default function DashboardPage() {
 function QuickLink({ to, label, count, subtitle, icon }: { to: string; label: string; count?: number; subtitle?: string | null; icon: string }) {
   return (
     <Link to={to}>
-      <div className="rounded-xl border border-navy/10 bg-white p-4 hover:border-orange/30 transition-colors cursor-pointer">
+      <div className="rounded-xl border border-canvas-border bg-canvas-1 p-4 hover:border-blue/30 transition-colors cursor-pointer">
         <span className="text-2xl">{icon}</span>
-        <p className="font-bold text-navy mt-2">{label}</p>
-        {count !== undefined && <p className="text-navy/50 text-sm">{count} item{count !== 1 ? "s" : ""}</p>}
-        {subtitle && <p className="text-navy/50 text-sm">{subtitle}</p>}
+        <p className="font-bold text-canvas-text mt-2">{label}</p>
+        {count !== undefined && <p className="text-canvas-text text-sm">{count} item{count !== 1 ? "s" : ""}</p>}
+        {subtitle && <p className="text-canvas-text text-sm">{subtitle}</p>}
       </div>
     </Link>
   );

@@ -22,23 +22,23 @@ export default function DocumentsPage() {
       <div className="max-w-3xl mx-auto">
         <div className="mb-8">
           <p className="section-eyebrow mb-1">Client portal</p>
-          <h1 className="text-2xl font-extrabold text-navy">Your documents</h1>
-          <p className="text-navy/55 text-sm mt-1">Plans, session notes, and resources Shea has shared with you.</p>
+          <h1 className="text-2xl font-extrabold text-canvas-text">Your documents</h1>
+          <p className="text-canvas-text text-sm mt-1">Plans, session notes, and resources Shea has shared with you.</p>
         </div>
 
-        {loading ? <p className="text-navy/50">Loading…</p> : docs.length === 0 ? (
-          <div className="rounded-2xl border border-navy/10 bg-white p-10 text-center">
-            <p className="font-bold text-navy mb-1">No documents yet</p>
-            <p className="text-navy/55 text-sm">Shea will add your plan and session documents here after your consultation.</p>
+        {loading ? <p className="text-canvas-text">Loading…</p> : docs.length === 0 ? (
+          <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-10 text-center">
+            <p className="font-bold text-canvas-text mb-1">No documents yet</p>
+            <p className="text-canvas-text text-sm">Shea will add your plan and session documents here after your consultation.</p>
           </div>
         ) : (
           <ul className="space-y-3">
             {docs.map((doc) => (
-              <li key={doc.id} className="rounded-2xl border border-navy/10 bg-white p-5 flex items-center gap-4">
+              <li key={doc.id} className="rounded-2xl border border-canvas-border bg-canvas-1 p-5 flex items-center gap-4">
                 <span className="text-2xl flex-shrink-0">{MIME_ICON[doc.mime] ?? "📎"}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-navy truncate">{doc.title}</p>
-                  <p className="text-navy/50 text-xs mt-0.5">{TYPE_LABELS[doc.type] ?? doc.type} · {formatSize(doc.size)} · {new Date(doc.createdAt).toLocaleDateString()}</p>
+                  <p className="font-bold text-canvas-text truncate">{doc.title}</p>
+                  <p className="text-canvas-text text-xs mt-0.5">{TYPE_LABELS[doc.type] ?? doc.type} · {formatSize(doc.size)} · {new Date(doc.createdAt).toLocaleDateString()}</p>
                 </div>
                 <a
                   href={`/api/documents/${doc.id}/download`}
