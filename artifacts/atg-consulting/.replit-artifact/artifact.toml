@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "ATG Consulting"
+description = "ATG Consulting helps businesses find practical ways to use AI. Visitors explore consulting services and complete an intake questionnaire to receive tailored workflow recommendations."
+version = "1.0.0"
+id = "artifacts/atg-consulting"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21956
+
+[services.development]
+run = "pnpm --filter @workspace/atg-consulting run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/atg-consulting", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/atg-consulting/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21956"
+BASE_PATH = "/"

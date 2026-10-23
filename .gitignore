@@ -53,3 +53,8 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+/generated-artifacts/

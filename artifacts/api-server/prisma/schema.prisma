@@ -1,0 +1,70 @@
+// Prisma schema for ATG Consulting
+// SQLite locally and on Replit; swap provider to "postgresql" and update DATABASE_URL for production Postgres.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./intake.db"
+}
+
+/// One record per intake-form submission.
+model IntakeSubmission {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ── Step 1: About you ───────────────────────────────────────────────────────
+  name     String
+  email    String
+  role     String // maps to → workflow terminology (e.g. "owner" → "business owner who wears every hat")
+  industry String // maps to → example accounts/prospects in the LLM prompt
+  bizSize  String // solo|2-10|11-50|50+ → maps to → solution scale and tier recommendation
+
+  // Areas of help wanted (JSON array: executive_assistant|marketing|sales|customer_support)
+  // maps to → which workflow categories the LLM draws from
+  areas String
+
+  // ── Step 2: Your workflows ──────────────────────────────────────────────────
+  // 0=never used | 1=asks ChatGPT questions | 2=uses it weekly | 3=built automations | 4=runs agents
+  // maps to → explanation depth in LLM response (0 = very simple, 4 = can handle technical detail)
+  aiComfort Int
+
+  // JSON array: chatgpt|claude|gemini|grok|copilot|zapier_make|crm|none|other
+  // maps to → build-on-what-they-know in workflow suggestions
+  tools String
+
+  // JSON array subset of: email|prospecting|followups|research|proposals|scheduling|social_content|admin|personal_logistics
+  // filtered by selected areas; maps to → ranked pain points the LLM addresses first
+  timeSinks String
+
+  // The single thing they'd automate first (optional)
+  // maps to → LLM validates/builds on their instinct in the quick-win section
+  automateFirst String?
+
+  // ── Step 3: Preferences ─────────────────────────────────────────────────────
+  // Hours per week lost to repetitive work (1–40 slider)
+  // maps to → ROI framing in LLM response ("you could reclaim ~X hours/week")
+  hoursLost Int
+
+  // self_serve|guided|done_for_you|not_sure
+  // maps to → tier recommendation and CTA copy in LLM response
+  preferredHelp String
+
+  // Optional free-text (≤280 chars), sanitised before use
+  freeText String?
+
+  // ── Anti-spam ────────────────────────────────────────────────────────────────
+  // Honeypot: bots fill this; humans leave it blank. Submissions with a value are silently dropped.
+  honeypot String @default("")
+
+  // Hashed IP for rate-limit logging (not stored in cleartext)
+  ipHash String?
+
+  // ── LLM output ──────────────────────────────────────────────────────────────
+  llmResponse  String? // full JSON-encoded tailored response
+  responseType String? // "llm" | "fallback"
+  emailSent    Boolean @default(false)
+}

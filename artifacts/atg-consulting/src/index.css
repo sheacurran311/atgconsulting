@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply font-sans text-navy antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-orange text-white font-semibold text-base hover:bg-orange-500 active:bg-orange-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg border-2 border-navy text-navy font-semibold text-base hover:bg-navy hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2;
+  }
+  .btn-secondary-white {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg border-2 border-white text-white font-semibold text-base hover:bg-white hover:text-navy transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-navy/60 hover:text-navy hover:bg-navy/5 transition-colors text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2;
+  }
+  .section-eyebrow {
+    @apply text-orange font-semibold tracking-widest text-sm uppercase;
+  }
+  .section-heading {
+    @apply text-3xl sm:text-4xl font-extrabold text-navy leading-tight;
+  }
+  /* Chip: a pill-shaped selectable button used in the form */
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border text-sm font-medium cursor-pointer select-none transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-1;
+  }
+  .chip-unselected {
+    @apply border-navy/20 text-navy/70 hover:border-orange/50 hover:text-navy bg-white;
+  }
+  .chip-selected {
+    @apply border-orange bg-orange/10 text-orange;
+  }
+}

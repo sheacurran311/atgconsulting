@@ -3,8 +3,24 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { isIP } from "node:net";
 
 const app: Express = express();
+
+// Fail closed unless exact trusted proxy addresses/CIDRs are configured.
+// Express then walks from the socket peer toward the first untrusted address,
+// rather than blindly using the client-controlled leftmost forwarded header.
+const trustedProxies = (process.env.TRUSTED_PROXY_CIDRS ?? "")
+  .split(",").map((value) => value.trim()).filter(Boolean);
+for (const proxy of trustedProxies) {
+  const [address, prefix, ...extra] = proxy.split("/");
+  const version = isIP(address!);
+  if (!version || extra.length || (prefix !== undefined &&
+    (!/^\d+$/.test(prefix) || Number(prefix) <= 0 || Number(prefix) > (version === 4 ? 32 : 128)))) {
+    throw new Error("TRUSTED_PROXY_CIDRS must contain specific IP addresses or CIDRs, not wildcard trust.");
+  }
+}
+app.set("trust proxy", trustedProxies.length ? trustedProxies : false);
 
 app.use(
   pinoHttp({
@@ -30,5 +46,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const status = err.type === "entity.parse.failed" ? 400 : 500;
+  if (status === 400) req.log.warn({ status }, "Invalid JSON request");
+  else req.log.error({ err }, "Request failed");
+  res.status(status).json({
+    error: status === 400 ? "Invalid request body." : "Unable to save your submission. Please try again.",
+  });
+});
 
 export default app;
