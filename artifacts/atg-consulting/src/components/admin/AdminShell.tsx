@@ -1,5 +1,6 @@
 import { Link, useLocation, Redirect } from "wouter";
 import { useAccount } from "@/lib/useAccount";
+import LogoLockup from "@/components/LogoLockup";
 
 const navItems = [
   { label: "Clients",     to: "/admin/clients"  },
@@ -37,12 +38,7 @@ export default function AdminShell({ children }: Props) {
       >
         <div className="p-4 pb-3" style={{ borderBottom: "1px solid var(--ink-border)" }}>
           <Link to="/">
-            <img
-              src="/brand/logos/svg/optionA_lockup_notag.svg"
-              alt="ATG Consulting"
-              className="h-7 w-auto"
-              style={{ filter: "brightness(0) invert(1)" }}
-            />
+            <LogoLockup variant="dark" height={28} aria-label="ATG Consulting — home" />
           </Link>
           <span className="font-mono text-2xs mt-2 block" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
             ADMIN CONSOLE
