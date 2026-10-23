@@ -46,6 +46,18 @@ export const api = {
     reports: () => get<Report[]>("/client/reports"),
     report: (date: string) => get<Report>(`/client/reports/${date}`),
     updateAccount: (body: { digestEmailOptIn?: boolean }) => patch<{ ok: boolean }>("/client/account", body),
+    messages: () => get<ClientMsg[]>("/workbench/messages"),
+    sendMessage: (body: string) => post<ClientMsg>("/workbench/messages", { body }),
+  },
+
+  // ── Workbench ─────────────────────────────────────────────────────────────
+  workbench: {
+    today:           () => get<OutputItem[]>("/workbench/today"),
+    reviewOutput:    (id: string, action: "approve"|"edit"|"dismiss", editedContent?: string) =>
+                       patch<OutputItem>(`/workbench/output/${id}`, { action, editedContent }),
+    workflows:       () => get<WorkflowListItem[]>("/workbench/workflows"),
+    hoursSaved:      () => get<HoursSavedData>("/workbench/hours-saved"),
+    requestWorkflow: (description: string) => post<{ id: string }>("/workbench/requests", { description }),
   },
 
   // ── Learn ──────────────────────────────────────────────────────────────────
@@ -74,6 +86,14 @@ export const api = {
       update: (id: string, body: unknown) => req<Module>("PUT", `/admin/content/modules/${id}`, body),
     },
     audit: (params?: string) => get<AuditEntry[]>(`/admin/audit${params ? `?${params}` : ""}`),
+    // Workbench admin
+    messages: () => get<AdminThread[]>("/admin/messages"),
+    getThread: (clientId: string) => get<ClientMsg[]>(`/admin/messages/${clientId}`),
+    replyMessage: (clientId: string, body: string) => post<ClientMsg>(`/admin/messages/${clientId}/reply`, { body }),
+    workflowRequests: () => get<WorkflowReqAdmin[]>("/admin/workflow-requests"),
+    updateWorkflowRequest: (id: string, status: string) => patch<WorkflowReqAdmin>(`/admin/workflow-requests/${id}`, { status }),
+    createWorkflow: (clientId: string, body: unknown) => post<WorkflowListItem>(`/admin/clients/${clientId}/workflows`, body),
+    postOutput: (clientId: string, body: unknown) => post<OutputItem>(`/admin/clients/${clientId}/outputs`, body),
   },
 };
 
@@ -97,3 +117,40 @@ export interface IntakeRecord { id: string; email: string; name: string; areas: 
 export interface PlanAdmin { id: string; aiReadinessLabel: string; aiReadinessSummary: string; focusAreas: string; recommendedTier: string; tierRationale: string; adminReport: string | null; source: string; createdAt: string }
 export interface PrepView { client: ClientDetail; intake: IntakeRecord | null; answers: Record<string, unknown> | null; plan: PlanAdmin | null; talkingPoints: string[] }
 export interface AuditEntry { id: string; action: string; entity: string; entityId: string | null; meta: string; createdAt: string; actor: { name: string | null; email: string | null } | null }
+
+// (workbench API is declared inline in the api object above)
+
+// ── Workbench types ───────────────────────────────────────────────────────────
+export interface OutputItem {
+  id: string; workflowId: string; workflowName?: string; type: string;
+  subject: string; content: string; status: string;
+  sheaBadge: string | null; createdAt: string;
+}
+export interface WorkflowListItem {
+  id: string; name: string; description: string; area: string;
+  status: string; schedule: string | null; lastRun?: string | null;
+  setupNote: string | null;
+  runs: { runAt: string; summary: string | null }[];
+  _count: { outputs: number };
+}
+export interface HoursSavedData {
+  runs: { runAt: string; summary: string | null; outputCount: number }[];
+  approved: number; totalRuns: number;
+}
+export interface ClientMsg {
+  id: string; clientId: string; body: string;
+  fromAdmin: boolean; readAt: string | null; createdAt: string;
+}
+
+export interface AdminThread {
+  clientId: string;
+  client: { user: { name: string | null; email: string | null } } | null;
+  messageCount: number;
+  latestAt: string | null;
+  latest: ClientMsg | null;
+}
+export interface WorkflowReqAdmin {
+  id: string; clientId: string; description: string; status: string;
+  adminNote: string | null; createdAt: string;
+  client: { user: { name: string | null; email: string | null } } | null;
+}

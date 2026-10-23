@@ -7,6 +7,7 @@ import clientRouter from "./client";
 import adminRouter from "./admin";
 import documentsRouter from "./documents";
 import cronRouter from "./cron";
+import workbenchRouter from "./workbench";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(clientRouter);
 router.use(adminRouter);
 router.use(documentsRouter);
 router.use(cronRouter);
+router.use(workbenchRouter);
 
 export default router;

@@ -1,6 +1,7 @@
 import { useUser } from "@clerk/react";
 import { Link, useLocation, Redirect } from "wouter";
 import LogoLockup from "@/components/LogoLockup";
+import OperatorPanel from "@/components/workbench/OperatorPanel";
 
 const navItems = [
   { label: "Dashboard",     to: "/app",                  icon: "◈" },
@@ -73,13 +74,11 @@ export default function AppShell({ children }: Props) {
           })}
         </nav>
 
-        {/* Back to site */}
-        <div className="p-2" style={{ borderTop: "1px solid var(--ink-border)" }}>
+        {/* Operator panel */}
+        <div className="p-3" style={{ borderTop: "1px solid var(--ink-border)" }}>
+          <OperatorPanel />
           <Link to="/">
-            <span
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-colors cursor-pointer"
-              style={{ color: "var(--ink-text-3)" }}
-            >
+            <span className="flex items-center gap-2 px-3 py-2 mt-2 rounded-md text-xs font-medium transition-colors cursor-pointer" style={{ color: "var(--ink-text-3)" }}>
               ← Marketing site
             </span>
           </Link>

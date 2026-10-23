@@ -24,6 +24,7 @@ import AdminIntakesPage from "@/pages/admin/intakes";
 import AdminReportsPage from "@/pages/admin/reports";
 import AdminContentPage from "@/pages/admin/content";
 import AdminAuditPage from "@/pages/admin/audit";
+import AdminMessagesPage from "@/pages/admin/messages";
 
 function Metadata() {
   const [location] = useLocation();
@@ -117,6 +118,7 @@ function AuthenticatedApp() {
         <Route path="/admin/reports" component={AdminReportsPage} />
         <Route path="/admin/content" component={AdminContentPage} />
         <Route path="/admin/audit" component={AdminAuditPage} />
+        <Route path="/admin/messages" component={AdminMessagesPage} />
 
         {/* Legacy */}
         <Route path="/user-portal" component={() => <Redirect to="/app" />} />

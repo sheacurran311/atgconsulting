@@ -9,6 +9,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import type { Area, BizSize, PreferredHelp, Tool, TimeSink } from "@/types/intake";
 import { AREA_LABELS, AREA_DESCRIPTIONS, BIZ_SIZE_LABELS, PREFERRED_HELP_LABELS, AI_COMFORT_LABELS, TOOL_LABELS, TIME_SINK_LABELS, AREA_TIME_SINKS } from "@/types/intake";
+import { VERTICALS } from "@/content/verticals";
 
 // ── Question definitions ──────────────────────────────────────────────────────
 type FieldKey =
@@ -56,15 +57,23 @@ function buildQuestions(data: Partial<FormData>): QuestionDef[] {
 
   return [
     { key: "name", prompt: "What's your name?", type: "text" },
-    { key: "email", prompt: "What's your email?", sub: "We'll send your plan here.", type: "email" },
-    { key: "role", prompt: "What's your role?", sub: "e.g. Owner, sales rep, consultant", type: "text" },
-    { key: "industry", prompt: "What industry are you in?", sub: "e.g. Real estate, printing, consulting", type: "text" },
+    { key: "email", prompt: "What's your email?", sub: "We'll send your snapshot here.", type: "email" },
     {
-      key: "bizSize", prompt: "How many people are in your business?", type: "radio",
-      options: (["solo","2-10","11-50","50+"] as BizSize[]).map((v) => ({ value: v, label: BIZ_SIZE_LABELS[v] })),
+      key: "bizSize", prompt: "What best describes your business?", sub: "No right answer — just helps us tailor your snapshot.", type: "radio",
+      options: [
+        { value: "solo", label: "Just me — I run everything myself" },
+        { value: "2-10", label: "Small team (2–10 people)" },
+        { value: "11-50", label: "Growing business (11–50 people)" },
+        { value: "50+", label: "Larger business (50+ people)" },
+      ],
     },
     {
-      key: "areas", prompt: "Where do you want help?", sub: "Pick all that apply.", type: "multi",
+      key: "industry", prompt: "What type of business is it?", sub: "Pick the one that fits best.", type: "radio",
+      options: VERTICALS.map((v) => ({ value: v.id, label: v.label, sub: v.tagline })),
+    },
+    { key: "role", prompt: "What's your role?", sub: "e.g. Owner, manager, solo operator — in your own words", type: "text" },
+    {
+      key: "areas", prompt: "What eats the most of your week?", sub: "Pick all that apply. Plain English — no jargon.", type: "multi",
       options: AREAS.map((a) => ({ value: a, label: AREA_LABELS[a], sub: AREA_DESCRIPTIONS[a] })),
     },
     {
@@ -79,8 +88,8 @@ function buildQuestions(data: Partial<FormData>): QuestionDef[] {
       key: "timeSinks", prompt: "What eats the most of your time?", sub: "Based on your selected areas.", type: "multi",
       options: relevantSinks.map((s) => ({ value: s, label: TIME_SINK_LABELS[s] })),
     },
-    { key: "automateFirst", prompt: "If you could automate one thing today, what would it be?", type: "text", optional: true },
-    { key: "hoursLost", prompt: "How many hours per week do you lose to repetitive work?", type: "slider" },
+    { key: "automateFirst", prompt: "If someone could handle one task for you starting tomorrow, what would it be?", sub: "Don't overthink it — the first thing that came to mind is probably the right answer.", type: "text", optional: true },
+    { key: "hoursLost", prompt: "Roughly how many hours per week do repetitive tasks take up?", sub: "Emails, follow-ups, writing, scheduling, admin — add it up.", type: "slider" },
     {
       key: "preferredHelp", prompt: "How do you prefer to get help?", type: "radio",
       options: (["self_serve","guided","done_for_you","not_sure"] as PreferredHelp[]).map((v) => ({ value: v, label: PREFERRED_HELP_LABELS[v] })),

@@ -1,118 +1,156 @@
-import { useState, useEffect } from "react";
+/**
+ * Client Workbench dashboard — the product.
+ * Tabs: Today (output inbox) · My Workflows · Hours Saved
+ * Persistent operator panel in sidebar.
+ */
+import { useState } from "react";
 import { Link } from "wouter";
 import AppShell from "@/components/app/AppShell";
-import { api, type Dashboard } from "@/lib/api";
+import TodayInbox from "@/components/workbench/TodayInbox";
+import MyWorkflows from "@/components/workbench/MyWorkflows";
+import { api, type HoursSavedData } from "@/lib/api";
+import { useEffect } from "react";
 
 const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
 
-export default function DashboardPage() {
-  const [data, setData] = useState<Dashboard | null>(null);
+function HoursSavedTab() {
+  const [data, setData] = useState<HoursSavedData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { api.workbench.hoursSaved().then(setData).catch(() => null).finally(() => setLoading(false)); }, []);
 
-  useEffect(() => {
-    api.client.dashboard()
-      .then(setData)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
+  return (
+    <div>
+      <div className="mb-5">
+        <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>LEDGER</p>
+        <h2 className="font-extrabold text-xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.02em" }}>Hours saved</h2>
+      </div>
 
-  async function toggleWorkflow(id: string) {
-    if (!data) return;
-    const updated = await api.client.toggleWorkflow(id).catch(() => null);
-    if (updated) {
-      setData((d) => d ? { ...d, workflowItems: d.workflowItems.map((i) => i.id === id ? updated : i) } : d);
-    }
-  }
+      {loading ? <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
+      : !data || (data.totalRuns === 0 && data.approved === 0) ? (
+        <div className="rounded-xl p-8 text-center" style={{ border: "1px dashed var(--canvas-border)", background: "var(--canvas-2)" }}>
+          <p className="font-mono text-2xs mb-2" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>NO DATA YET</p>
+          <p className="text-sm font-semibold mb-1" style={{ color: "var(--canvas-text)" }}>Your hours ledger starts when your first workflow goes live.</p>
+          <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>Shea logs every run and you&apos;ll see what&apos;s been handled for you here.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="rounded-xl p-5" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
+              <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>TOTAL RUNS</p>
+              <p className="font-extrabold text-3xl" style={{ color: "var(--blue)", letterSpacing: "-0.04em" }}>{data.totalRuns}</p>
+            </div>
+            <div className="rounded-xl p-5" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
+              <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>OUTPUTS APPROVED</p>
+              <p className="font-extrabold text-3xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.04em" }}>{data.approved}</p>
+            </div>
+          </div>
+          {data.runs.slice(0, 10).map((r, i) => (
+            <div key={i} className="flex items-center justify-between gap-3 rounded-lg px-4 py-3" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+              <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>{r.summary ?? "Workflow run completed"}</p>
+              <p className="font-mono text-2xs flex-shrink-0" style={{ color: "var(--canvas-text-3)" }}>{new Date(r.runAt).toLocaleDateString()}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const TABS = [
+  { id: "today",     label: "Today" },
+  { id: "workflows", label: "My workflows" },
+  { id: "hours",     label: "Hours saved" },
+];
+
+export default function DashboardPage() {
+  const [tab, setTab] = useState("today");
 
   return (
     <AppShell>
-      <div className="max-w-3xl mx-auto space-y-8">
-        <div>
-          <p className="section-eyebrow mb-1">Your dashboard</p>
-          <h1 className="text-2xl font-extrabold text-canvas-text">
-            {data?.client?.user?.name ? `Welcome back, ${data.client.user.name.split(" ")[0]}.` : "Welcome back."}
-          </h1>
+      <div className="max-w-content mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div>
+            <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>ATG WORKBENCH</p>
+            <h1 className="font-extrabold text-2xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.025em" }}>Your dashboard</h1>
+          </div>
+          <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn-primary text-sm" style={{ padding: "8px 14px" }}>
+            Book 1:1 with Shea
+          </a>
         </div>
 
-        {loading && <p className="text-canvas-text">Loading…</p>}
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {/* Tab nav */}
+        <div className="flex gap-1 mb-6" style={{ borderBottom: "1px solid var(--canvas-border)" }}>
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className="px-4 py-2.5 text-sm font-semibold transition-colors"
+              style={{
+                color: tab === t.id ? "var(--blue)" : "var(--canvas-text-2)",
+                marginBottom: "-1px",
+                background: "transparent",
+                border: "none",
+                borderBottom: `2px solid ${tab === t.id ? "var(--blue)" : "transparent"}`,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-        {data && (
-          <>
-            {/* Next consultation */}
-            {data.recentConsultation ? (
-              <div className="rounded-2xl border-2 border-blue/30 bg-blue/5 p-5">
-                <p className="text-xs font-bold text-blue tracking-widest uppercase mb-1">Upcoming consultation</p>
-                <p className="font-bold text-canvas-text">{data.recentConsultation.title}</p>
-                {data.recentConsultation.scheduledAt && (
-                  <p className="text-canvas-text text-sm mt-1">{new Date(data.recentConsultation.scheduledAt).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
-                )}
-                <Link to="/app/consultations" className="text-blue text-sm font-semibold mt-2 inline-flex hover:underline">View details →</Link>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-5 flex items-center justify-between gap-4">
-                <div>
-                  <p className="font-bold text-canvas-text">Book your 1:1 with Shea</p>
-                  <p className="text-canvas-text text-sm mt-0.5">Schedule your consultation to get your tailored AI plan.</p>
-                </div>
-                <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn-primary whitespace-nowrap">Book now</a>
-              </div>
-            )}
+        {/* Tab content */}
+        {tab === "today"     && <TodayInbox />}
+        {tab === "workflows" && <MyWorkflows />}
+        {tab === "hours"     && <HoursSavedTab />}
 
-            {/* Workflow checklist */}
-            {data.workflowItems.length > 0 && (
-              <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-6">
-                <p className="font-bold text-canvas-text mb-4">Your workflow checklist</p>
-                <ul className="space-y-2">
-                  {data.workflowItems.map((item) => (
-                    <li key={item.id} className="flex items-center gap-3">
-                      <button
-                        onClick={() => toggleWorkflow(item.id)}
-                        aria-label={item.done ? `Mark "${item.title}" as not done` : `Mark "${item.title}" as done`}
-                        className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${item.done ? "bg-blue border-blue text-white" : "border-canvas-border hover:border-blue"}`}
-                      >
-                        {item.done && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                      </button>
-                      <span className={`text-sm ${item.done ? "line-through text-canvas-text" : "text-canvas-text"}`}>{item.title}</span>
-                      <span className="text-xs text-canvas-text capitalize">{item.area.replace("_", " ")}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Quick links */}
-            <div className="grid sm:grid-cols-3 gap-4">
-              <QuickLink to="/app/documents" label="Documents" count={data.activeDocCount} icon="📄" />
-              <QuickLink to="/app/reports" label="Latest report" subtitle={data.recentReport?.date} icon="📊" />
-              <QuickLink to="/app/learn" label="Learn" subtitle="Modules" icon="🎓" />
-            </div>
-          </>
-        )}
-
-        {/* No client profile yet */}
-        {!loading && !data?.client && (
-          <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-8 text-center">
-            <p className="font-bold text-canvas-text mb-2">Complete your intake to get started</p>
-            <p className="text-canvas-text text-sm mb-5">Answer a few quick questions and get a personalised AI snapshot from Shea.</p>
-            <Link to="/start" className="btn-primary">Get my free snapshot</Link>
-          </div>
-        )}
+        {/* Request new workflow */}
+        <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--canvas-border)" }}>
+          <RequestWorkflowForm />
+        </div>
       </div>
     </AppShell>
   );
 }
 
-function QuickLink({ to, label, count, subtitle, icon }: { to: string; label: string; count?: number; subtitle?: string | null; icon: string }) {
+function RequestWorkflowForm() {
+  const [desc, setDesc] = useState("");
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  async function submit() {
+    if (!desc.trim()) return;
+    setSending(true);
+    await api.workbench.requestWorkflow(desc.trim()).catch(() => null);
+    setSending(false);
+    setSent(true);
+    setDesc("");
+  }
+
   return (
-    <Link to={to}>
-      <div className="rounded-xl border border-canvas-border bg-canvas-1 p-4 hover:border-blue/30 transition-colors cursor-pointer">
-        <span className="text-2xl">{icon}</span>
-        <p className="font-bold text-canvas-text mt-2">{label}</p>
-        {count !== undefined && <p className="text-canvas-text text-sm">{count} item{count !== 1 ? "s" : ""}</p>}
-        {subtitle && <p className="text-canvas-text text-sm">{subtitle}</p>}
-      </div>
-    </Link>
+    <div className="rounded-xl p-5" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-2)" }}>
+      <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>REQUEST A NEW WORKFLOW</p>
+      <p className="text-sm mb-3" style={{ color: "var(--canvas-text-2)" }}>
+        Tell Shea what you&apos;d like automated next. She&apos;ll review it and add it to your design queue.
+      </p>
+      {sent ? (
+        <p className="text-sm font-semibold" style={{ color: "#16A34A" }}>✓ Request sent to Shea</p>
+      ) : (
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            placeholder="e.g. Send a thank-you after every completed job"
+            className="field-input flex-1 text-sm"
+          />
+          <button onClick={submit} disabled={sending || !desc.trim()} className="btn-primary text-sm" style={{ padding: "10px 16px" }}>
+            {sending ? "Sending…" : "Request"}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
