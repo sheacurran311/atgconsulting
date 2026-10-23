@@ -1,35 +1,19 @@
 {
-  "name": "atgconsulting",
-  "version": "0.1.0",
-  "private": true,
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
   "scripts": {
-    "dev": "next dev -H 0.0.0.0 -p ${PORT:-3000}",
-    "build": "prisma generate && next build",
-    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
-    "lint": "next lint",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
+  "private": true,
   "dependencies": {
-    "@prisma/client": "^5.17.0",
-    "next": "14.2.5",
-    "nodemailer": "^6.9.14",
-    "openai": "^4.56.0",
-    "react": "^18",
-    "react-dom": "^18",
-    "zod": "^3.23.8"
+    "@replit/connectors-sdk": "^0.4.3"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "@types/nodemailer": "^6.4.15",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.5",
-    "postcss": "^8",
-    "prisma": "^5.17.0",
-    "tailwindcss": "^3.4.11",
-    "typescript": "^5"
+    "prettier": "^3.9.10",
+    "typescript": "~5.9.3"
   }
 }
