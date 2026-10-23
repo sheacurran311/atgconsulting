@@ -70,6 +70,10 @@ model Client {
   consultations     Consultation[]
   documents         Document[]
   reports           Report[]
+  workflows         Workflow[]
+  outputItems       OutputItem[]
+  messages          ClientMessage[]
+  workflowRequests  WorkflowRequest[]
 }
 
 // ── Intake ─────────────────────────────────────────────────────────────────────
@@ -298,4 +302,78 @@ model AuditLog {
   @@index([actorUserId])
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+// ── ATG Workbench models ───────────────────────────────────────────────────────
+
+/// A workflow Shea has designed for a client.
+model Workflow {
+  id          String    @id @default(cuid())
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name        String
+  description String
+  area        String    // ea|marketing|sales|cs
+  status      String    @default("designing") // designing|building|live|paused
+  schedule    String?   // human-readable: "Daily at 6 am MT"
+  lastRunAt   DateTime?
+  setupNote   String?   // shown as "Set up by Shea" badge text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  runs        WorkflowRun[]
+  outputs     OutputItem[]
+}
+
+/// One execution of a workflow.
+model WorkflowRun {
+  id          String   @id @default(cuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  runAt       DateTime @default(now())
+  status      String   @default("completed") // completed|failed|skipped
+  summary     String?  // e.g. "3 emails drafted, 1 lead added"
+  outputCount Int      @default(0)
+}
+
+/// A piece of finished work waiting for the client to review.
+model OutputItem {
+  id          String    @id @default(cuid())
+  workflowId  String
+  workflow    Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type        String    // briefing|email_draft|lead_list|social_post|quote_followup|review_request
+  subject     String
+  content     String    // JSON or markdown body
+  status      String    @default("pending") // pending|approved|edited|dismissed
+  reviewedAt  DateTime?
+  editedContent String? // if client edited before approving
+  sheaBadge   String?   // e.g. "Reviewed by Shea" or "Set up by Shea"
+  createdAt   DateTime  @default(now())
+}
+
+/// Thread messages between a client and Shea (admin).
+model ClientMessage {
+  id         String   @id @default(cuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  body       String
+  fromAdmin  Boolean  @default(false) // false = from client, true = from Shea
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([clientId, createdAt])
+}
+
+/// Client requests Shea to build a new workflow.
+model WorkflowRequest {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  description String
+  status      String   @default("open") // open|acknowledged|designing|done
+  adminNote   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

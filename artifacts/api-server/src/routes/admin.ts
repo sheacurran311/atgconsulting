@@ -308,3 +308,71 @@ router.get("/admin/audit", async (req, res) => {
 });
 
 export default router;
+
+// ── Workbench admin: workflows + outputs + messages + requests ─────────────────
+
+router.post("/admin/clients/:id/workflows", async (req, res) => {
+  const actor = (req as AuthedRequest).atgUser!;
+  const client = await prisma.client.findUnique({ where: { id: req.params.id as string } });
+  if (!client) { res.status(404).json({ error: "Client not found." }); return; }
+  const { name, description, area, schedule, status } = req.body as Record<string, string>;
+  if (!name || !description || !area) { res.status(422).json({ error: "name, description, and area are required." }); return; }
+  const wf = await prisma.workflow.create({ data: { clientId: client.id, name, description, area, schedule, status: status ?? "designing", setupNote: `Set up by ${actor.name ?? "Shea"}` } });
+  res.status(201).json(wf);
+});
+
+router.patch("/admin/workflows/:id", async (req, res) => {
+  const wf = await prisma.workflow.update({ where: { id: req.params.id as string }, data: req.body as Parameters<typeof prisma.workflow.update>[0]["data"] });
+  res.json(wf);
+});
+
+router.post("/admin/clients/:id/outputs", async (req, res) => {
+  const actor = (req as AuthedRequest).atgUser!;
+  const client = await prisma.client.findUnique({ where: { id: req.params.id as string } });
+  if (!client) { res.status(404).json({ error: "Client not found." }); return; }
+  const { workflowId, type, subject, content } = req.body as Record<string, string>;
+  if (!workflowId || !type || !subject || !content) { res.status(422).json({ error: "workflowId, type, subject, and content are required." }); return; }
+  const item = await prisma.outputItem.create({
+    data: { workflowId, clientId: client.id, type, subject, content, sheaBadge: `Reviewed by ${actor.name ?? "Shea"}` },
+  });
+  res.status(201).json(item);
+});
+
+router.get("/admin/messages", async (_req, res) => {
+  const threads = await prisma.clientMessage.groupBy({
+    by: ["clientId"],
+    _count: { id: true },
+    _max: { createdAt: true },
+  });
+  const withClient = await Promise.all(threads.map(async (t) => {
+    const latest = await prisma.clientMessage.findFirst({ where: { clientId: t.clientId }, orderBy: { createdAt: "desc" } });
+    const client = await prisma.client.findUnique({ where: { id: t.clientId }, include: { user: { select: { name: true, email: true } } } });
+    return { clientId: t.clientId, client, messageCount: t._count.id, latestAt: t._max.createdAt, latest };
+  }));
+  res.json(withClient);
+});
+
+router.get("/admin/messages/:clientId", async (req, res) => {
+  const msgs = await prisma.clientMessage.findMany({ where: { clientId: req.params.clientId as string }, orderBy: { createdAt: "asc" } });
+  await prisma.clientMessage.updateMany({ where: { clientId: req.params.clientId as string, fromAdmin: false, readAt: null }, data: { readAt: new Date() } });
+  res.json(msgs);
+});
+
+router.post("/admin/messages/:clientId/reply", async (req, res) => {
+  const actor = (req as AuthedRequest).atgUser!;
+  const { body } = req.body as { body?: string };
+  if (!body?.trim()) { res.status(422).json({ error: "Body required." }); return; }
+  const msg = await prisma.clientMessage.create({ data: { clientId: req.params.clientId as string, body: body.trim(), fromAdmin: true } });
+  res.status(201).json(msg);
+});
+
+router.get("/admin/workflow-requests", async (_req, res) => {
+  const requests = await prisma.workflowRequest.findMany({ include: { client: { include: { user: { select: { name: true, email: true } } } } }, orderBy: { createdAt: "desc" } });
+  res.json(requests);
+});
+
+router.patch("/admin/workflow-requests/:id", async (req, res) => {
+  const { status, adminNote } = req.body as { status?: string; adminNote?: string };
+  const updated = await prisma.workflowRequest.update({ where: { id: req.params.id as string }, data: { ...(status ? { status } : {}), ...(adminNote ? { adminNote } : {}) } });
+  res.json(updated);
+});
