@@ -4,12 +4,13 @@
  */
 export default function ChatVsATG() {
   const rows = [
-    { label: "How it works",   chat: "You ask → it answers",      atg: "It runs → you approve" },
-    { label: "Starting point", chat: "Blank page, you prompt",     atg: "Designed workflow, runs on schedule" },
-    { label: "Your tools",     chat: "Copy-paste between apps",    atg: "Works inside your existing tools" },
-    { label: "Frequency",      chat: "On-demand only",             atg: "Scheduled, consistent, measured" },
-    { label: "Setup",          chat: "You figure out the prompts", atg: "Shea designs and sets it up for you" },
-    { label: "A person",       chat: "No one to call",             atg: "Shea knows your business" },
+    { label: "How it works",   chat: "You ask → it answers",           atg: "It runs → you approve" },
+    { label: "Starting point", chat: "Blank page, you prompt",          atg: "Designed workflow runs on a schedule" },
+    { label: "Your tools",     chat: "Copy-paste between apps",         atg: "Works inside your existing tools" },
+    { label: "Frequency",      chat: "On-demand only",                  atg: "Scheduled, consistent, measurable" },
+    { label: "Setup",          chat: "You figure out the prompts",      atg: "Shea designs and sets it up for you" },
+    { label: "Support",        chat: "Community forums or self-help",   atg: "Email support (self-serve) or direct message with Shea (guided/DFY)" },
+    { label: "A person",       chat: "No one to call",                  atg: "Shea — who knows your specific business" },
   ];
 
   return (

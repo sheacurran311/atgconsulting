@@ -5,6 +5,7 @@ import LogoLockup from "@/components/LogoLockup";
 const navItems = [
   { label: "Clients",     to: "/admin/clients"  },
   { label: "Intakes",     to: "/admin/intakes"  },
+  { label: "Plans & DFY", to: "/admin/tiers"   },
   { label: "Messages",    to: "/admin/messages" },
   { label: "Reports",     to: "/admin/reports"  },
   { label: "Content",     to: "/admin/content"  },

@@ -61,6 +61,22 @@ export const api = {
     draftFollowUp:   (body: { who: string; lastTouch: string; wantToSay: string }) => post<OutputItem>("/workbench/follow-up", body),
   },
 
+  // ── Tier services ──────────────────────────────────────────────────────────
+  toolPlan: {
+    get:      () => get<ToolPlan>("/tool-plan"),
+    generate: (intakeId?: string) => post<ToolPlan & { _pending?: boolean }>("/tool-plan/generate", intakeId ? { intakeId } : {}),
+  },
+  support: {
+    submit: (body: { subject: string; message: string }) => post<SupportTicket>("/support", body),
+  },
+  dfy: {
+    apply:  () => post<DfyApplication>("/dfy/apply", {}),
+    status: () => get<DfyApplication | null>("/dfy/status"),
+  },
+  guidedSessions: {
+    get: () => get<{ guidedSessionsTotal: number | null; guidedSessionsUsed: number }>("/guided/sessions"),
+  },
+
   // ── Learn ──────────────────────────────────────────────────────────────────
   modules: {
     list: () => get<(Module & { locked: boolean; completed: boolean })[]>("/modules"),
@@ -95,6 +111,25 @@ export const api = {
     updateWorkflowRequest: (id: string, status: string) => patch<WorkflowReqAdmin>(`/admin/workflow-requests/${id}`, { status }),
     createWorkflow: (clientId: string, body: unknown) => post<WorkflowListItem>(`/admin/clients/${clientId}/workflows`, body),
     postOutput: (clientId: string, body: unknown) => post<OutputItem>(`/admin/clients/${clientId}/outputs`, body),
+    // Tier model
+    toolPlans:         () => get<(ToolPlan & { client: { user: { name: string | null; email: string | null } } })[]>("/admin/tool-plans"),
+    clientToolPlan:    (clientId: string) => get<ToolPlan | null>(`/admin/clients/${clientId}/tool-plan`),
+    patchToolPlan:     (clientId: string, body: Partial<ToolPlan>) => patch<ToolPlan>(`/admin/clients/${clientId}/tool-plan`, body),
+    approveToolPlan:   (clientId: string) => post<ToolPlan>(`/admin/clients/${clientId}/tool-plan/approve`, {}),
+    dfyApplications:   () => get<{ applications: (DfyApplication & { client: { user: { name: string | null; email: string | null } } })[]; cap: number; acceptedThisMonth: number; spotsLeft: number }>("/admin/dfy-applications"),
+    updateDfyApp:      (id: string, body: { status: string; notes?: string }) => patch<DfyApplication>(`/admin/dfy-applications/${id}`, body),
+    setGuidedSessions: (clientId: string, body: { guidedSessionsTotal: number; guidedSessionsUsed?: number }) => patch<unknown>(`/admin/clients/${clientId}/guided-sessions`, body),
+    supportTickets:    (status?: string) => get<SupportTicket[]>(`/admin/support${status ? `?status=${status}` : ""}`),
+    updateSupportTicket: (id: string, status: string) => patch<SupportTicket>(`/admin/support/${id}`, { status }),
+    // Playbook
+    generatePlaybook:          (clientId: string, intakeId?: string) => post<ClientPlaybook>(`/admin/clients/${clientId}/playbook`, intakeId ? { intakeId } : {}),
+    generatePlaybookFromIntake: (intakeId: string) => post<ClientPlaybook>(`/admin/intakes/${intakeId}/playbook`, {}),
+    getPlaybook:               (clientId: string) => get<ClientPlaybook>(`/admin/clients/${clientId}/playbook`),
+    listPlaybooks:             (clientId: string) => get<ClientPlaybook[]>(`/admin/clients/${clientId}/playbook/all`),
+    patchPlaybook:             (clientId: string, pbId: string, body: { content?: string; adminNotes?: string }) =>
+                                 patch<ClientPlaybook>(`/admin/clients/${clientId}/playbook/${pbId}`, body),
+    finalisePlaybook:          (clientId: string, pbId: string) =>
+                                 post<ClientPlaybook>(`/admin/clients/${clientId}/playbook/${pbId}/final`, {}),
   },
 };
 
@@ -157,3 +192,38 @@ export interface WorkflowReqAdmin {
   adminNote: string | null; createdAt: string;
   client: { user: { name: string | null; email: string | null } } | null;
 }
+
+// ── Tier model types ──────────────────────────────────────────────────────────
+export interface ToolPlan {
+  id: string; clientId: string; intakeId: string | null;
+  status: "draft" | "approved";
+  toolsJson: string; stepsJson: string;
+  source: string; adminNotes: string | null;
+  approvedAt: string | null; createdAt: string;
+}
+export interface DfyApplication {
+  id: string; clientId: string; intakeId: string | null;
+  status: "applied" | "waitlisted" | "accepted" | "declined";
+  notes: string | null; createdAt: string;
+  alreadyApplied?: boolean;
+}
+export interface SupportTicket {
+  id: string; clientId: string; subject: string; message: string;
+  status: "open" | "replied" | "closed"; createdAt: string;
+}
+
+
+// ── Client Playbook types ─────────────────────────────────────────────────────
+export interface ClientPlaybook {
+  id: string;
+  clientId: string;
+  intakeId: string | null;
+  version: number;
+  status: "draft" | "final";
+  content: string;  // JSON stringified PlaybookContent
+  source: string;
+  adminNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
