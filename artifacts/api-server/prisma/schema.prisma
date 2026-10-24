@@ -61,7 +61,8 @@ model Client {
   status            String   @default("PROSPECT") // PROSPECT|ACTIVE|PAUSED|CHURNED
   helpStyle         String?  // self_serve|guided|done_for_you|not_sure (from intake)
   digestEmailOptIn  Boolean  @default(true)
-  stripeCustomerId  String?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?  // DFY recurring subscription
   notes             String?  // admin-only markdown notes
 
   // ── Guided session package ──────────────────────────────────────────────────
@@ -486,4 +487,13 @@ model ClientPlaybook {
   updatedAt    DateTime  @updatedAt
 
   @@index([clientId])
+}
+
+// ── Stripe idempotency log ────────────────────────────────────────────────────
+
+/// Processed Stripe webhook event ids — prevents double-processing.
+model StripeEvent {
+  id          String   @id  // Stripe event id (e.g. evt_...)
+  type        String
+  processedAt DateTime @default(now())
 }
