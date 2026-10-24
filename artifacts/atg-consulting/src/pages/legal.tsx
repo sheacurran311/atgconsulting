@@ -29,6 +29,12 @@ export function PrivacyPage() {
             Follow-up drafts you create in the workbench are handled the same way: the notes you type can be sent to that provider, and the draft is stored on your account. Approving a draft does not send email.
           </p>
           <p>
+            For Guided and Done-for-you clients, sessions may be recorded or transcribed where you have given explicit consent. You will be asked for consent before any recording or transcription takes place. Transcripts are stored on ATG Consulting's servers and are visible to Shea in the admin console. A short approved recap of each session may be shared with you in the app; the full transcript is not shared with you by default.
+          </p>
+          <p>
+            If you withdraw consent for recording, please contact Shea directly. Previously recorded transcripts will be deleted on request.
+          </p>
+          <p>
             Accounts are provided by Clerk. Shea can read intakes, plans, and workbench output for clients on this site.
           </p>
           <p>

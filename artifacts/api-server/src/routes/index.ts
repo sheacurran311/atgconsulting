@@ -10,6 +10,7 @@ import cronRouter from "./cron";
 import workbenchRouter from "./workbench";
 import tiersRouter from "./tiers";
 import playbookRouter from "./playbook";
+import sessionsRouter from "./sessions";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(cronRouter);
 router.use(workbenchRouter);
 router.use(tiersRouter);
 router.use(playbookRouter);
+router.use(sessionsRouter);
 
 export default router;
