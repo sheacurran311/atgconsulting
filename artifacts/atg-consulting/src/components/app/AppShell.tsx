@@ -7,6 +7,7 @@ import { hasOperator } from "@/lib/tiers";
 
 const navItems = [
   { label: "Dashboard",     to: "/app",                  icon: "◈" },
+  { label: "My plan",       to: "/app/plan",             icon: "▣" },
   { label: "Consultations", to: "/app/consultations",    icon: "◷" },
   { label: "Documents",     to: "/app/documents",        icon: "▤" },
   { label: "Reports",       to: "/app/reports",          icon: "▦" },
