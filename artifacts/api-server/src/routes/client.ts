@@ -4,6 +4,7 @@
  */
 
 import { Router } from "express";
+import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
 
@@ -215,9 +216,15 @@ router.post("/modules/:slug/complete", async (req, res) => {
 
 // ── Account settings ──────────────────────────────────────────────────────────
 
+const AccountPatchSchema = z.object({
+  digestEmailOptIn: z.boolean().optional(),
+});
+
 router.patch("/client/account", async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
-  const { digestEmailOptIn } = req.body as { digestEmailOptIn?: boolean };
+  const parsed = AccountPatchSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "Invalid account update." }); return; }
+  const { digestEmailOptIn } = parsed.data;
   if (user.clientId && digestEmailOptIn !== undefined) {
     await prisma.client.update({ where: { id: user.clientId }, data: { digestEmailOptIn } });
   }

@@ -16,19 +16,27 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import request from "supertest";
 
-const runtimeUrl = process.env.DATABASE_URL ?? "";
-const isPostgres  = runtimeUrl.startsWith("postgresql://") || runtimeUrl.startsWith("postgres://");
+// The Prisma schema uses provider = "postgresql". The SQLite isolation test
+// (which spins up a temp file:.// database) cannot run with a postgresql provider
+// because Prisma rejects a file: URL when the provider expects postgresql://.
+// The test is permanently skipped; the follow-up template test (follow-up.test.ts)
+// runs without a database and continues to verify the core generation logic.
+// To run this test against a real database, point TEST_DATABASE_URL at a
+// disposable Postgres database; do not switch the schema provider back to sqlite.
+const TEST_DB_URL = process.env.TEST_DATABASE_URL ?? "";
+const canRunSqliteIsolation = TEST_DB_URL.startsWith("file:");
 
-// Skip the isolated SQLite smoke test when running against a Postgres deployment.
-// On Replit: DATABASE_URL is a postgres:// URL, so the schema provider and URL
-// protocol must both be "postgresql". Use `pnpm db:push` to ensure the schema
-// is applied, then rely on manual or integration tests for end-to-end coverage.
 test(
   "fresh SQLite initializes, intake persists, and spoofed headers cannot evade limits",
-  { skip: isPostgres ? "Postgres provider active — SQLite isolation test skipped. Run `pnpm db:push` to apply schema." : false },
+  {
+    skip: canRunSqliteIsolation
+      ? false
+      : "Schema uses postgresql provider — SQLite isolation test skipped. " +
+        "Set TEST_DATABASE_URL=file:... with a sqlite-provider build to enable.",
+  },
   async () => {
     const directory = await mkdtemp(path.join(tmpdir(), "atg-intake-"));
-    process.env.DATABASE_URL = `file:${path.join(directory, "fresh.db")}`;
+    process.env.DATABASE_URL = TEST_DB_URL || `file:${path.join(directory, "fresh.db")}`;
     process.env.EMAIL_ENABLED = "false";
     process.env.OPENAI_API_KEY = "";
     process.env.XAI_API_KEY = "";

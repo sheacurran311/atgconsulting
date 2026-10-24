@@ -193,13 +193,17 @@ router.get("/admin/intakes", async (req, res) => {
   res.json(intakes);
 });
 
+const IntakeStatusSchema = z.object({
+  status: z.enum(["NEW", "REVIEWED", "CONVERTED", "SPAM"]),
+});
+
 router.patch("/admin/intakes/:id/status", async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
-  const { status } = req.body as { status: string };
-  const allowed = ["NEW", "REVIEWED", "CONVERTED", "SPAM"];
-  if (!allowed.includes(status)) { res.status(422).json({ error: "Invalid status." }); return; }
-  const intake = await prisma.intake.update({ where: { id: req.params.id }, data: { status } });
-  await audit({ actorUserId: actor.id, action: "INTAKE_STATUS_CHANGE", entity: "Intake", entityId: req.params.id, meta: { status }, ip: req.ip });
+  const parsed = IntakeStatusSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "status must be NEW, REVIEWED, CONVERTED, or SPAM." }); return; }
+  const { status } = parsed.data;
+  const intake = await prisma.intake.update({ where: { id: req.params.id as string }, data: { status } });
+  await audit({ actorUserId: actor.id, action: "INTAKE_STATUS_CHANGE", entity: "Intake", entityId: req.params.id as string, meta: { status }, ip: req.ip });
   res.json(intake);
 });
 
@@ -228,11 +232,16 @@ router.post("/admin/reports/:id/publish", async (req, res) => {
   res.json(updated);
 });
 
+const ReportPatchSchema = z.object({
+  contentMarkdown: z.string().min(1).max(100_000),
+});
+
 router.patch("/admin/reports/:id", async (req, res) => {
-  const { contentMarkdown } = req.body as { contentMarkdown: string };
+  const parsed = ReportPatchSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "contentMarkdown is required." }); return; }
   const updated = await prisma.report.update({
-    where: { id: req.params.id },
-    data: { contentMarkdown },
+    where: { id: req.params.id as string },
+    data: { contentMarkdown: parsed.data.contentMarkdown },
   });
   res.json(updated);
 });
@@ -281,9 +290,15 @@ router.get("/admin/content/prompts", async (_req, res) => {
   res.json(templates);
 });
 
+const PromptCreateSchema = z.object({
+  key:  z.enum(["plan", "digest"]),
+  body: z.string().min(1).max(20_000),
+});
+
 router.post("/admin/content/prompts", async (req, res) => {
-  const { key, body } = req.body as { key: string; body: string };
-  if (!key || !body) { res.status(422).json({ error: "key and body are required." }); return; }
+  const parsed = PromptCreateSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "key ('plan' or 'digest') and body are required.", issues: parsed.error.flatten() }); return; }
+  const { key, body } = parsed.data;
   const latest = await prisma.promptTemplate.findFirst({ where: { key }, orderBy: { version: "desc" } });
   const version = (latest?.version ?? 0) + 1;
   await prisma.promptTemplate.updateMany({ where: { key, active: true }, data: { active: false } });
@@ -312,13 +327,32 @@ export default router;
 
 // ── Workbench admin: workflows + outputs + messages + requests ─────────────────
 
+const WorkflowCreateSchema = z.object({
+  name:        z.string().min(1).max(200),
+  description: z.string().min(1).max(2000),
+  area:        z.enum(["ea", "marketing", "sales", "cs"]),
+  status:      z.enum(["designing", "building", "live", "paused"]).default("designing"),
+  schedule:    z.string().max(200).nullable().optional(),
+  setupNote:   z.string().max(200).optional(),
+});
+
 router.post("/admin/clients/:id/workflows", async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const client = await prisma.client.findUnique({ where: { id: req.params.id as string } });
   if (!client) { res.status(404).json({ error: "Client not found." }); return; }
-  const { name, description, area, schedule, status } = req.body as Record<string, string>;
-  if (!name || !description || !area) { res.status(422).json({ error: "name, description, and area are required." }); return; }
-  const wf = await prisma.workflow.create({ data: { clientId: client.id, name, description, area, schedule, status: status ?? "designing", setupNote: `Set up by ${actor.name ?? "Shea"}` } });
+  const parsed = WorkflowCreateSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "name, description, and area are required.", issues: parsed.error.flatten() }); return; }
+  const wf = await prisma.workflow.create({
+    data: {
+      clientId:  client.id,
+      name:      parsed.data.name,
+      description: parsed.data.description,
+      area:      parsed.data.area,
+      schedule:  parsed.data.schedule ?? null,
+      status:    parsed.data.status,
+      setupNote: parsed.data.setupNote ?? `Set up by ${actor.name ?? "Shea"}`,
+    },
+  });
   res.status(201).json(wf);
 });
 
@@ -392,9 +426,9 @@ router.get("/admin/messages/:clientId", async (req, res) => {
 
 router.post("/admin/messages/:clientId/reply", async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
-  const { body } = req.body as { body?: string };
-  if (!body?.trim()) { res.status(422).json({ error: "Body required." }); return; }
-  const msg = await prisma.clientMessage.create({ data: { clientId: req.params.clientId as string, body: body.trim(), fromAdmin: true } });
+  const parsed = z.object({ body: z.string().trim().min(1).max(2000) }).safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "body is required (max 2000 chars)." }); return; }
+  const msg = await prisma.clientMessage.create({ data: { clientId: req.params.clientId as string, body: parsed.data.body, fromAdmin: true } });
   res.status(201).json(msg);
 });
 
@@ -403,8 +437,15 @@ router.get("/admin/workflow-requests", async (_req, res) => {
   res.json(requests);
 });
 
+const WorkflowRequestPatchSchema = z.object({
+  status:    z.enum(["open", "acknowledged", "designing", "done"]).optional(),
+  adminNote: z.string().max(2000).optional(),
+});
+
 router.patch("/admin/workflow-requests/:id", async (req, res) => {
-  const { status, adminNote } = req.body as { status?: string; adminNote?: string };
-  const updated = await prisma.workflowRequest.update({ where: { id: req.params.id as string }, data: { ...(status ? { status } : {}), ...(adminNote ? { adminNote } : {}) } });
+  const parsed = WorkflowRequestPatchSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "Invalid status or adminNote.", issues: parsed.error.flatten() }); return; }
+  const { status, adminNote } = parsed.data;
+  const updated = await prisma.workflowRequest.update({ where: { id: req.params.id as string }, data: { ...(status ? { status } : {}), ...(adminNote !== undefined ? { adminNote } : {}) } });
   res.json(updated);
 });
