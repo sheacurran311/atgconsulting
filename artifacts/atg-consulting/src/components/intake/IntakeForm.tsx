@@ -16,7 +16,8 @@ type FieldKey =
   | "name" | "email" | "role" | "industry"
   | "bizSize" | "areas" | "aiComfort"
   | "tools" | "timeSinks" | "automateFirst"
-  | "hoursLost" | "preferredHelp" | "freeText";
+  | "hoursLost" | "preferredHelp" | "freeText"
+  | "toolBudget" | "currentSoftware" | "weeklyVolumes";
 
 interface QuestionDef {
   key: FieldKey;
@@ -34,13 +35,30 @@ type FormData = {
   tools: Tool[]; timeSinks: TimeSink[];
   automateFirst: string; hoursLost: number;
   preferredHelp: PreferredHelp; freeText: string; honeypot: string;
+  toolBudget: string; currentSoftware: string; weeklyVolumes: string;
 };
+
+const TOOL_BUDGETS = [
+  { value: "<$50/mo",      label: "Under $50 / month" },
+  { value: "$50-150/mo",   label: "$50 – $150 / month" },
+  { value: "$150-500/mo",  label: "$150 – $500 / month" },
+  { value: "$500+/mo",     label: "$500+ / month" },
+  { value: "not_sure",     label: "Not sure yet" },
+];
+const WEEKLY_VOLUMES = [
+  { value: "<10/wk",    label: "Fewer than 10 per week" },
+  { value: "10-50/wk",  label: "10 – 50 per week" },
+  { value: "50-200/wk", label: "50 – 200 per week" },
+  { value: "200+/wk",   label: "200+ per week" },
+  { value: "varies",    label: "It varies a lot" },
+];
 
 const DEFAULT: FormData = {
   name: "", email: "", role: "", industry: "",
   bizSize: "solo", areas: [], aiComfort: 1,
   tools: [], timeSinks: [], automateFirst: "",
   hoursLost: 10, preferredHelp: "not_sure", freeText: "", honeypot: "",
+  toolBudget: "", currentSoftware: "", weeklyVolumes: "",
 };
 
 const AREAS: Area[] = ["executive_assistant", "marketing", "sales", "customer_support"];
@@ -91,10 +109,19 @@ function buildQuestions(data: Partial<FormData>): QuestionDef[] {
     { key: "automateFirst", prompt: "If someone could handle one task for you starting tomorrow, what would it be?", sub: "Don't overthink it — the first thing that came to mind is probably the right answer.", type: "text", optional: true },
     { key: "hoursLost", prompt: "Roughly how many hours per week do repetitive tasks take up?", sub: "Emails, follow-ups, writing, scheduling, admin — add it up.", type: "slider" },
     {
+      key: "toolBudget", prompt: "What's your rough monthly budget for tools and software?", sub: "We'll recommend tools in your range. No pressure to commit.", type: "radio",
+      options: TOOL_BUDGETS,
+    },
+    { key: "currentSoftware", prompt: "What software do you use most in your business?", sub: "By name — e.g. Gmail, QuickBooks, HubSpot. Helps us recommend tools that connect.", type: "text", optional: true },
+    {
+      key: "weeklyVolumes", prompt: "How many of your main tasks happen per week?", sub: "E.g. leads, jobs, customer emails, orders — pick the range that fits best.", type: "radio",
+      options: WEEKLY_VOLUMES,
+    },
+    {
       key: "preferredHelp", prompt: "How do you prefer to get help?", type: "radio",
       options: (["self_serve","guided","done_for_you","not_sure"] as PreferredHelp[]).map((v) => ({ value: v, label: PREFERRED_HELP_LABELS[v] })),
     },
-    { key: "freeText", prompt: "Anything else we should know?", sub: "Constraints, timeline, tools you're locked into…", type: "textarea", optional: true },
+    { key: "freeText", prompt: "Anything else we should know?", sub: "Constraints, timeline, anything else on your mind.", type: "textarea", optional: true },
   ].filter((q) => !(q as QuestionDef).skip?.((data as Parameters<NonNullable<QuestionDef["skip"]>>[0]))) as QuestionDef[];
 }
 
@@ -176,9 +203,12 @@ function WorkflowMap({ data }: { data: Partial<FormData> }) {
 }
 
 // ── Main form ─────────────────────────────────────────────────────────────────
-export default function IntakeForm() {
+export default function IntakeForm({ preselectedTier }: { preselectedTier?: "done_for_you" | "guided" | "self_serve" | null }) {
   const [, setLocation] = useLocation();
-  const [data, setData] = useState<FormData>(DEFAULT);
+  const [data, setData] = useState<FormData>({
+    ...DEFAULT,
+    ...(preselectedTier ? { preferredHelp: preselectedTier } : {}),
+  });
   const dataRef = useRef(data);
   dataRef.current = data;
   const [qIdx, setQIdx] = useState(0);
@@ -228,6 +258,8 @@ export default function IntakeForm() {
         else if (q.key === "industry") next.industry = value;
         else if (q.key === "aiComfort") next.aiComfort = parseInt(value, 10);
         else if (q.key === "preferredHelp") next.preferredHelp = value as PreferredHelp;
+        else if (q.key === "toolBudget") next.toolBudget = value;
+        else if (q.key === "weeklyVolumes") next.weeklyVolumes = value;
         dataRef.current = next;
         return next;
       });
@@ -329,7 +361,9 @@ export default function IntakeForm() {
     q.key === "bizSize" ? data.bizSize :
     q.key === "industry" ? data.industry :
     q.key === "aiComfort" ? String(data.aiComfort) :
-    q.key === "preferredHelp" ? data.preferredHelp : "";
+    q.key === "preferredHelp" ? data.preferredHelp :
+    q.key === "toolBudget" ? data.toolBudget :
+    q.key === "weeklyVolumes" ? data.weeklyVolumes : "";
 
   const currentMultiValues: string[] =
     q.key === "areas" ? data.areas :

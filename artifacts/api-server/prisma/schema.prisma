@@ -64,6 +64,10 @@ model Client {
   stripeCustomerId  String?
   notes             String?  // admin-only markdown notes
 
+  // ── Guided session package ──────────────────────────────────────────────────
+  guidedSessionsTotal Int?    // total sessions in their package
+  guidedSessionsUsed  Int     @default(0)
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -77,6 +81,11 @@ model Client {
   outputItems       OutputItem[]
   messages          ClientMessage[]
   workflowRequests  WorkflowRequest[]
+  toolPlans         ToolPlan[]
+  dfyApplication    DfyApplication?
+  supportTickets    SupportTicket[]
+  playbooks         ClientPlaybook[]
+  sessionRecords    SessionRecord[]
 }
 
 // ── Intake ─────────────────────────────────────────────────────────────────────
@@ -90,6 +99,15 @@ model Intake {
   aiComfort   Int
   hoursLost   Int
   helpStyle   String
+
+  // ── New intake fields (nullable for backward compat) ────────────────────────
+  /// Monthly tool budget range, e.g. "<$50/mo"
+  toolBudget       String?
+  /// Current software by name (free text, optional)
+  currentSoftware  String?
+  /// Weekly volumes, e.g. "10-50/wk"
+  weeklyVolumes    String?
+
   ipHash      String?
   userAgent   String?
   status      String   @default("NEW") // NEW|REVIEWED|CONVERTED|SPAM
@@ -98,6 +116,8 @@ model Intake {
   createdAt   DateTime @default(now())
 
   plans       Plan[]
+  toolPlans   ToolPlan[]
+  playbooks   ClientPlaybook[]
 }
 
 // ── Plan ──────────────────────────────────────────────────────────────────────
@@ -379,4 +399,133 @@ model WorkflowRequest {
   adminNote   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ── Self-serve Tool Plan ───────────────────────────────────────────────────────
+
+/// Personalised tool plan generated for a Self-serve client.
+/// Admin reviews and approves before client can view it.
+model ToolPlan {
+  id           String    @id @default(cuid())
+  clientId     String
+  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  intakeId     String?
+  intake       Intake?   @relation(fields: [intakeId], references: [id])
+
+  status       String    @default("draft") // draft|approved
+
+  /// JSON: [{name, why, costNote}] — tools recommended with reasons and cost note
+  toolsJson    String    @default("[]")
+  /// JSON: [{order, title, detail}] — ordered setup steps
+  stepsJson    String    @default("[]")
+
+  source       String    @default("TEMPLATE") // LLM|TEMPLATE
+  adminNotes   String?
+  approvedAt   DateTime?
+  approvedById String?   // admin User.id
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([clientId])
+}
+
+// ── Done-for-you Application ───────────────────────────────────────────────────
+
+/// DFY application / waitlist entry.
+model DfyApplication {
+  id        String   @id @default(cuid())
+  clientId  String   @unique
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  intakeId  String?
+  status    String   @default("applied") // applied|waitlisted|accepted|declined
+  notes     String?  // admin notes
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ── Support Tickets (Self-serve email support) ─────────────────────────────────
+
+model SupportTicket {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  subject   String
+  message   String
+  status    String   @default("open") // open|replied|closed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+// ── Client Playbook (admin-only) ──────────────────────────────────────────────
+
+/// Operator playbook Shea uses to run a client engagement.
+/// Admin-only — never exposed to clients or the public snapshot.
+model ClientPlaybook {
+  id           String    @id @default(cuid())
+  clientId     String
+  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  intakeId     String?
+  intake       Intake?   @relation(fields: [intakeId], references: [id])
+
+  version      Int       @default(1)
+  status       String    @default("draft") // draft|final
+
+  /// JSON blob matching PlaybookContent Zod schema
+  content      String
+
+  source       String    @default("TEMPLATE") // LLM|TEMPLATE
+  model        String?
+  promptVersion String?
+
+  /// Admin can annotate individual sections
+  adminNotes   String?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([clientId])
+}
+
+// ── Session records (Guided, DFY, discovery calls) ────────────────────────────
+
+model SessionRecord {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  sessionDate   DateTime
+  /// discovery | guided | dfy_checkin | other
+  sessionType   String
+  /// Session N of the Guided package (null for discovery/DFY)
+  sessionNumber Int?
+  /// Recording URL from AI notetaker or video tool (link only; no audio stored)
+  recordingUrl  String?
+
+  /// Client consented to the session being recorded/transcribed
+  consentGiven  Boolean  @default(false)
+
+  /// Full transcript text (paste or .txt/.vtt/.srt/.md upload).
+  /// Admin-only — never exposed to clients.
+  /// Capped at 120 000 characters (~60 000 words).
+  transcript    String?
+
+  /// Additional admin-only notes (markdown)
+  adminNotes    String?
+
+  /// LLM-generated summary (JSON SessionSummary) — admin-only
+  summaryJson   String?
+  summarySource String?  // LLM|TEMPLATE
+
+  /// Short recap (2-3 sentences) shared with client when shareRecap=true
+  /// Visible only to Guided/DFY clients when shareRecap is true
+  shareRecap    Boolean  @default(false)
+  recapText     String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([clientId, sessionDate])
 }

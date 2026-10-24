@@ -13,6 +13,8 @@ import { SignInPage, SignUpPage } from "@/pages/auth";
 
 // App (client portal) pages
 import DashboardPage from "@/pages/app/dashboard";
+import PlanPage from "@/pages/app/plan";
+import SessionsPage from "@/pages/app/sessions";
 import ConsultationsPage from "@/pages/app/consultations";
 import DocumentsPage from "@/pages/app/documents";
 import ReportsPage from "@/pages/app/reports";
@@ -26,6 +28,7 @@ import AdminReportsPage from "@/pages/admin/reports";
 import AdminContentPage from "@/pages/admin/content";
 import AdminAuditPage from "@/pages/admin/audit";
 import AdminMessagesPage from "@/pages/admin/messages";
+import AdminTiersPage from "@/pages/admin/tiers";
 
 function Metadata() {
   const [location] = useLocation();
@@ -104,6 +107,8 @@ function AuthenticatedApp() {
 
         {/* Client portal */}
         <Route path="/app" component={DashboardPage} />
+        <Route path="/app/plan" component={PlanPage} />
+        <Route path="/app/sessions" component={SessionsPage} />
         <Route path="/app/consultations/:id" component={ConsultationsPage} />
         <Route path="/app/consultations" component={ConsultationsPage} />
         <Route path="/app/documents" component={DocumentsPage} />
@@ -122,6 +127,7 @@ function AuthenticatedApp() {
         <Route path="/admin/content" component={AdminContentPage} />
         <Route path="/admin/audit" component={AdminAuditPage} />
         <Route path="/admin/messages" component={AdminMessagesPage} />
+        <Route path="/admin/tiers" component={AdminTiersPage} />
 
         {/* Legacy */}
         <Route path="/user-portal" component={() => <Redirect to="/app" />} />
