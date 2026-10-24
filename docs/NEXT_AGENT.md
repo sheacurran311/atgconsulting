@@ -1,150 +1,136 @@
 # ATG Consulting — audit and next-agent handoff
 
-Read this file before changing code. It is the source of truth for the next pass.
+Read this file before changing code.
 
-ATG is one product with three levels of customization and human involvement:
+## Product: three tiers, one product
 
-1. **Self-serve** (`SELF_SERVE`): the client runs ready-made workflows in the workbench and approves output themselves. Templates, learn modules, light customization. Shea is an upgrade path, not the operator. Self-serve and `NONE` clients see "Want Shea to set this up for you?" linking to `/app/consultations` instead of a live operator thread.
-2. **Guided** (`GUIDED`): the same workbench, plus Shea tunes their workflows, reviews outputs, and they get scheduled 1:1 consults and the operator message thread.
-3. **Done-for-you** (`WHITE_GLOVE` in the schema; "White glove" on [Tiers.tsx](../artifacts/atg-consulting/src/components/sections/Tiers.tsx)): Shea designs, builds, runs, and tunes custom workflows. The client mostly approves finished output.
+1. **Self-serve** (`SELF_SERVE`): paid deliverable = a personalised tool plan (which tools to use given their intake, budget, current software, and volumes) + a step-by-step setup guide, plus email support (replies within 2 business days). NO 1:1 calls with Shea. Workbench access with ready-made workflows (follow-up draft today).
+2. **Guided** (`GUIDED`): a package of 1:1 build sessions with Shea (e.g. 4 × 90 min over 6–8 weeks; copy says "a package of 1:1 build sessions"). Includes operator message thread and everything in Self-serve. Admin sets `guidedSessionsTotal` on Client.
+3. **Done-for-you** (`WHITE_GLOVE` in schema): premium managed option. By application, limited spots (`DFY_MONTHLY_CAP` env, default 1, waitlist when full). Up to 3 workflows Shea builds, runs, monitors, tunes. Client approves output. Also offered as upgrade after Guided.
 
-`NONE` means no plan yet. Gate it like self-serve for operator features. Keep all three prices as `[$ placeholder]`.
+`NONE` = no plan yet. Gate like Self-serve for operator features.
 
-ATG serves anyone across all six verticals in [verticals.ts](../artifacts/atg-consulting/src/content/verticals.ts): `trades`, `realestate`, `hospitality`, `professional`, `salesrep`, `solo`. The follow-up draft is the **first workflow**, not the audience. Do not narrow copy to sales reps.
-
-The public intake snapshot stays high-level ("where you are today, how we can help"). Full detail stays in the admin prep view.
+ATG serves anyone across all six verticals: `trades`, `realestate`, `hospitality`, `professional`, `salesrep`, `solo`. Keep all copy broad — the follow-up draft is the first workflow, not the audience.
 
 ## Stack
 
-- Frontend: Vite + React + wouter in [artifacts/atg-consulting](../artifacts/atg-consulting)
-- API: Express + Prisma + PostgreSQL in [artifacts/api-server](../artifacts/api-server). Schema uses `provider = "postgresql"`. Applied with `pnpm db:push`.
-- Auth: Clerk. Admin = verified email in `ADMIN_EMAILS` (default `shea@atgconsulting.io`).
-- `lib/db` is an unused Drizzle stub. Do not build on it.
-- [artifacts/mockup-sandbox](../artifacts/mockup-sandbox) is empty. Do not use.
-- Design tokens: Geist + Geist Mono, `#0A0A0B`/`#FAFAF9`, electric blue `#3B6BFF`, button `#2557E8`.
-- No Replit agent, no managed-workflow restart. Deliver as a PR.
+- Frontend: Vite + React + wouter in `artifacts/atg-consulting`
+- API: Express + Prisma + PostgreSQL in `artifacts/api-server`. `provider = "postgresql"`. Apply with `pnpm db:push`.
+- Auth: Clerk. Admin = `ADMIN_EMAILS` (default `shea@atgconsulting.io`).
+- New env vars: `DFY_MONTHLY_CAP` (int, default 1).
 
-Stale docs to ignore: `replit.md` (SQLite, old intake shape), `CURSOR_BUILD_PROMPT.md` (Next.js, Replit Auth, `/login`).
+## Schema (current — all new fields added this pass)
 
-## What is working (as of this audit pass)
+### New fields on `Intake`
+- `toolBudget String?` — budget range selected: `<$50/mo | $50-150/mo | $150-500/mo | $500+/mo | not_sure`
+- `currentSoftware String?` — free text
+- `weeklyVolumes String?` — volume range: `<10/wk | 10-50/wk | 50-200/wk | 200+/wk | varies`
 
-### Public site (`/`)
+### New fields on `Client`
+- `guidedSessionsTotal Int?` — total sessions in Guided package
+- `guidedSessionsUsed Int @default(0)` — sessions used so far
 
-All sections mounted: Hero, WhoWeHelp, **Services** (with `id="services"` so `/#services` lands correctly; invented durations removed), OutputGallery, Calculator, ChatVsATG, HowItWorks, SheaOperator, Tiers, FAQ, CTA, Footer.
+### New models
+- `ToolPlan` — personalised tool plan (draft → approved by admin). Admin reviews, edits JSON, approves. Client sees only approved plans at `/app/plan`.
+- `DfyApplication` — DFY application/waitlist. Status: `applied | waitlisted | accepted | declined`. Accepting auto-sets client tier to WHITE_GLOVE.
+- `SupportTicket` — email support for Self-serve. Status: `open | replied | closed`.
 
-Signed-in users with no URL hash redirect to `/app`.
+**`pnpm db:push` IS required after merging this PR** (new columns and tables).
 
-| Route | State |
-|---|---|
-| `/` | Real. `#services`, `#how-it-works`, `#about` anchors all resolve. |
-| `/start` | Real. Industry (vertical id) is saved and required. POST /api/intake returns `{ ok, intakeId, planId, snapshot }`. |
-| `/start/result/:intakeId` | Real. Public for 7 days, then 410. |
-| `/sign-in`, `/sign-up` | Clerk widgets. |
-| `/privacy` | Draft legal page, marked for Shea's review. |
-| `/terms` | Draft legal page, marked for Shea's review. |
-| `/app/*` | Client portal, gated by Clerk. |
-| `/admin/*` | Admin console, gated by `isAdmin`. |
-| Anything else | Clean 404 page with links home and to `/start`. |
+## Intake form (16 questions now)
 
-Still placeholders (leave until Shea supplies values):
-- Tier prices (`[$ placeholder]` in Tiers.tsx)
-- FAQ cost, timeframe, and upgrade credit answers
-- Founder photo (`/brand/shea.jpg` — shows monogram fallback)
-- Founder personal line in `src/content/shea.ts`
-- Footer LinkedIn (`VITE_LINKEDIN_URL` or `[LinkedIn]`)
-- Booking URL (`VITE_BOOKING_URL` or `#book`)
-- Self-serve seminar / template library (no page yet; "Join the seminar" and "Save my spot" go to `/start`)
+Order: name, email, bizSize, industry (vertical), role, areas (multi), aiComfort, tools (multi), timeSinks (multi, filtered), automateFirst (optional), hoursLost (slider), **toolBudget (radio)**, **currentSoftware (optional text)**, **weeklyVolumes (radio)**, preferredHelp, freeText (optional).
 
-### Intake
+Query param `?tier=done_for_you` preselects `preferredHelp` and changes the page header.
 
-`handleOption` saves all radio fields including `industry`. `currentRadioValue` shows the selected industry. `validate()` requires industry. The API also requires it (`z.string().min(1)`). Happy path returns `{ ok, intakeId, planId, snapshot }`. Honeypot submissions return `{ ok: true }` with no `intakeId`; the form guard prevents navigation to `/start/result/undefined`.
+## Tier recommendation (fixed)
 
-### Auth and portal
+`recommendTier()` in `lib/llm.ts` — exported and unit-tested:
+- Explicit `helpStyle` (not "not_sure") → always respected
+- `not_sure` + `aiComfort <= 1` + `hoursLost >= 10` → `done_for_you`
+- `not_sure` + `aiComfort >= 3` → `self_serve`
+- Otherwise → `guided`
 
-- Claim (`POST /api/plan/:intakeId/claim`) requires matching verified email or `role === "ADMIN"`. No email on account → 403.
-- `useAccount` calls `api.client.me()` which returns `tier`, `status`, `digestEmailOptIn`.
-- Account page shows "No plan yet" for `NONE`, correct labels for other tiers.
-- OperatorPanel in AppShell sidebar is gated: `hasOperator(tier)` (Guided + White glove only). Self-serve and NONE see an upgrade prompt.
-- Dashboard operator thread and workflow-request form also gated by `hasOperator(tier)`.
-- Empty states (Today, My Workflows, Hours Saved) use `EmptyWorkbench` which is tier-aware.
+## New routes
 
-### First workflow: "Draft a follow-up"
-
-`POST /api/workbench/follow-up` (Zod: `who`, `lastTouch`, `wantToSay`) creates:
-- one `Workflow` (`area: "sales"`, `status: "live"`) if it doesn't exist
-- one `WorkflowRun` (`status: "completed"`, `summary: "Follow-up draft ready"`)
-- one `OutputItem` (`type: "email_draft"`, `status: "pending"`)
-
-LLM: `generateFollowUpDraft` in `llm.ts` — same OpenAI-compat client (20s timeout, Zod-validated response). Template fallback quotes the user's own words without inventing facts. No tool calls. No tracking pixels. No email sent.
-
-`TodayInbox` keeps the card visible after approve or edit; shows the draft text with a copy control. Dismiss removes it. Approving does not send email.
+### Client
+- `GET /api/tool-plan` — approved ToolPlan or 404
+- `POST /api/tool-plan/generate` — generate (or refresh draft), creates draft for admin approval
+- `POST /api/support` — submit support ticket (Zod: subject, message)
+- `POST /api/dfy/apply` — apply for DFY
+- `GET /api/dfy/status` — current application status
+- `GET /api/guided/sessions` — session package status
 
 ### Admin
+- `GET /api/admin/tool-plans` — draft plans awaiting review
+- `GET /api/admin/clients/:id/tool-plan` — get client's plan
+- `PATCH /api/admin/clients/:id/tool-plan` — edit toolsJson/stepsJson/adminNotes (Zod)
+- `POST /api/admin/clients/:id/tool-plan/approve` — approve and release to client
+- `GET /api/admin/dfy-applications` — list with cap and spotsLeft
+- `PATCH /api/admin/dfy-applications/:id` — update status (Zod enum); accepting sets tier to WHITE_GLOVE
+- `PATCH /api/admin/clients/:id/guided-sessions` — set session package (Zod), also sets tier to GUIDED
+- `GET /api/admin/support` — support ticket inbox
+- `PATCH /api/admin/support/:id` — update status (Zod enum)
 
-- Client detail tabs: overview, prep, plan, consultations, documents, reports, **outputs**.
-- Outputs tab lets Shea post an `OutputItem` to a client's Today inbox via `POST /api/admin/clients/:id/outputs`. Validates workflow ownership (workflow must belong to that client).
-- `PATCH /api/admin/workflows/:id` uses `WorkflowPatchSchema` (only allows `name`, `description`, `area`, `status`, `schedule`, `setupNote`).
+## New frontend pages and components
 
-### Validation (all routes now use Zod)
+| File | Purpose |
+|---|---|
+| `src/pages/app/plan.tsx` | `/app/plan` — shows approved ToolPlan; upgrade gate for NONE; request button if no plan |
+| `src/components/workbench/SupportForm.tsx` | Email support form for SELF_SERVE (replaces OperatorPanel for non-Guided) |
+| `src/pages/admin/tiers.tsx` | `/admin/tiers` — tool plan review, DFY applications, support tickets |
 
-All `req.body` reads in admin.ts, workbench.ts, and client.ts use Zod schemas. Fixed routes:
-- `POST /admin/clients/:id/workflows` → `WorkflowCreateSchema`
-- `PATCH /admin/intakes/:id/status` → `IntakeStatusSchema` (enum)
-- `PATCH /admin/reports/:id` → `ReportPatchSchema`
-- `POST /admin/content/prompts` → `PromptCreateSchema` (key enum: plan|digest)
-- `POST /admin/messages/:clientId/reply` → inline `z.object({ body })`
-- `PATCH /admin/workflow-requests/:id` → `WorkflowRequestPatchSchema` (status enum)
-- `POST /workbench/messages` → `MessageBodySchema`
-- `POST /workbench/requests` → `WorkflowRequestSchema`
-- `PATCH /client/account` → `AccountPatchSchema`
+Dashboard now includes `GuidedSessionsPanel` for GUIDED clients (sessions remaining + booking link).
 
-### Tests
+AppShell nav includes "My plan" → `/app/plan`.
 
-- `follow-up.test.ts` — tests template fallback without DB. Passes.
-- `intake.test.ts` — skips when `TEST_DATABASE_URL` is not set to a `file:` path (schema is postgresql, SQLite isolation test requires schema switch). Follow-up test still runs.
+AdminShell nav includes "Plans & DFY" → `/admin/tiers`.
 
-## What is incomplete (P2 — not this pass)
+## Tests (7 total)
 
-- Learn modules: no seed content. Modules CRUD exists in admin content manager. No module links from the self-serve follow-up flow.
-- Plan PDF: fields exist in schema, nothing generates one.
-- Report email: `sendDigestEmail` exists but is never called. Daily cron timezone is not Denver.
-- Prompt-template editor in admin UI does not call `llm.ts` reader. Templates are code defaults only.
-- Security: no IDOR tests, no multi-process rate-limiter, no CSP headers.
-- Document upload: no UI. Local file serving is 403 in production.
-- Booking URL `#book` has no target element. Use a real `VITE_BOOKING_URL` before launch.
-- Stripe behind `BILLING_ENABLED=false` — not needed until Shea sets prices.
-- Further workflows (prospect list, morning briefing, marketing post) — later pass.
+- `follow-up.test.ts` — follow-up template fallback ✅
+- `intake.test.ts` — skips on postgresql provider ✅ (skip is expected)
+- `tier.test.ts` — **4 new tests**:
+  - explicit preference always wins ✅
+  - not_sure + low comfort + high hours → done_for_you ✅
+  - not_sure + high comfort → self_serve ✅
+  - not_sure + mid comfort → guided ✅
+  - tool plan template returns tools and steps without invented prices ✅
+
+## What remains (P2)
+
+- Learn modules: no seed content. Admin can create modules; no module linked from self-serve plan.
+- Plan PDF: fields on Plan model, no generator.
+- Report digest email and cron timezone fix.
+- Security headers, IDOR tests.
+- Document upload UI, local file serving 403 in production.
+- Booking URL needs a real `VITE_BOOKING_URL` before launch.
+- Prompt-template editor does not feed into `llm.ts`.
 
 ## Leave for Shea
 
-- Three tier prices (and whether self-serve includes a seminar or just the in-app workflow)
-- Booking URL, LinkedIn URL, founder photo, personal bio line
-- Final privacy and terms wording (currently marked as drafts)
-- Whether or a later pass allows email or CRM writes (currently: approve = copy, nothing is sent)
+- Tier prices (all `[$ placeholder]`)
+- Founder photo (`/brand/shea.jpg`), LinkedIn URL, booking URL
+- Final privacy and terms wording (marked drafts)
+- Whether self-serve is a seminar + templates or just the in-app workflow (currently in-app only — no seminar referenced)
+- DFY monthly capacity (`DFY_MONTHLY_CAP`, default 1)
 
 ## Do not
 
-- Invent prices, testimonials, client names, stats, or hours-saved figures.
-- Send email, post to social, or write to a CRM. Approve means the draft is ready to copy.
-- Add Stripe, S3, a new auth provider, or extra agents in the next pass.
-- Narrow homepage, intake, or tier copy to sales reps.
-- Put implementation steps or tool names on the public intake snapshot.
-- Switch the Prisma schema provider back to sqlite.
-- Start a replacement vite/pnpm dev process or bind 127.0.0.1.
+- Invent prices, testimonials, stats, or hours-saved figures
+- Send email, post to social, write to a CRM
+- Add Stripe, S3, new auth providers, or extra agents
+- Narrow copy to sales reps; keep all verticals
+- Start a dev server or bind 127.0.0.1
+- Switch Prisma provider back to sqlite
 
-## Verify before you stop
+## Manual QA checklist for Shea after merge, `pnpm db:push`, and republish
 
-Run `pnpm --filter @workspace/api-server run typecheck`, `pnpm --filter @workspace/atg-consulting run typecheck`, and `pnpm --filter @workspace/api-server test`. The intake test skips (expected); the follow-up test passes. Open a PR against `main`.
-
-Manual QA checklist for Shea after merge + republish (no `db:push` needed if schema didn't change):
-
-1. Complete `/start` with a business type, reach `/start/result/:id` (not an error, not `undefined`).
-2. Open `/#services` from nav → scroll to the four work lanes. No hour counts like "2h → 5 min".
-3. Open `/privacy` and `/terms` from footer. Open a bad URL → clean 404 with links home.
-4. On narrow viewport, open mobile menu → Sign in (signed out) or Dashboard (signed in).
-5. Sign in with the same email used on intake → claim plan → open Account → see tier label ("No plan yet" is correct for new accounts).
-6. Sign in with a different email → attempt claim → see 403 error.
-7. On dashboard (any tier): draft a follow-up, approve it, copy the text. Hours Saved shows at least one run. Nothing is emailed.
-8. Self-serve / no plan: the message box shows "Want Shea to set this up for you?" not a live thread.
-9. Set client tier to Guided in admin → reload their dashboard → operator thread appears.
-10. As admin: add an output for a client → verify it appears in their Today list.
+1. Complete `/start` — pick a business type, complete all 16 questions including budget, software, and volumes. Land on `/start/result/:id`, not an error.
+2. Sign in and claim the plan. Open `/app/plan` — see "no plan yet" or a pending message.
+3. As admin: go to `/admin/tiers` → Tool plans tab → approve the generated plan. Reload `/app/plan` as the client → see the tool recommendations and setup steps.
+4. As self-serve client: open the Dashboard → see the support form (not a live message thread). Submit a ticket. Check `/admin/tiers` → Support tickets to see it.
+5. As admin: go to `/admin/tiers` → DFY applications. Apply as a client via `/start?tier=done_for_you`. Confirm it appears. Accept it → confirm client tier becomes White Glove.
+6. As admin: set a client to Guided (`/admin/clients/:id` → tier dropdown) and set a session package (total/used). As the client → dashboard → Today tab → see "X / Y sessions remaining" with booking link.
+7. `/#services` anchor resolves. `/privacy`, `/terms`, and custom 404 all work. Mobile nav shows Sign in.
+8. Draft a follow-up in the workbench. Approve it. Copy text. Nothing is sent.
