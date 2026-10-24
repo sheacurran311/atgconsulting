@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import AdminShell from "@/components/admin/AdminShell";
 import { api, type IntakeRecord } from "@/lib/api";
+import PlaybookTab from "@/components/admin/PlaybookTab";
 
 const STATUS_TABS = ["NEW", "REVIEWED", "CONVERTED", "SPAM"];
 const STATUS_COLORS: Record<string, string> = { NEW: "bg-blue/10 text-blue", REVIEWED: "bg-blue-50 text-blue-700", CONVERTED: "bg-green-50 text-green-700", SPAM: "bg-red-50 text-red-600" };
@@ -71,9 +72,10 @@ export default function AdminIntakesPage() {
 
                       {/* If client exists */}
                       {intake.client && (
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
                           <span className="text-green-600 text-sm font-semibold">✓ Converted to client</span>
                           <Link to={`/admin/clients/${intake.client.id}`}><span className="text-blue text-sm font-semibold hover:underline cursor-pointer">View client →</span></Link>
+                          <PlaybookInlineButton clientId={intake.client.id} intakeId={intake.id} />
                         </div>
                       )}
 
@@ -91,5 +93,25 @@ export default function AdminIntakesPage() {
         )}
       </div>
     </AdminShell>
+  );
+}
+
+// ── Inline playbook generator from intake ────────────────────────────────────
+function PlaybookInlineButton({ clientId, intakeId }: { clientId: string; intakeId: string }) {
+  const [generating, setGenerating] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function go() {
+    setGenerating(true);
+    await api.admin.generatePlaybook(clientId, intakeId).catch(() => null);
+    setDone(true);
+    setGenerating(false);
+  }
+
+  if (done) return <span className="text-xs font-semibold" style={{ color: "var(--blue)" }}>✓ Playbook generated</span>;
+  return (
+    <button onClick={go} disabled={generating} className="btn-secondary text-xs py-1 px-2">
+      {generating ? "Generating…" : "Generate playbook"}
+    </button>
   );
 }

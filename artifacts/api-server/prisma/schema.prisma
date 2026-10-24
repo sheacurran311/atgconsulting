@@ -84,6 +84,7 @@ model Client {
   toolPlans         ToolPlan[]
   dfyApplication    DfyApplication?
   supportTickets    SupportTicket[]
+  playbooks         ClientPlaybook[]
 }
 
 // ── Intake ─────────────────────────────────────────────────────────────────────
@@ -115,6 +116,7 @@ model Intake {
 
   plans       Plan[]
   toolPlans   ToolPlan[]
+  playbooks   ClientPlaybook[]
 }
 
 // ── Plan ──────────────────────────────────────────────────────────────────────
@@ -452,6 +454,36 @@ model SupportTicket {
   status    String   @default("open") // open|replied|closed
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+// ── Client Playbook (admin-only) ──────────────────────────────────────────────
+
+/// Operator playbook Shea uses to run a client engagement.
+/// Admin-only — never exposed to clients or the public snapshot.
+model ClientPlaybook {
+  id           String    @id @default(cuid())
+  clientId     String
+  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  intakeId     String?
+  intake       Intake?   @relation(fields: [intakeId], references: [id])
+
+  version      Int       @default(1)
+  status       String    @default("draft") // draft|final
+
+  /// JSON blob matching PlaybookContent Zod schema
+  content      String
+
+  source       String    @default("TEMPLATE") // LLM|TEMPLATE
+  model        String?
+  promptVersion String?
+
+  /// Admin can annotate individual sections
+  adminNotes   String?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([clientId])
 }
