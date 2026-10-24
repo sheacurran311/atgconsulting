@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useRoute } from "wouter";
 import AdminShell from "@/components/admin/AdminShell";
 import { api, type ClientAdmin, type ClientDetail, type PrepView, type PlanAdmin } from "@/lib/api";
+import PlaybookTab from "@/components/admin/PlaybookTab";
 
 // ── Clients list ─────────────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ function ClientList() {
 
 // ── Client detail ─────────────────────────────────────────────────────────────
 
-const TABS = ["overview", "prep", "plan", "consultations", "documents", "reports", "outputs"];
+const TABS = ["overview", "prep", "playbook", "plan", "consultations", "documents", "reports", "outputs"];
 
 function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
   const [client, setClient] = useState<ClientDetail | null>(null);
@@ -163,6 +164,7 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
         {/* Tab content */}
         {tab === "overview" && <OverviewTab client={client} editNotes={editNotes} setEditNotes={setEditNotes} saveNotes={saveNotes} savingNotes={savingNotes} />}
         {tab === "prep" && <PrepTab prep={prep} />}
+        {tab === "playbook" && <PlaybookTabWrapper clientId={id} intakeId={client.intakes[0]?.id} />}
         {tab === "plan" && <PlanTab plan={client.plans[0] ?? null} />}
         {tab === "consultations" && <ConsultationsTab client={client} onRefresh={() => api.admin.client(id).then(setClient)} />}
         {tab === "documents" && <DocumentsTab client={client} />}
@@ -174,6 +176,17 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
 }
 
 function OverviewTab({ client, editNotes, setEditNotes, saveNotes, savingNotes }: { client: ClientDetail; editNotes: string; setEditNotes: (v: string) => void; saveNotes: () => void; savingNotes: boolean }) {
+  const [sessTotal, setSessTotal] = useState<number | "">(("guidedSessionsTotal" in client ? (client as ClientDetail & { guidedSessionsTotal?: number }).guidedSessionsTotal : null) ?? "");
+  const [sessUsed, setSessUsed] = useState<number>(("guidedSessionsUsed" in client ? (client as ClientDetail & { guidedSessionsUsed?: number }).guidedSessionsUsed : 0) ?? 0);
+  const [savingSess, setSavingSess] = useState(false);
+
+  async function saveSessions() {
+    if (!sessTotal) return;
+    setSavingSess(true);
+    await api.admin.setGuidedSessions(client.id, { guidedSessionsTotal: Number(sessTotal), guidedSessionsUsed: sessUsed }).catch(() => null);
+    setSavingSess(false);
+  }
+
   return (
     <div className="space-y-5">
       <div className="grid sm:grid-cols-3 gap-4">
@@ -181,10 +194,33 @@ function OverviewTab({ client, editNotes, setEditNotes, saveNotes, savingNotes }
         <Stat label="Consultations" value={String(client.consultations.length)} />
         <Stat label="Documents" value={String(client.documents.length)} />
       </div>
-      <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-5">
-        <p className="text-xs font-bold text-blue tracking-widest uppercase mb-2">Admin notes</p>
+
+      {/* Guided session package */}
+      {(client.tier === "GUIDED" || sessTotal !== "") && (
+        <div className="rounded-xl p-5" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
+          <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>GUIDED SESSION PACKAGE</p>
+          <div className="grid sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="font-mono text-2xs block mb-1" style={{ color: "var(--canvas-text-3)" }}>TOTAL SESSIONS</label>
+              <input type="number" min={1} max={20} value={sessTotal} onChange={(e) => setSessTotal(e.target.value ? Number(e.target.value) : "")}
+                className="field-input text-sm" />
+            </div>
+            <div>
+              <label className="font-mono text-2xs block mb-1" style={{ color: "var(--canvas-text-3)" }}>SESSIONS USED</label>
+              <input type="number" min={0} max={20} value={sessUsed} onChange={(e) => setSessUsed(Number(e.target.value))}
+                className="field-input text-sm" />
+            </div>
+          </div>
+          <button onClick={saveSessions} disabled={savingSess || !sessTotal} className="btn-primary text-sm">
+            {savingSess ? "Saving…" : "Save session package"}
+          </button>
+        </div>
+      )}
+
+      <div className="rounded-xl p-5" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
+        <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>ADMIN NOTES</p>
         <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={5}
-          className="w-full rounded-xl border border-canvas-border px-3 py-2 text-sm text-canvas-text focus:outline-none focus:ring-2 focus:ring-blue resize-none" placeholder="Private notes about this client…" />
+          className="field-input resize-none text-sm" placeholder="Private notes about this client…" />
         <button onClick={saveNotes} disabled={savingNotes} className="btn-primary text-sm mt-2">{savingNotes ? "Saving…" : "Save notes"}</button>
       </div>
     </div>
@@ -216,8 +252,8 @@ function PrepTab({ prep }: { prep: PrepView | null }) {
       {answers && (
         <Section title="Intake answers">
           <div className="grid sm:grid-cols-2 gap-3 text-sm">
-            {(["Role", "Industry", "Business size", "Hours/week lost", "Preferred help", "Automate first"] as const).map((label, i) => {
-              const keys = ["role", "industry", "bizSize", "hoursLost", "preferredHelp", "automateFirst"];
+            {(["Role", "Industry", "Business size", "Hours/week lost", "Preferred help", "Automate first", "Tool budget", "Current software", "Weekly volumes"] as const).map((label, i) => {
+              const keys = ["role", "industry", "bizSize", "hoursLost", "preferredHelp", "automateFirst", "toolBudget", "currentSoftware", "weeklyVolumes"];
               const v = (answers as Record<string, unknown>)[keys[i]!];
               return v ? <div key={label}><span className="font-semibold text-canvas-text">{label}:</span> <span className="text-canvas-text">{String(v)}</span></div> : null;
             })}
@@ -462,4 +498,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
     </div>
   );
+}
+
+// ── Playbook wrapper ──────────────────────────────────────────────────────────
+function PlaybookTabWrapper({ clientId, intakeId }: { clientId: string; intakeId?: string }) {
+  return <PlaybookTab clientId={clientId} intakeId={intakeId} />;
 }

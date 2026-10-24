@@ -7,6 +7,7 @@ import { isIP } from "node:net";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
+import { stripeWebhookHandler } from "./routes/billing";
 
 const app: Express = express();
 
@@ -46,6 +47,9 @@ app.use(
 );
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(cors());
+// Stripe webhook requires raw body BEFORE express.json() is applied.
+// Must be registered before the main json middleware.
+app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), stripeWebhookHandler);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

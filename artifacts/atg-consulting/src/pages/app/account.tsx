@@ -3,6 +3,7 @@ import { useUser, useClerk } from "@clerk/react";
 import AppShell from "@/components/app/AppShell";
 import { useAccount } from "@/lib/useAccount";
 import { api } from "@/lib/api";
+import BillingSection from "@/components/app/BillingSection";
 
 const TIER_LABELS: Record<string, string> = { NONE: "No plan yet", SELF_SERVE: "Self-serve", GUIDED: "Guided", WHITE_GLOVE: "White Glove" };
 const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
@@ -79,6 +80,9 @@ export default function AccountPage() {
             </button>
           </div>
         </div>
+
+        {/* Billing */}
+        {account && <BillingSection account={account} />}
 
         {/* Sign out */}
         <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-6">
