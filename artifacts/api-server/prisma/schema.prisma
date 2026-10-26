@@ -88,6 +88,7 @@ model Client {
   playbooks              ClientPlaybook[]
   sessionRecords         SessionRecord[]
   clientWorkflowSettings ClientWorkflowSettings[]
+  agentChains         AgentChain[]
 }
 
 // ── Intake ─────────────────────────────────────────────────────────────────────
@@ -591,5 +592,38 @@ model ClientWorkflowSettings {
   updatedAt DateTime @updatedAt
 
   @@unique([clientId, slug])
+  @@index([clientId])
+}
+
+// ── Agent pipeline chains (Phase 3 / DFY) ────────────────────────────────────
+
+/// Admin-configurable multi-step pipeline chain for Done-for-you clients.
+model AgentChain {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name        String
+  description String   @default("")
+  /// JSON array of WorkflowTemplate slugs to run in sequence
+  slugs       String   @default("[]")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  runs        AgentChainRun[]
+  @@index([clientId])
+}
+
+/// One execution of an AgentChain — stores step outputs as OutputItem ids.
+model AgentChainRun {
+  id          String     @id @default(cuid())
+  chainId     String
+  chain       AgentChain @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  clientId    String
+  /// JSON array of OutputItem ids, one per step
+  stepOutputIds String   @default("[]")
+  status      String     @default("running") // running|complete|failed
+  createdAt   DateTime   @default(now())
+
   @@index([clientId])
 }

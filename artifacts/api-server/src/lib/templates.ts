@@ -376,3 +376,62 @@ Prospects:
     outputFormat: '{ "prospects": [{ name, url, summary, outreachEmail: { subject, body } }], "complianceNote": string }',
   },
 ];
+
+export const PHASE3_SEEDS: WorkflowTemplateSeed[] = [
+  // ── 9. Customer FAQ and support replies ───────────────────────────────────
+  {
+    slug: "faq-support",
+    name: "Customer FAQ and support replies",
+    description: "Build an FAQ knowledge base from client-provided text or URLs, then draft replies to customer questions using that knowledge. Low-confidence answers are flagged for human review.",
+    verticalTags: [],
+    minTier: "WHITE_GLOVE",
+    systemPrompt: `You build a customer FAQ and draft support replies.
+Task 1 (FAQ build): given source text, extract 5-15 common questions and plain-language answers.
+Task 2 (reply draft): given a customer question and the FAQ, draft a short, warm reply. If the question isn't covered, flag it as low-confidence.
+${COMMON_RULES}
+Output schema: { "faqItems": [{ "question": string, "answer": string }], "replyDraft": string | null, "lowConfidence": boolean, "lowConfidenceReason": string | null }`,
+    userPromptTemplate: `FAQ source text:
+{{faqSource}}
+
+Customer question: {{customerQuestion}}`,
+    inputSchema: JSON.stringify({
+      type: "object",
+      required: ["faqSource"],
+      properties: {
+        faqSource:        { type: "string", minLength: 1, maxLength: 10000, description: "Business info, existing FAQ, service descriptions, or terms" },
+        customerQuestion: { type: "string", maxLength: 500, description: "Optional: specific question to draft a reply for" },
+      },
+    }),
+    outputFormat: '{ "faqItems": [{ question, answer }], "replyDraft": string|null, "lowConfidence": boolean, "lowConfidenceReason": string|null }',
+  },
+
+  // ── 10. Agent pipeline (multi-step) ──────────────────────────────────────
+  {
+    slug: "agent-pipeline",
+    name: "Agent pipeline (multi-step)",
+    description: "A configurable multi-step pipeline: each step runs one template, with its output feeding the next. Admin configures the chain per client. Client sees each step's output and approves the final result.",
+    verticalTags: [],
+    minTier: "WHITE_GLOVE",
+    systemPrompt: `You run one step of a multi-step agent pipeline.
+You receive the previous step's output as context and must produce the output for your assigned step.
+${COMMON_RULES}
+Return only the JSON for your step's assigned output schema.`,
+    userPromptTemplate: `Step: {{stepName}}
+Instructions for this step: {{stepInstructions}}
+Previous step output:
+{{previousOutput}}
+Current input:
+{{currentInput}}`,
+    inputSchema: JSON.stringify({
+      type: "object",
+      required: ["stepName", "stepInstructions", "currentInput"],
+      properties: {
+        stepName:         { type: "string", maxLength: 100 },
+        stepInstructions: { type: "string", maxLength: 2000 },
+        previousOutput:   { type: "string", maxLength: 5000 },
+        currentInput:     { type: "string", maxLength: 5000 },
+      },
+    }),
+    outputFormat: '{ "stepOutput": string, "qualityFlags": string[], "readyForNextStep": boolean }',
+  },
+];

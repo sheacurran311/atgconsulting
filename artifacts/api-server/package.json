@@ -7,7 +7,7 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "prisma generate && node ./build.mjs",
     "db:push": "prisma db push",
-"test": "node --import tsx --test src/intake.test.ts src/follow-up.test.ts src/tier.test.ts src/playbook.test.ts src/session.test.ts src/stripe.test.ts src/skills.test.ts src/skills2.test.ts",
+"test": "node --import tsx --test src/intake.test.ts src/follow-up.test.ts src/tier.test.ts src/playbook.test.ts src/session.test.ts src/stripe.test.ts src/skills.test.ts src/skills2.test.ts src/skills3.test.ts",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
