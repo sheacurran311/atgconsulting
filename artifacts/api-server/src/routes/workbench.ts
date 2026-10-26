@@ -24,6 +24,7 @@ import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
 import { generateFollowUpDraft } from "../lib/llm";
+import { checkWorkflowAccess } from "../lib/access";
 
 const router = Router();
 router.use(withUser, requireAuth);
@@ -155,6 +156,9 @@ router.post("/workbench/follow-up", async (req, res) => {
     res.status(404).json({ error: "Finish the intake and save the plan to your account before drafting a follow-up." });
     return;
   }
+  const acc = await checkWorkflowAccess(user.clientId, "follow-up");
+  if (!acc.allowed) { res.status(403).json({ error: acc.reason }); return; }
+
   const parsed = FollowUpBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Who, last touch, and what you want to say are required." }); return; }
 

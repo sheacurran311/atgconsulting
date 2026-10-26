@@ -1,12 +1,15 @@
 /**
  * Day dashboard.
- * GET  /api/day                 — today's plan, accounts, and reminders
+ * GET  /api/day                 — read today's plan (read-only; no writes)
+ * POST /api/day/refresh         — reconcile and regenerate DayBlock suggestions
  * PUT  /api/day/profile         — save work hours and typical day
  * POST /api/day/accounts        — declare an email, calendar, or other account
  * DELETE /api/day/accounts/:id  — remove a declared account
  * PATCH /api/day/blocks/:id     — add to the day, mark done, or dismiss
  *
  * Accounts are declared only. Nothing here connects to a live inbox or calendar.
+ * Separating GET (read-only) from POST /refresh (writes) prevents P2002 on the
+ * DayBlock unique [clientId, date, suggestionKey] when concurrent GETs race.
  */
 
 import { Router } from "express";
@@ -109,10 +112,24 @@ const BlockAction = z.object({
   action: z.enum(["schedule", "done", "dismiss"]),
 });
 
-router.get("/day", async (req, res) => {
-  const cid = clientId(req as AuthedRequest, res);
-  if (!cid) return;
+// ── Shared read helper ──────────────────────────────────────────────────────
 
+/** Fetch the day payload for a client without writing anything. */
+async function readDayPayload(cid: string): Promise<{
+  profile: DayProfileInput | null;
+  rawProfile: {
+    timezone: string; workDays: string; startMin: number; endMin: number;
+    typicalDay: string; typicalNote: string | null; scope: string; teamNote: string | null;
+  } | null;
+  bizSize: string | null;
+  accounts: { id: string; realm: string; kind: string; provider: string; label: string }[];
+  timezone: string;
+  today: { date: string; weekday: number };
+  todayConsultations: { id: string; title: string; scheduledAt: Date | null; durationMin: number }[];
+  dueActions: { id: string; text: string; dueAt: Date | null }[];
+  drafts: { id: string; type: string; subject: string | null; content: string; status: string; workflowName: string }[];
+  answers: Record<string, unknown> | null;
+} | null> {
   const client = await prisma.client.findUnique({
     where: { id: cid },
     include: {
@@ -121,32 +138,42 @@ router.get("/day", async (req, res) => {
       intakes: { orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
-  if (!client) {
-    res.status(404).json({ error: "No client profile. Complete the intake first." });
-    return;
-  }
+  if (!client) return null;
 
   const answers = parseIntakeAnswers(client.intakes[0]?.answers);
   const bizSize = (typeof answers?.bizSize === "string" ? answers.bizSize : null) ?? client.size;
   const timezone = client.dayProfile && isValidTimeZone(client.dayProfile.timezone)
     ? client.dayProfile.timezone
-    : "America/Denver";
+    : "UTC";
   const today = zonedToday(timezone);
   const profile = client.dayProfile ? readProfile(client.dayProfile) : null;
 
+  // Date window: load consultations within ±2 days in UTC (covers any client timezone)
+  const windowStart = new Date();
+  windowStart.setDate(windowStart.getDate() - 1);
+  const windowEnd = new Date();
+  windowEnd.setDate(windowEnd.getDate() + 2);
+
   const [consultations, actionItems, drafts] = await Promise.all([
     prisma.consultation.findMany({
-      where: { clientId: cid, status: { not: "CANCELLED" }, scheduledAt: { not: null } },
+      where: {
+        clientId: cid,
+        status: { not: "CANCELLED" },
+        scheduledAt: { gte: windowStart, lte: windowEnd },
+      },
+      orderBy: { scheduledAt: "asc" },
     }),
     prisma.actionItem.findMany({
       where: { done: false, owner: "CLIENT", dueAt: { not: null }, consultation: { clientId: cid } },
       orderBy: { dueAt: "asc" },
+      take: 20,
     }),
+    // Include pending + approved + edited so edit/copy buttons remain visible after approval
     prisma.outputItem.findMany({
-      where: { clientId: cid, status: "pending" },
+      where: { clientId: cid, status: { in: ["pending", "approved", "edited"] } },
       include: { workflow: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
-      take: 8,
+      take: 20,
     }),
   ]);
 
@@ -157,91 +184,34 @@ router.get("/day", async (req, res) => {
     item.dueAt ? zonedDateKey(timezone, item.dueAt) <= today.date : false,
   );
 
-  let blocks: {
-    id: string;
-    suggestionKey: string;
-    realm: string;
-    title: string;
-    detail: string;
-    efficiency: string;
-    skillSlug: string | null;
-    startMin: number;
-    endMin: number;
-    status: string;
-    source: string;
-  }[] = [];
+  return {
+    profile,
+    rawProfile: client.dayProfile,
+    bizSize,
+    accounts: client.declaredAccounts.map((a) => ({
+      id: a.id, realm: a.realm, kind: a.kind, provider: a.provider, label: a.label,
+    })),
+    timezone,
+    today,
+    todayConsultations,
+    dueActions,
+    drafts: drafts.map((item) => ({
+      id: item.id,
+      type: item.type,
+      subject: item.subject,
+      content: item.content,
+      status: item.status,
+      workflowName: item.workflow.name,
+    })),
+    answers,
+  };
+}
 
-  if (profile) {
-    const suggested = suggestDay({
-      profile,
-      accounts: client.declaredAccounts.map((account) => ({
-        realm: account.realm === "personal" ? "personal" : "professional",
-        kind: account.kind === "calendar" || account.kind === "other" ? account.kind : "email",
-        provider: account.provider,
-        label: account.label,
-      })),
-      timeSinks: Array.isArray(answers?.timeSinks) ? answers.timeSinks.filter((item): item is string => typeof item === "string") : [],
-      areas: readList(client.areas),
-      personalizedSlugs: extractPersonalizedSlugs(client.notes) ?? [],
-      automateFirst: typeof answers?.automateFirst === "string" ? answers.automateFirst : null,
-      consultations: todayConsultations.map((item) => ({
-        id: item.id,
-        title: item.title,
-        startMin: item.scheduledAt ? zonedMinutes(timezone, item.scheduledAt) : profile.startMin,
-        durationMin: item.durationMin,
-      })),
-      actionItems: dueActions.map((item) => ({ id: item.id, text: item.text })),
-      weekday: today.weekday,
-    });
-
-    const existing = await prisma.dayBlock.findMany({ where: { clientId: cid, date: today.date } });
-    const plan = reconcileDayBlocks(existing, suggested);
-    if (plan.removeKeys.length > 0) {
-      await prisma.dayBlock.deleteMany({
-        where: { clientId: cid, date: today.date, suggestionKey: { in: plan.removeKeys }, status: "suggested" },
-      });
-    }
-    for (const block of plan.update) {
-      await prisma.dayBlock.updateMany({
-        where: { clientId: cid, date: today.date, suggestionKey: block.suggestionKey, status: "suggested" },
-        data: {
-          realm: block.realm,
-          title: block.title,
-          detail: block.detail,
-          efficiency: block.efficiency,
-          skillSlug: block.skillSlug,
-          startMin: block.startMin,
-          endMin: block.endMin,
-          source: block.source,
-        },
-      });
-    }
-    if (plan.create.length > 0) {
-      await prisma.dayBlock.createMany({
-        data: plan.create.map((block) => ({
-          clientId: cid,
-          date: today.date,
-          suggestionKey: block.suggestionKey,
-          realm: block.realm,
-          title: block.title,
-          detail: block.detail,
-          efficiency: block.efficiency,
-          skillSlug: block.skillSlug,
-          startMin: block.startMin,
-          endMin: block.endMin,
-          status: "suggested",
-          source: block.source,
-        })),
-      });
-    }
-    blocks = await prisma.dayBlock.findMany({
-      where: { clientId: cid, date: today.date, status: { not: "dismissed" } },
-      orderBy: { startMin: "asc" },
-    });
-  }
-
-  res.json({
-    profile: profile && client.dayProfile
+function buildResponse(data: Awaited<ReturnType<typeof readDayPayload>>, blocks: { id: string; suggestionKey: string; realm: string; title: string; detail: string; efficiency: string; skillSlug: string | null; startMin: number; endMin: number; status: string; source: string }[]) {
+  if (!data) return null;
+  const { profile, rawProfile, bizSize, accounts, today, todayConsultations, dueActions, drafts } = data;
+  return {
+    profile: profile && rawProfile
       ? {
           timezone: profile.timezone,
           workDays: profile.workDays,
@@ -254,39 +224,130 @@ router.get("/day", async (req, res) => {
         }
       : null,
     bizSize,
-    accounts: client.declaredAccounts.map((account) => ({
-      id: account.id,
-      realm: account.realm,
-      kind: account.kind,
-      provider: account.provider,
-      label: account.label,
-    })),
+    accounts,
     date: today.date,
     weekday: today.weekday,
     isWorkDay: profile ? profile.workDays.includes(today.weekday) : true,
     blocks,
     reminders: {
       consultations: todayConsultations.map((item) => ({
-        id: item.id,
-        title: item.title,
-        scheduledAt: item.scheduledAt,
-        durationMin: item.durationMin,
+        id: item.id, title: item.title, scheduledAt: item.scheduledAt, durationMin: item.durationMin,
       })),
-      actionItems: dueActions.map((item) => ({
-        id: item.id,
-        text: item.text,
-        dueAt: item.dueAt,
-      })),
-      drafts: drafts.map((item) => ({
-        id: item.id,
-        type: item.type,
-        subject: item.subject,
-        content: item.content,
-        status: item.status,
-        workflowName: item.workflow.name,
-      })),
+      actionItems: dueActions.map((item) => ({ id: item.id, text: item.text, dueAt: item.dueAt })),
+      drafts,
     },
-  });
+  };
+}
+
+// ── GET /api/day ── read-only ───────────────────────────────────────────────
+
+router.get("/day", async (req, res) => {
+  try {
+    const cid = clientId(req as AuthedRequest, res);
+    if (!cid) return;
+
+    const data = await readDayPayload(cid);
+    if (!data) { res.status(404).json({ error: "No client profile. Complete the intake first." }); return; }
+
+    const blocks = data.profile
+      ? await prisma.dayBlock.findMany({
+          where: { clientId: cid, date: data.today.date, status: { not: "dismissed" } },
+          orderBy: { startMin: "asc" },
+        })
+      : [];
+
+    res.json(buildResponse(data, blocks));
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Could not load your day." });
+  }
+});
+
+// ── POST /api/day/refresh ── reconcile suggestions (writes) ────────────────
+
+router.post("/day/refresh", async (req, res) => {
+  try {
+    const cid = clientId(req as AuthedRequest, res);
+    if (!cid) return;
+
+    const data = await readDayPayload(cid);
+    if (!data) { res.status(404).json({ error: "No client profile. Complete the intake first." }); return; }
+
+    const { profile, answers, today, todayConsultations, dueActions } = data;
+
+    let blocks: { id: string; suggestionKey: string; realm: string; title: string; detail: string; efficiency: string; skillSlug: string | null; startMin: number; endMin: number; status: string; source: string }[] = [];
+
+    if (profile) {
+      const client = await prisma.client.findUnique({ where: { id: cid }, select: { declaredAccounts: true, notes: true, areas: true } });
+      const suggested = suggestDay({
+        profile,
+        accounts: (client?.declaredAccounts ?? []).map((account) => ({
+          realm: account.realm === "personal" ? "personal" : "professional",
+          kind: account.kind === "calendar" || account.kind === "other" ? account.kind : "email",
+          provider: account.provider,
+          label: account.label,
+        })),
+        timeSinks: Array.isArray(answers?.timeSinks) ? answers.timeSinks.filter((item): item is string => typeof item === "string") : [],
+        areas: readList(client?.areas ?? null),
+        personalizedSlugs: extractPersonalizedSlugs(client?.notes ?? null) ?? [],
+        automateFirst: typeof answers?.automateFirst === "string" ? answers.automateFirst : null,
+        consultations: todayConsultations.map((item) => ({
+          id: item.id,
+          title: item.title,
+          startMin: item.scheduledAt ? zonedMinutes(data.timezone, item.scheduledAt) : profile.startMin,
+          durationMin: item.durationMin,
+        })),
+        actionItems: dueActions.map((item) => ({ id: item.id, text: item.text })),
+        weekday: today.weekday,
+      });
+
+      const existing = await prisma.dayBlock.findMany({ where: { clientId: cid, date: today.date } });
+      const plan = reconcileDayBlocks(existing, suggested);
+
+      // Run all mutations in a transaction to avoid partial states
+      await prisma.$transaction(async (tx) => {
+        if (plan.removeKeys.length > 0) {
+          await tx.dayBlock.deleteMany({
+            where: { clientId: cid, date: today.date, suggestionKey: { in: plan.removeKeys }, status: "suggested" },
+          });
+        }
+        for (const block of plan.update) {
+          await tx.dayBlock.updateMany({
+            where: { clientId: cid, date: today.date, suggestionKey: block.suggestionKey, status: "suggested" },
+            data: { realm: block.realm, title: block.title, detail: block.detail, efficiency: block.efficiency, skillSlug: block.skillSlug, startMin: block.startMin, endMin: block.endMin, source: block.source },
+          });
+        }
+        if (plan.create.length > 0) {
+          // skipDuplicates prevents P2002 if two concurrent refreshes race
+          await tx.dayBlock.createMany({
+            skipDuplicates: true,
+            data: plan.create.map((block) => ({
+              clientId: cid,
+              date: today.date,
+              suggestionKey: block.suggestionKey,
+              realm: block.realm,
+              title: block.title,
+              detail: block.detail,
+              efficiency: block.efficiency,
+              skillSlug: block.skillSlug,
+              startMin: block.startMin,
+              endMin: block.endMin,
+              status: "suggested",
+              source: block.source,
+            })),
+          });
+        }
+      });
+
+      blocks = await prisma.dayBlock.findMany({
+        where: { clientId: cid, date: today.date, status: { not: "dismissed" } },
+        orderBy: { startMin: "asc" },
+      });
+    }
+
+    res.json(buildResponse(data, blocks));
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Could not refresh your day." });
+  }
 });
 
 router.put("/day/profile", async (req, res) => {
