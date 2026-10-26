@@ -32,7 +32,7 @@ const TIERS = [
     name: "Guided",
     tagline: "A package of live 1:1 sessions with Shea.",
     sheaRole: "Shea builds with you, directly.",
-    sheaDetail: "A package of 1:1 build sessions — you and Shea design and set up your workflows together on live calls. Includes the operator message thread.",
+    sheaDetail: "A package of 1:1 build sessions — you and Shea design and set up your workflows together on live calls. Sessions recorded with your consent so you get a recap. Includes the operator message thread.",
     price: "[$ placeholder]",
     cta: "Book a session",
     ctaHref: BOOKING_URL,
@@ -161,7 +161,8 @@ export default function Tiers() {
         </div>
 
         <p className="mt-8 text-xs text-center" style={{ color: "var(--canvas-text-3)" }}>
-          Done-for-you is also offered as an upgrade after Guided. Monthly cap: {parseInt(typeof window !== "undefined" ? "1" : "1", 10)} spot{parseInt("1", 10) !== 1 ? "s" : ""} (see admin for current capacity).
+          Done-for-you is by application only. Limited spots — a waitlist opens when capacity is full.
+          Workflows are portable: any workflow Shea builds can be exported as a SKILL.md for your own AI tools.
         </p>
       </div>
     </section>

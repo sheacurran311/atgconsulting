@@ -73,6 +73,20 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    // Optional dev proxy: set VITE_PROXY_TARGET to the API server URL
+    // (e.g. http://localhost:3001) to forward /api/* requests without CORS issues.
+    // In Replit, set VITE_PROXY_TARGET in Secrets to the API workflow's URL.
+    ...(process.env.VITE_PROXY_TARGET
+      ? {
+          proxy: {
+            '/api': {
+              target: process.env.VITE_PROXY_TARGET,
+              changeOrigin: true,
+              secure: false,
+            },
+          },
+        }
+      : {}),
   },
   preview: {
     port,
