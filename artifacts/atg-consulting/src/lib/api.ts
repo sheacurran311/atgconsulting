@@ -64,6 +64,17 @@ export const api = {
     draftFollowUp:   (body: { who: string; lastTouch: string; wantToSay: string }) => post<OutputItem>("/workbench/follow-up", body),
   },
 
+  tools: {
+    list:   () => get<ATGTool[]>("/tools"),
+    bySlug: (slug: string) => get<ATGTool>(`/tools/${slug}`),
+    /** Admin: list all tools with click counts */
+    adminList: () => get<(ATGTool & { clickCount: number; referralUrl: string; referralNotes: string; pricingNote: string })[]>("/admin/tools"),
+    adminPatch: (id: string, data: Partial<ATGTool & { referralUrl: string; hasReferral: boolean; pricingNote: string; enabled: boolean }>) =>
+      patch<ATGTool>(`/admin/tools/${id}`, data),
+    /** Clicks analytics */
+    clicks: () => get<{ tool: { id: string; name: string; slug: string } | undefined; clicks: number }[]>("/admin/tools/clicks"),
+  },
+
   install: {
     status: () => get<{ slug: string; installedPlatform: string | null; installedAt: string | null; selfReportedHoursSaved: number | null }[]>("/workbench/install/status"),
     mark: (slug: string, platform: "grok_bot" | "claude" | "chatgpt" | "other") => post<{ ok: boolean; installedPlatform: string | null; installedAt: string | null }>("/workbench/install/mark", { slug, platform }),
@@ -428,6 +439,26 @@ export const portalApi = {
 
 
 // ── Client intake (for account page) ─────────────────────────────────────────
+export interface ATGTool {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  description: string;
+  bestForVerticals: string[];
+  pricingNote: string;
+  /** Use this URL for outbound links — routes through /go/:slug for click tracking */
+  goUrl: string;
+  officialUrl: string;
+  hasReferral: boolean;
+  platformsSupported: string[];
+  setupGuideLink: string;
+  logo: string;
+  featured: boolean;
+  enabled: boolean;
+  sortOrder: number;
+}
+
 export interface IntakeSummary {
   id: string;
   createdAt: string;

@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { TEMPLATE_SEEDS, PHASE2_SEEDS, PHASE3_SEEDS } from "./templates";
+import { seedTools } from "./toolSeeds";
+import { seedKnowledgeArticles } from "./knowledgeSeeds";
 
 // PrismaClient singleton — prevents multiple instances during hot reload in dev.
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
@@ -20,6 +22,8 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 export async function initializeDatabase(): Promise<void> {
   await prisma.$connect();
   await seedWorkflowTemplates();
+  await seedTools(prisma).catch(console.error);
+  await seedKnowledgeArticles(prisma).catch(console.error);
 }
 
 async function seedWorkflowTemplates(): Promise<void> {

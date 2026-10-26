@@ -695,3 +695,71 @@ model DayBlock {
   @@unique([clientId, date, suggestionKey])
   @@index([clientId, date])
 }
+
+// ── Tool / Resources database ─────────────────────────────────────────────────
+
+/// A tool or platform ATG recommends. Admin-managed; seeded from code.
+model Tool {
+  id                 String   @id @default(cuid())
+  /// URL-safe unique identifier used in /go/:slug links
+  slug               String   @unique
+  name               String
+  /// ai_platform | productivity | email | calendar | scheduling | payments
+  /// accounting | crm | design | social_media | automation | dev_tool | other
+  category           String
+  description        String   @default("")
+  /// JSON array of vertical ids this tool is most relevant for
+  bestForVerticals   String   @default("[]")
+  /// Plain text, no invented prices; admin fills in from official site
+  pricingNote        String   @default("")
+  officialUrl        String
+  /// Leave blank; Shea fills in after joining the program
+  referralUrl        String   @default("")
+  hasReferral        Boolean  @default(false)
+  referralNotes      String   @default("")
+  /// JSON array of supported AI platforms: grok_bot | claude | chatgpt
+  platformsSupported String   @default("[]")
+  setupGuideLink     String   @default("")
+  logo               String   @default("") // URL or path
+  featured           Boolean  @default(false)
+  enabled            Boolean  @default(true)
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  clicks             ToolClick[]
+
+  @@index([category])
+  @@index([enabled, sortOrder])
+}
+
+/// One redirect click through /go/:slug
+model ToolClick {
+  id       String   @id @default(cuid())
+  toolId   String
+  tool     Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  clientId String?  // null = unauthenticated visitor
+  source   String   // page or component that generated the link
+  createdAt DateTime @default(now())
+
+  @@index([toolId])
+  @@index([clientId])
+}
+
+// ── Knowledge articles ────────────────────────────────────────────────────────
+
+/// Admin-editable markdown article; seeded from code.
+model KnowledgeArticle {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  body        String   @default("") // markdown
+  /// JSON { verticals: string[], tiers: string[], platforms: string[] }
+  tags        String   @default("{}")
+  enabled     Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
+}
