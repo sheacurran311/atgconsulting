@@ -48,6 +48,7 @@ export const api = {
     updateAccount: (body: { digestEmailOptIn?: boolean }) => patch<{ ok: boolean }>("/client/account", body),
     messages: () => get<ClientMsg[]>("/workbench/messages"),
     sendMessage: (body: string) => post<ClientMsg>("/workbench/messages", { body }),
+    sessions:    () => get<SessionRecord[]>("/client/sessions"),
   },
 
   // ── Workbench ─────────────────────────────────────────────────────────────
@@ -130,6 +131,13 @@ export const api = {
                                  patch<ClientPlaybook>(`/admin/clients/${clientId}/playbook/${pbId}`, body),
     finalisePlaybook:          (clientId: string, pbId: string) =>
                                  post<ClientPlaybook>(`/admin/clients/${clientId}/playbook/${pbId}/final`, {}),
+    // Sessions
+    sessions:         (clientId: string) => get<SessionRecord[]>(`/admin/clients/${clientId}/sessions`),
+    session:          (clientId: string, sid: string) => get<SessionRecordWithTranscript>(`/admin/clients/${clientId}/sessions/${sid}`),
+    createSession:    (clientId: string, body: unknown) => post<SessionRecord>(`/admin/clients/${clientId}/sessions`, body),
+    patchSession:     (clientId: string, sid: string, body: unknown) => patch<SessionRecord>(`/admin/clients/${clientId}/sessions/${sid}`, body),
+    deleteSession:    (clientId: string, sid: string) => req<{ ok: boolean }>("DELETE", `/admin/clients/${clientId}/sessions/${sid}`),
+    summarizeSession: (clientId: string, sid: string) => post<{ session: SessionRecord; summary: SessionSummary }>(`/admin/clients/${clientId}/sessions/${sid}/summarize`, {}),
   },
 };
 
@@ -227,6 +235,29 @@ export interface ClientPlaybook {
   updatedAt: string;
 }
 
+
+// ── Session records ───────────────────────────────────────────────────────────
+export interface SessionRecord {
+  id: string; clientId: string;
+  sessionDate: string; sessionType: string; sessionNumber: number | null;
+  recordingUrl: string | null; consentGiven: boolean;
+  shareRecap: boolean; recapText: string | null;
+  summaryJson: string | null; summarySource: string | null;
+  adminNotes: string | null; createdAt: string; updatedAt: string;
+}
+export interface SessionRecordWithTranscript extends SessionRecord {
+  transcript: string | null;
+}
+export interface SessionSummary {
+  decisions: string[];
+  actionItems: Array<{ owner: string; item: string; dueHint?: string }>;
+  workflowsBuiltOrChanged: string[];
+  openQuestions: string[];
+  risks: string[];
+  nextSessionAgenda: string[];
+  shortRecap: string;
+  source: string;
+}
 
 // ── Billing ───────────────────────────────────────────────────────────────────
 export const billing = {

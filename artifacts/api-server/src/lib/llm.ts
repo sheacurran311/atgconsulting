@@ -585,6 +585,16 @@ export async function generateToolPlan(input: ToolPlanInput): Promise<ToolPlanOu
 
 // ── Client Playbook generation (admin-only) ──────────────────────────────────
 
+export interface SessionSummarySnippet {
+  sessionNumber?: number;
+  sessionType: string;
+  sessionDate: string; // ISO date string
+  decisions: string[];
+  actionItems: string[];
+  workflowsBuiltOrChanged: string[];
+  openQuestions: string[];
+}
+
 export interface PlaybookInput {
   // Client identity
   clientName: string;
@@ -608,6 +618,8 @@ export interface PlaybookInput {
   tier: string;        // SELF_SERVE|GUIDED|WHITE_GLOVE|NONE
   vertical: string;    // vertical id
   adminNotes?: string; // Shea's own prior notes
+  /** Recent approved session summaries — inform playbook with what was decided */
+  sessionSummaries?: SessionSummarySnippet[];
 }
 
 export interface PlaybookContent {
@@ -733,6 +745,19 @@ function buildPlaybookPrompt(input: PlaybookInput): string {
     input.automateFirst ? `Would automate first: ${promptSafe(input.automateFirst, "automate")}` : "",
     input.freeText ? `Additional context: ${promptSafe(input.freeText, "context")}` : "",
     input.adminNotes ? `Shea's prior notes: ${promptSafe(input.adminNotes, "notes")}` : "",
+    ...(input.sessionSummaries?.length
+      ? [
+          `\nSession history (${input.sessionSummaries.length} session(s) so far):`,
+          ...input.sessionSummaries.slice(0, 5).map((s, i) =>
+            `  Session ${s.sessionNumber ?? i + 1} (${s.sessionType}, ${s.sessionDate}): ` +
+            `Decisions: ${s.decisions.slice(0, 3).join("; ")}. ` +
+            `Actions: ${s.actionItems.slice(0, 3).join("; ")}. ` +
+            (s.workflowsBuiltOrChanged.length ? `Workflows: ${s.workflowsBuiltOrChanged.join("; ")}.` : "") +
+            (s.openQuestions.length ? ` Open: ${s.openQuestions[0]}.` : "")
+          ),
+          "When generating the playbook, cite which sessions informed key decisions.",
+        ]
+      : []),
   ].filter(Boolean);
   return `Generate a client operator playbook:\n${lines.join("\n")}\n\nReturn ONLY valid JSON.`;
 }
@@ -927,5 +952,113 @@ export async function generateClientPlaybook(input: PlaybookInput): Promise<Play
   } catch (err) {
     console.error("[llm] playbook generation error:", err);
     return { ...buildTemplatePlaybook(input), source: "TEMPLATE" };
+  }
+}
+
+// ── Session summarization ─────────────────────────────────────────────────────
+
+export interface SessionSummary {
+  decisions: string[];
+  actionItems: Array<{ owner: "Shea" | "Client"; item: string; dueHint?: string }>;
+  workflowsBuiltOrChanged: string[];
+  openQuestions: string[];
+  risks: string[];
+  nextSessionAgenda: string[];
+  /** 2-3 sentence client-facing recap (shown only when admin enables shareRecap) */
+  shortRecap: string;
+  source: "LLM" | "TEMPLATE";
+}
+
+const SessionSummaryZod = z.object({
+  decisions: z.array(z.string()),
+  actionItems: z.array(z.object({
+    owner: z.enum(["Shea", "Client"]),
+    item: z.string().min(1),
+    dueHint: z.string().optional(),
+  })),
+  workflowsBuiltOrChanged: z.array(z.string()),
+  openQuestions: z.array(z.string()),
+  risks: z.array(z.string()),
+  nextSessionAgenda: z.array(z.string()),
+  shortRecap: z.string().min(1).max(600),
+});
+
+const SESSION_SYSTEM = `You summarise a work session between Shea Curran (ATG Consulting) and a client.
+Extract structured information from the transcript or notes.
+
+Rules:
+- Decisions: concrete commitments made in the session.
+- Action items: specific to-do items with a clear owner (Shea or Client).
+- Workflows built or changed: name of workflow and what changed.
+- Open questions: unresolved items needing follow-up.
+- Risks: anything that could slow down or derail progress.
+- Next session agenda: suggested items for the next call.
+- Short recap: 2-3 plain sentences summarising the session for the client (no jargon, no tool names unless already agreed).
+- Do NOT invent facts not present in the transcript. If a field has nothing, return an empty array or brief "n/a".
+Return ONLY valid JSON. No prose outside JSON.`;
+
+function buildSessionPrompt(transcript: string, sessionType: string, sessionNumber?: number): string {
+  const label = sessionNumber ? `Session ${sessionNumber} (${sessionType})` : sessionType;
+  return `Summarise this ${label} session.\n\nTranscript/notes:\n${transcript.slice(0, 20_000)}\n\nReturn ONLY valid JSON.`;
+}
+
+function buildTemplateSessionSummary(transcript: string, sessionType: string): SessionSummary {
+  // Extract bullet-like lines as heuristic fallback
+  const lines = transcript.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const bullets = lines.filter((l) => /^[-*•→>]/.test(l)).map((l) => l.replace(/^[-*•→>]\s*/, "")).slice(0, 20);
+
+  return {
+    decisions: bullets.slice(0, 4).length ? bullets.slice(0, 4) : ["See notes for decisions made in this session."],
+    actionItems: [
+      { owner: "Shea", item: "Review session notes and update the playbook." },
+      { owner: "Client", item: "Follow up on any items agreed in the session." },
+    ],
+    workflowsBuiltOrChanged: [],
+    openQuestions: bullets.slice(4, 7).length ? bullets.slice(4, 7) : [],
+    risks: [],
+    nextSessionAgenda: ["Review progress on action items.", "Address any open questions from this session."],
+    shortRecap: `We met for a ${sessionType.replace("_", " ")} session. Key decisions and next steps were captured. Shea will follow up shortly.`,
+    source: "TEMPLATE",
+  };
+}
+
+export async function summarizeSession(
+  transcript: string,
+  sessionType: string,
+  sessionNumber?: number
+): Promise<SessionSummary> {
+  if (!transcript.trim()) {
+    return {
+      decisions: [], actionItems: [], workflowsBuiltOrChanged: [],
+      openQuestions: [], risks: [], nextSessionAgenda: [],
+      shortRecap: "No transcript was provided for this session.",
+      source: "TEMPLATE",
+    };
+  }
+
+  const llm = getClient();
+  if (!llm) return buildTemplateSessionSummary(transcript, sessionType);
+
+  try {
+    const completion = await llm.chat.completions.create({
+      model: MODEL,
+      temperature: 0.3,
+      max_tokens: 800,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SESSION_SYSTEM },
+        { role: "user",   content: buildSessionPrompt(transcript, sessionType, sessionNumber) },
+      ],
+    });
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const parsed = SessionSummaryZod.safeParse(raw);
+    if (!parsed.success) {
+      console.error("[llm] session summary schema mismatch, using template");
+      return buildTemplateSessionSummary(transcript, sessionType);
+    }
+    return { ...parsed.data, source: "LLM" };
+  } catch (err) {
+    console.error("[llm] session summarization failed:", err);
+    return buildTemplateSessionSummary(transcript, sessionType);
   }
 }

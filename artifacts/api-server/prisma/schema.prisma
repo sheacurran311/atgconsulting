@@ -86,6 +86,7 @@ model Client {
   dfyApplication    DfyApplication?
   supportTickets    SupportTicket[]
   playbooks         ClientPlaybook[]
+  sessionRecords    SessionRecord[]
 }
 
 // ── Intake ─────────────────────────────────────────────────────────────────────
@@ -487,6 +488,47 @@ model ClientPlaybook {
   updatedAt    DateTime  @updatedAt
 
   @@index([clientId])
+}
+
+// ── Session records (Guided, DFY, discovery calls) ────────────────────────────
+
+model SessionRecord {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  sessionDate   DateTime
+  /// discovery | guided | dfy_checkin | other
+  sessionType   String
+  /// Session N of the Guided package (null for discovery/DFY)
+  sessionNumber Int?
+  /// Recording URL from AI notetaker or video tool (link only; no audio stored)
+  recordingUrl  String?
+
+  /// Client consented to the session being recorded/transcribed
+  consentGiven  Boolean  @default(false)
+
+  /// Full transcript text (paste or .txt/.vtt/.srt/.md upload).
+  /// Admin-only — never exposed to clients.
+  /// Capped at 120 000 characters (~60 000 words).
+  transcript    String?
+
+  /// Additional admin-only notes (markdown)
+  adminNotes    String?
+
+  /// LLM-generated summary (JSON SessionSummary) — admin-only
+  summaryJson   String?
+  summarySource String?  // LLM|TEMPLATE
+
+  /// Short recap (2-3 sentences) shared with client when shareRecap=true
+  /// Visible only to Guided/DFY clients when shareRecap is true
+  shareRecap    Boolean  @default(false)
+  recapText     String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([clientId, sessionDate])
 }
 
 // ── Stripe idempotency log ────────────────────────────────────────────────────

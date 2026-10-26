@@ -16,7 +16,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
-import { generateClientPlaybook, type PlaybookInput } from "../lib/llm";
+import { generateClientPlaybook, type PlaybookInput, type SessionSummarySnippet } from "../lib/llm";
 import { sanitiseText, sanitiseShortText } from "../lib/sanitize";
 
 const router = Router();
@@ -39,6 +39,27 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
     ? (() => { try { return JSON.parse(intake.answers) as Record<string, unknown>; } catch { return {}; } })()
     : {};
 
+  // Load recent session summaries to inform playbook
+  const sessionRecords = await prisma.sessionRecord.findMany({
+    where: { clientId, summaryJson: { not: null } },
+    orderBy: { sessionDate: "desc" },
+    take: 5,
+    select: { sessionNumber: true, sessionType: true, sessionDate: true, summaryJson: true },
+  });
+  const sessionSummaries: SessionSummarySnippet[] = sessionRecords.map((s) => {
+    const summary = (() => { try { return JSON.parse(s.summaryJson!) as Record<string, unknown>; } catch { return null; } })();
+    if (!summary) return null;
+    return {
+      sessionNumber: s.sessionNumber ?? undefined,
+      sessionType: s.sessionType,
+      sessionDate: s.sessionDate.toISOString().split("T")[0]!,
+      decisions: (summary.decisions as string[] | undefined) ?? [],
+      actionItems: ((summary.actionItems as Array<{ item: string }> | undefined) ?? []).map((a) => a.item),
+      workflowsBuiltOrChanged: (summary.workflowsBuiltOrChanged as string[] | undefined) ?? [],
+      openQuestions: (summary.openQuestions as string[] | undefined) ?? [],
+    } satisfies SessionSummarySnippet;
+  }).filter(Boolean) as SessionSummarySnippet[];
+
   return {
     clientName: client.user.name ?? intake?.name ?? "Client",
     role:       sanitiseShortText(String(answers.role ?? client.roleTitle ?? "business owner")),
@@ -57,6 +78,7 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
     tier:       client.tier,
     vertical:   client.industry ?? "unknown",
     adminNotes: client.notes ? sanitiseText(client.notes) : undefined,
+    sessionSummaries: sessionSummaries.length > 0 ? sessionSummaries : undefined,
   };
 }
 
