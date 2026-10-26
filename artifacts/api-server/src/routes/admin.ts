@@ -291,7 +291,8 @@ router.get("/admin/content/prompts", async (_req, res) => {
 });
 
 const PromptCreateSchema = z.object({
-  key:  z.enum(["plan", "digest"]),
+  // plan = client snapshot, admin_report = pre-call report, digest = daily digest
+  key:  z.enum(["plan", "admin_report", "digest"]),
   body: z.string().min(1).max(20_000),
 });
 

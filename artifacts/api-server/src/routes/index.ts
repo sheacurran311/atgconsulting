@@ -12,6 +12,7 @@ import tiersRouter from "./tiers";
 import playbookRouter from "./playbook";
 import sessionsRouter from "./sessions";
 import billingRouter from "./billing";
+import workflowTemplatesRouter from "./workflow-templates";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(tiersRouter);
 router.use(playbookRouter);
 router.use(sessionsRouter);
 router.use(billingRouter);
+router.use(workflowTemplatesRouter);
 
 export default router;

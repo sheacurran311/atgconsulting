@@ -1,10 +1,7 @@
 import { PrismaClient } from "@prisma/client";
+import { TEMPLATE_SEEDS } from "./templates";
 
 // PrismaClient singleton — prevents multiple instances during hot reload in dev.
-// Works with any DATABASE_URL: postgresql://, file: (local SQLite dev), etc.
-// The provider in schema.prisma is "postgresql"; to use SQLite locally change it
-// to "sqlite" and set DATABASE_URL="file:./prisma/dev.db".
-
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 export const prisma =
@@ -16,10 +13,37 @@ export const prisma =
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 /**
- * Verifies the database connection is live before the HTTP server starts.
- * Prisma manages the schema (via `db:push` or `migrate deploy`); this
- * function does NOT create or alter tables — it just pings the connection.
+ * Verifies the database connection is live, then seeds WorkflowTemplate rows
+ * from code defaults if they don't already exist.
+ * Admin edits are preserved — seeding only creates missing slugs.
  */
 export async function initializeDatabase(): Promise<void> {
   await prisma.$connect();
+  await seedWorkflowTemplates();
+}
+
+async function seedWorkflowTemplates(): Promise<void> {
+  try {
+    for (const seed of TEMPLATE_SEEDS) {
+      const existing = await prisma.workflowTemplate.findUnique({ where: { slug: seed.slug } });
+      if (!existing) {
+        await prisma.workflowTemplate.create({
+          data: {
+            slug:               seed.slug,
+            name:               seed.name,
+            description:        seed.description,
+            verticalTags:       JSON.stringify(seed.verticalTags),
+            minTier:            seed.minTier,
+            systemPrompt:       seed.systemPrompt,
+            userPromptTemplate: seed.userPromptTemplate,
+            inputSchema:        seed.inputSchema,
+            outputFormat:       seed.outputFormat,
+          },
+        });
+      }
+    }
+  } catch (err) {
+    // Non-fatal: DB may not have the table yet (before db:push on fresh deploy).
+    console.warn("[db] WorkflowTemplate seed skipped:", (err as Error).message);
+  }
 }

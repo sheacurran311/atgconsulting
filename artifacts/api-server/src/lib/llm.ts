@@ -18,6 +18,40 @@
 
 import OpenAI from "openai";
 import { z } from "zod";
+import { prisma } from "./db";
+
+// ── DB-driven template loading ────────────────────────────────────────────────
+
+/**
+ * Load the active PromptTemplate from the DB for the given key (plan|digest).
+ * Returns null if none found — caller falls back to code-defined string.
+ * This fixes the gap where the admin prompt editor never fed llm.ts.
+ */
+export async function loadActivePrompt(key: string): Promise<string | null> {
+  try {
+    const t = await prisma.promptTemplate.findFirst({
+      where: { key, active: true },
+      orderBy: { version: "desc" },
+    });
+    return t?.body ?? null;
+  } catch {
+    return null; // DB unavailable — use code default
+  }
+}
+
+/**
+ * Load an enabled WorkflowTemplate by slug.
+ * Returns the DB row if it exists and is enabled, otherwise null.
+ */
+export async function loadWorkflowTemplate(slug: string) {
+  try {
+    return await prisma.workflowTemplate.findFirst({
+      where: { slug, enabled: true },
+    });
+  } catch {
+    return null;
+  }
+}
 import { sanitiseText, sanitiseShortText, promptSafe } from "./sanitize";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -200,10 +234,16 @@ export async function generateBothOutputs(intake: IntakeInput): Promise<LLMResul
     };
   }
 
+  // Load DB-overridden prompts if admin has edited them; fall back to code defaults.
+  const [clientPrompt, adminPrompt] = await Promise.all([
+    loadActivePrompt("plan").then((p) => p ?? CLIENT_SYSTEM_PROMPT),
+    loadActivePrompt("admin_report").then((p) => p ?? ADMIN_SYSTEM_PROMPT),
+  ]);
+
   // Run both calls in parallel
   const [snapshotResult, reportResult] = await Promise.allSettled([
-    callLLM<ClientSnapshot>(client, CLIENT_SYSTEM_PROMPT, `${context}\n\nOutput schema:\n${CLIENT_OUTPUT_SCHEMA}`),
-    callLLM<AdminPreCallReport>(client, ADMIN_SYSTEM_PROMPT, `${context}\n\nOutput schema:\n${ADMIN_OUTPUT_SCHEMA}`),
+    callLLM<ClientSnapshot>(client, clientPrompt, `${context}\n\nOutput schema:\n${CLIENT_OUTPUT_SCHEMA}`),
+    callLLM<AdminPreCallReport>(client, adminPrompt, `${context}\n\nOutput schema:\n${ADMIN_OUTPUT_SCHEMA}`),
   ]);
 
   return {

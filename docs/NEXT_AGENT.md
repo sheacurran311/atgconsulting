@@ -134,3 +134,50 @@ AdminShell nav includes "Plans & DFY" → `/admin/tiers`.
 6. As admin: set a client to Guided (`/admin/clients/:id` → tier dropdown) and set a session package (total/used). As the client → dashboard → Today tab → see "X / Y sessions remaining" with booking link.
 7. `/#services` anchor resolves. `/privacy`, `/terms`, and custom 404 all work. Mobile nav shows Sign in.
 8. Draft a follow-up in the workbench. Approve it. Copy text. Nothing is sent.
+
+## Workbench Skills — Foundation (added this pass)
+
+### PromptTemplate → llm.ts wiring (fixed)
+
+`llm.ts` now calls `loadActivePrompt(key)` before using code-default strings.
+- `key = "plan"` overrides the client snapshot system prompt
+- `key = "admin_report"` overrides the admin pre-call report system prompt
+- `key = "digest"` reserved for daily digest (not yet called)
+Admin creates a new version via `POST /admin/content/prompts`; llm.ts loads it on the next request.
+
+### WorkflowTemplate model
+
+New Prisma model `WorkflowTemplate` (slug unique):
+- `systemPrompt` — used by llm.ts at runtime
+- `userPromptTemplate` — {{variable}} placeholders; shown in SKILL.md export
+- `inputSchema` — JSON Schema for inputs
+- `outputFormat` — description of output shape
+- `minTier`, `verticalTags`, `enabled`, `version`
+
+Seeded from `src/lib/templates.ts` at server start (only creates missing slugs; admin edits preserved).
+**`pnpm db:push` is required** for the new model.
+
+Current slugs: `follow-up`, `inbox-triage`, `review-request`, `social-calendar`, `seo-audit`
+
+Admin routes:
+- `GET /admin/workflow-templates` — list all
+- `PATCH /admin/workflow-templates/:slug` — edit (versioned)
+- `POST /admin/workflow-templates/:slug/reset` — restore code default
+- `GET /admin/workflow-templates/:slug/skill` — download as SKILL.md
+
+Admin UI: `/admin/workflow-templates` — list, edit, enable/disable, download SKILL.md.
+
+### SKILL.md export
+
+`renderSkillMd(template)` in `src/lib/templates.ts` produces a Markdown file clients can paste into Grok Bot, Claude, or ChatGPT to run the workflow themselves. Each export includes: name, slug, tier, system prompt, user prompt template with {{variables}}, input schema, and expected output format.
+
+## Workbench Skills — Phase 1 (next pass)
+
+The 4 Phase 1 workflows (inbox-triage, review-request, social-calendar, seo-audit) need:
+- New routes in `artifacts/api-server/src/routes/skills.ts`
+- LLM functions calling `loadWorkflowTemplate(slug)` then falling back to TEMPLATE_SEEDS
+- Frontend workflow forms in TodayInbox / a new Workflows section
+- SEO audit: server-side URL fetch with AbortController (20s timeout), no paid APIs
+- Tests for template fallback for each workflow
+
+Client approval of every output is on by default. Nothing is sent automatically.

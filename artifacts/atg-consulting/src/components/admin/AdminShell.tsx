@@ -9,6 +9,7 @@ const navItems = [
   { label: "Messages",    to: "/admin/messages" },
   { label: "Reports",     to: "/admin/reports"  },
   { label: "Content",     to: "/admin/content"  },
+  { label: "Templates",   to: "/admin/workflow-templates" },
   { label: "Audit log",   to: "/admin/audit"    },
 ];
 

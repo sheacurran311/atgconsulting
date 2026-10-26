@@ -138,6 +138,13 @@ export const api = {
     patchSession:     (clientId: string, sid: string, body: unknown) => patch<SessionRecord>(`/admin/clients/${clientId}/sessions/${sid}`, body),
     deleteSession:    (clientId: string, sid: string) => req<{ ok: boolean }>("DELETE", `/admin/clients/${clientId}/sessions/${sid}`),
     summarizeSession: (clientId: string, sid: string) => post<{ session: SessionRecord; summary: SessionSummary }>(`/admin/clients/${clientId}/sessions/${sid}/summarize`, {}),
+    // Workflow templates
+    workflowTemplates:     () => get<WorkflowTemplate[]>("/admin/workflow-templates"),
+    workflowTemplate:      (slug: string) => get<WorkflowTemplate>(`/admin/workflow-templates/${slug}`),
+    patchWorkflowTemplate: (slug: string, body: Partial<WorkflowTemplate>) =>
+                             patch<WorkflowTemplate>(`/admin/workflow-templates/${slug}`, body),
+    resetWorkflowTemplate: (slug: string) => post<WorkflowTemplate>(`/admin/workflow-templates/${slug}/reset`, {}),
+    skillMdUrl:            (slug: string) => `${typeof window !== "undefined" ? window.location.origin : ""}/api/admin/workflow-templates/${slug}/skill`,
   },
 };
 
@@ -265,3 +272,18 @@ export const billing = {
   checkout: (tier: "SELF_SERVE" | "GUIDED" | "WHITE_GLOVE") => post<{ url: string }>("/billing/checkout", { tier }),
   portal:   () => get<{ url: string }>("/billing/portal"),
 };
+
+// ── Workflow Templates ────────────────────────────────────────────────────────
+export interface WorkflowTemplate {
+  slug: string; name: string; description: string;
+  verticalTags: string; minTier: string;
+  systemPrompt?: string; userPromptTemplate?: string;
+  inputSchema: string; outputFormat: string;
+  enabled?: boolean; version: number;
+  id?: string; createdAt?: string; updatedAt?: string;
+}
+
+export const workflowTemplatesApi = {
+  list: () => get<WorkflowTemplate[]>("/workflow-templates"),
+};
+
