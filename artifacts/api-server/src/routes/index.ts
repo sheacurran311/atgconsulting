@@ -11,6 +11,7 @@ import workbenchRouter from "./workbench";
 import tiersRouter from "./tiers";
 import playbookRouter from "./playbook";
 import sessionsRouter from "./sessions";
+import billingRouter from "./billing";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(workbenchRouter);
 router.use(tiersRouter);
 router.use(playbookRouter);
 router.use(sessionsRouter);
+router.use(billingRouter);
 
 export default router;

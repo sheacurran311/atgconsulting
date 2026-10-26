@@ -259,4 +259,9 @@ export interface SessionSummary {
   source: string;
 }
 
-
+// ── Billing ───────────────────────────────────────────────────────────────────
+export const billing = {
+  info:     () => post<{ enabled: boolean; hasCustomer: boolean; hasSubscription: boolean; tier: string }>("/billing/info", {}),
+  checkout: (tier: "SELF_SERVE" | "GUIDED" | "WHITE_GLOVE") => post<{ url: string }>("/billing/checkout", { tier }),
+  portal:   () => get<{ url: string }>("/billing/portal"),
+};
