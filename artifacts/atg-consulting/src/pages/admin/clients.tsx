@@ -3,6 +3,7 @@ import { Link, useRoute } from "wouter";
 import AdminShell from "@/components/admin/AdminShell";
 import { api, type ClientAdmin, type ClientDetail, type PrepView, type PlanAdmin } from "@/lib/api";
 import PlaybookTab from "@/components/admin/PlaybookTab";
+import SessionsTab from "@/components/admin/SessionsTab";
 
 // ── Clients list ─────────────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ function ClientList() {
 
 // ── Client detail ─────────────────────────────────────────────────────────────
 
-const TABS = ["overview", "prep", "playbook", "plan", "consultations", "documents", "reports", "outputs"];
+const TABS = ["overview", "prep", "playbook", "sessions", "plan", "consultations", "documents", "reports", "outputs"];
 
 function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
   const [client, setClient] = useState<ClientDetail | null>(null);
@@ -165,6 +166,7 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
         {tab === "overview" && <OverviewTab client={client} editNotes={editNotes} setEditNotes={setEditNotes} saveNotes={saveNotes} savingNotes={savingNotes} />}
         {tab === "prep" && <PrepTab prep={prep} />}
         {tab === "playbook" && <PlaybookTabWrapper clientId={id} intakeId={client.intakes[0]?.id} />}
+        {tab === "sessions" && <SessionsTab clientId={id} />}
         {tab === "plan" && <PlanTab plan={client.plans[0] ?? null} />}
         {tab === "consultations" && <ConsultationsTab client={client} onRefresh={() => api.admin.client(id).then(setClient)} />}
         {tab === "documents" && <DocumentsTab client={client} />}
