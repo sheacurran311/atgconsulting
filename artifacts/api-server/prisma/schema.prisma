@@ -539,3 +539,39 @@ model StripeEvent {
   type        String
   processedAt DateTime @default(now())
 }
+
+// ── Workflow Templates ─────────────────────────────────────────────────────────
+
+/// Operator-editable workflow template. Seeded from code; admin can edit and
+/// version at runtime. Exportable as a SKILL.md for Grok Bot / Claude / ChatGPT.
+/// Client approval of output is always on — nothing is sent automatically.
+model WorkflowTemplate {
+  id               String   @id @default(cuid())
+  slug             String   @unique  // stable identifier used in code
+  name             String
+  description      String   @default("")
+
+  /// JSON array of vertical ids this applies to; empty = all verticals
+  verticalTags     String   @default("[]")
+
+  /// Minimum tier required to run this workflow
+  minTier          String   @default("SELF_SERVE") // NONE|SELF_SERVE|GUIDED|WHITE_GLOVE
+
+  /// The system prompt used by the LLM at runtime
+  systemPrompt     String
+
+  /// Mustache-style user prompt template with {{variable}} placeholders;
+  /// used both at runtime and in SKILL.md export
+  userPromptTemplate String  @default("")
+
+  /// JSON Schema string for required/optional inputs
+  inputSchema      String   @default("{}")
+
+  /// Plain-English description of the expected JSON output shape
+  outputFormat     String   @default("")
+
+  enabled          Boolean  @default(true)
+  version          Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}

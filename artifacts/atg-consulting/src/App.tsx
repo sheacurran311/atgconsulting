@@ -29,6 +29,7 @@ import AdminContentPage from "@/pages/admin/content";
 import AdminAuditPage from "@/pages/admin/audit";
 import AdminMessagesPage from "@/pages/admin/messages";
 import AdminTiersPage from "@/pages/admin/tiers";
+import AdminWorkflowTemplatesPage from "@/pages/admin/workflow-templates";
 
 function Metadata() {
   const [location] = useLocation();
@@ -128,6 +129,7 @@ function AuthenticatedApp() {
         <Route path="/admin/audit" component={AdminAuditPage} />
         <Route path="/admin/messages" component={AdminMessagesPage} />
         <Route path="/admin/tiers" component={AdminTiersPage} />
+        <Route path="/admin/workflow-templates" component={AdminWorkflowTemplatesPage} />
 
         {/* Legacy */}
         <Route path="/user-portal" component={() => <Redirect to="/app" />} />
