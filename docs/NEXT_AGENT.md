@@ -39,6 +39,8 @@ Merge in this exact order. Each PR may depend on the previous.
 | **#16** | `cursor/skills-phase1-c8a4` | Phase 1: inbox triage, review, social calendar, SEO audit | No | No |
 | **#17** | `cursor/skills-phase2-c8a4` | Phase 2: money snapshot, booking flow, quote proposal, prospect research + ClientWorkflowSettings + tier gating UI + run history | **YES** (ClientWorkflowSettings table) | No |
 | **#18** | `cursor/skills-phase3-c8a4` | Phase 3: FAQ support, agent pipeline + AgentChain/AgentChainRun models | **YES** (AgentChain, AgentChainRun tables) | No |
+| **#19** | `cursor/portal-ux-c8a4` | Portal UX: intake gate, personalization, contrast, billing bypass | No | No |
+| **#20** | `cursor/marketing-account-c8a4` | Marketing refresh + account page fix (CORS, intake panel, portability) | No | No |
 
 After merging all four, run `pnpm db:push` once to apply all pending schema changes.
 
@@ -110,6 +112,69 @@ WorkflowTemplate rows are seeded automatically on first server start.
 - Final privacy/terms wording
 - DFY_MONTHLY_CAP (default 1)
 - VITE_BOOKING_URL
+
+## PR #20 — Marketing refresh + account page fix
+
+Stack: portal-ux → this PR.
+
+### db:push NOT required (no new schema changes)
+### pnpm install NOT required
+
+### What changed
+
+**1. CORS fix (root cause of "Failed to fetch")**
+`artifacts/api-server/src/app.ts`: replaced `cors()` (no-options, emits `*` which browsers
+reject for credentialed requests) with explicit `cors({ origin, credentials: true })`.
+Default allows `*.replit.dev`, `*.replit.app`, and localhost. Set `ALLOWED_ORIGINS` env var
+(comma-separated) to restrict in production.
+
+**2. Vite dev proxy**
+`artifacts/atg-consulting/vite.config.ts`: optional `proxy` block when `VITE_PROXY_TARGET`
+env var is set. In Replit, set `VITE_PROXY_TARGET` in Secrets to the API Server workflow URL
+(e.g. `https://your-api.replit.app`). This routes `/api/*` from the frontend through the Vite
+dev server to the API, avoiding cross-origin issues entirely.
+
+**3. Account page rewrite** (`src/pages/app/account.tsx`)
+- Profile image REMOVED (Clerk avatar renders oversized). Shows initials in a styled badge instead.
+- Clear error message when API is unreachable (with hint about VITE_PROXY_TARGET).
+- Intake summary panel: AI comfort, hours lost, preferred help, areas, budget, software — pulled from `GET /api/client/intake/latest`.
+- "Edit my intake →" link to `/start` (submitting re-links and re-personalises via existing flow).
+- Intake change history (most recent 20, shown when > 1 submission on file).
+- Tier + billing panel: Stripe portal link when `BILLING_ENABLED=true`, plain note otherwise.
+- Digest opt-in toggle (existing PATCH endpoint).
+- Sign-out button.
+New API routes in `client.ts`:
+  - `GET /api/client/intake/latest` — latest intake for this client (summary fields only)
+  - `GET /api/client/intake/history` — list of intake submissions (date + help style)
+
+**4. Marketing landing page**
+- `Hero.tsx`: updated headline copy, clearer approval-first + portable-skills bullets, vertical picker feeds a workflow preview card with a realistic run log.
+- `Services.tsx`: full rewrite. All 10 shipped workflows grouped by business need (leads & follow-up, reviews, content, SEO, money, bookings, quotes, prospecting, support, agent team). Each card shows workflow name, plain-English description, and what the output is. "Portable as skills" banner at bottom.
+- `ChatVsATG.tsx`: added "Portability" row — "Tied to one chat interface" vs "Export any workflow as a SKILL.md, run in Grok Bot or Claude." Retains the non-disparaging note about ChatGPT/Claude/Grok.
+- `Tiers.tsx`: Guided description updated to include "Sessions recorded with your consent for recap." DFY footer note clarifies waitlist behaviour.
+- `FAQ.tsx`: new Q&A for "Can I take my workflows somewhere else?" covers SKILL.md portability + the honest statement that ChatGPT/Claude/Grok can connect to apps.
+
+**5. `.env.example`** updated with `ALLOWED_ORIGINS` and `VITE_PROXY_TARGET`.
+
+### Shea needs to set in Replit Secrets
+- `VITE_PROXY_TARGET` — the API Server workflow's public URL
+  - Find it in Replit > Workflows > API Server > Settings > Domain
+  - Example: `https://atg-api.your-username.replit.app`
+- `ALLOWED_ORIGINS` — the frontend URL (auto-detected for *.replit.app if left blank)
+
+### Manual QA for this PR
+- [ ] Sign in — account page loads without "Failed to fetch" error
+- [ ] Account page shows name/initials (no giant profile image)
+- [ ] Intake summary displays (AI comfort, hours lost, preferred help)
+- [ ] "Edit my intake →" leads to /start; submitting re-personalises dashboard
+- [ ] Tier shows "No plan yet" / "Self-serve" / "Guided" correctly
+- [ ] "Billing off / testing" note shown when BILLING_ENABLED not set
+- [ ] Homepage services section shows 10 workflows grouped by business need
+- [ ] "Portable as skills" banner visible on Services section
+- [ ] FAQ "Can I take my workflows somewhere else?" visible and accurate
+- [ ] ChatVsATG "Portability" row visible
+- [ ] Tiers Guided card mentions session recording
+- [ ] Tiers footer note mentions waitlist for DFY
 
 ## Do not
 

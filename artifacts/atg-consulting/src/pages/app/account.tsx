@@ -1,99 +1,271 @@
-import { useState } from "react";
+/**
+ * Account page — profile basics, intake summary + edit, tier/billing, change history.
+ * Profile image is hidden (Clerk avatar renders oversized; show name/initials instead).
+ * Uses api.client.me() for tier/digest, clientIntakeApi for intake data.
+ * Resilient to network errors: shows a clear message rather than crashing.
+ */
+import { useState, useEffect } from "react";
 import { useUser, useClerk } from "@clerk/react";
+import { Link } from "wouter";
 import AppShell from "@/components/app/AppShell";
 import { useAccount } from "@/lib/useAccount";
-import { api } from "@/lib/api";
-import BillingSection from "@/components/app/BillingSection";
+import { api, clientIntakeApi, type IntakeSummary, billing } from "@/lib/api";
 
-const TIER_LABELS: Record<string, string> = { NONE: "No plan yet", SELF_SERVE: "Self-serve", GUIDED: "Guided", WHITE_GLOVE: "White Glove" };
-const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
+const TIER_LABELS: Record<string, string> = {
+  NONE: "No plan yet",
+  SELF_SERVE: "Self-serve",
+  GUIDED: "Guided",
+  WHITE_GLOVE: "White Glove",
+};
+
+const HELP_STYLE_LABELS: Record<string, string> = {
+  self_serve: "Self-serve", guided: "Guided",
+  done_for_you: "Done-for-you", not_sure: "Not sure",
+};
+
+const AI_LABELS = ["Never used AI tools", "Asks questions occasionally", "Uses AI weekly", "Built automations", "Runs agents daily"];
+
+function Section({ title, badge, children }: { title: string; badge?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--canvas-border)" }}>
+      <div className="flex items-center gap-2 px-5 py-3" style={{ background: "var(--canvas-2)", borderBottom: "1px solid var(--canvas-border)" }}>
+        <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)", letterSpacing: "-0.01em" }}>{title}</p>
+        {badge && <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: "rgba(59,107,255,0.08)", color: "var(--blue)", letterSpacing: "0.06em" }}>{badge}</span>}
+      </div>
+      <div className="p-5" style={{ background: "var(--canvas-1)" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function AccountPage() {
   const { user } = useUser();
   const { signOut } = useClerk();
-  const { account, loading, error } = useAccount();
+  const { account, loading: accountLoading, error: accountError } = useAccount();
+  const [intake, setIntake] = useState<IntakeSummary | null | undefined>(undefined);
+  const [history, setHistory] = useState<{ id: string; createdAt: string; helpStyle: string }[]>([]);
   const [digestOptIn, setDigestOptIn] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [billingEnabled] = useState(typeof window !== "undefined" && import.meta.env.VITE_BILLING_ENABLED === "true");
 
-  async function saveDigestPreference(val: boolean) {
+  const tier = account?.tier ?? "NONE";
+
+  // Load intake data
+  useEffect(() => {
+    Promise.all([
+      clientIntakeApi.latest().catch(() => null),
+      clientIntakeApi.history().catch(() => []),
+    ]).then(([l, h]) => {
+      setIntake(l);
+      setHistory(h as { id: string; createdAt: string; helpStyle: string }[]);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (account) setDigestOptIn(account.digestEmailOptIn);
+  }, [account]);
+
+  async function saveDigest(val: boolean) {
     setSaving(true);
     await api.client.updateAccount({ digestEmailOptIn: val }).catch(() => null);
     setDigestOptIn(val);
     setSaving(false);
   }
 
-  const effectiveDigest = digestOptIn ?? account?.digestEmailOptIn ?? true;
+  async function openBillingPortal() {
+    setPortalLoading(true);
+    try {
+      const { url } = await billing.portal();
+      if (url) window.location.href = url;
+    } catch { /* swallow */ }
+    setPortalLoading(false);
+  }
+
+  const initials = (user?.fullName ?? account?.name ?? "?")
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  // Parse intake answers
+  const intakeAnswers: Record<string, unknown> = (() => {
+    if (!intake?.answers) return {};
+    try { return JSON.parse(intake.answers) as Record<string, unknown>; } catch { return {}; }
+  })();
 
   return (
     <AppShell>
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div>
-          <p className="section-eyebrow mb-1">Client portal</p>
-          <h1 className="text-2xl font-extrabold text-canvas-text">Account</h1>
+      <div className="max-w-content mx-auto space-y-5">
+
+        {/* Header — no profile image; initials only */}
+        <div className="flex items-center gap-4">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center font-mono font-bold flex-shrink-0"
+            style={{ background: "rgba(59,107,255,0.12)", color: "var(--blue-btn)", border: "1px solid rgba(59,107,255,0.25)", fontSize: "18px" }}
+            aria-label="Account initials"
+          >
+            {initials}
+          </div>
+          <div>
+            <p className="font-extrabold text-xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.02em" }}>
+              {account?.name ?? user?.fullName ?? "Your account"}
+            </p>
+            <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>
+              {account?.email ?? user?.primaryEmailAddress?.emailAddress ?? "—"}
+            </p>
+          </div>
         </div>
 
-        {loading && <p className="text-canvas-text">Loading…</p>}
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {/* Network error — clear message instead of crash */}
+        {accountError && (
+          <div className="rounded-xl p-4" style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
+            <p className="text-sm font-semibold mb-0.5" style={{ color: "#DC2626" }}>
+              Could not load your account data
+            </p>
+            <p className="text-xs" style={{ color: "var(--canvas-text-2)" }}>
+              {accountError.includes("failed") || accountError.includes("Failed")
+                ? "The API server is not reachable from this browser. Check that VITE_PROXY_TARGET is set in Replit Secrets to the API workflow URL."
+                : accountError}
+            </p>
+          </div>
+        )}
 
-        {user && (
-          <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-6">
-            <p className="text-xs font-bold text-blue tracking-widest uppercase mb-3">Profile</p>
-            <div className="flex items-center gap-4">
-              {user.imageUrl && <img src={user.imageUrl} alt={user.fullName ?? "Profile"} className="w-12 h-12 rounded-full object-cover" />}
-              <div>
-                <p className="font-bold text-canvas-text">{user.fullName ?? account?.name ?? "—"}</p>
-                <p className="text-canvas-text text-sm">{user.primaryEmailAddress?.emailAddress ?? account?.email ?? "—"}</p>
+        {/* Plan / tier */}
+        <Section title="Your plan" badge={billingEnabled ? "BILLING ACTIVE" : "TEST MODE"}>
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div>
+              <p className="font-extrabold text-2xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.03em" }}>
+                {TIER_LABELS[tier] ?? tier}
+              </p>
+              {!billingEnabled && (
+                <p className="text-xs mt-0.5" style={{ color: "var(--canvas-text-3)" }}>
+                  BILLING_ENABLED is not set — all workflows unlocked for testing.
+                </p>
+              )}
+            </div>
+            {tier === "NONE" && (
+              <Link to="/#tiers"><span className="btn-secondary text-sm py-2 px-3">View plans</span></Link>
+            )}
+          </div>
+          {billingEnabled && tier !== "NONE" && (
+            <button
+              onClick={openBillingPortal}
+              disabled={portalLoading}
+              className="btn-secondary text-sm py-2 px-3"
+            >
+              {portalLoading ? "Opening…" : "Manage billing & invoices"}
+            </button>
+          )}
+          {!billingEnabled && (
+            <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
+              Set <code style={{ fontFamily: "var(--font-mono)" }}>BILLING_ENABLED=true</code> in Replit Secrets and configure Stripe to enable billing.
+            </p>
+          )}
+        </Section>
+
+        {/* Intake summary */}
+        <Section title="Your intake" badge={intake ? `Updated ${new Date(intake.createdAt).toLocaleDateString()}` : undefined}>
+          {intake === undefined ? (
+            <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
+          ) : !intake ? (
+            <div>
+              <p className="text-sm mb-3" style={{ color: "var(--canvas-text-2)" }}>
+                No intake on file. Complete the intake form to personalise your Workbench.
+              </p>
+              <Link to="/start"><span className="btn-primary text-sm py-2 px-4">Start intake →</span></Link>
+            </div>
+          ) : (
+            <div>
+              <div className="grid sm:grid-cols-2 gap-3 mb-4">
+                {[
+                  ["AI comfort", AI_LABELS[intake.aiComfort] ?? `Level ${intake.aiComfort}`],
+                  ["Hours lost / week", `~${intake.hoursLost}h`],
+                  ["Preferred help", HELP_STYLE_LABELS[intake.helpStyle] ?? intake.helpStyle],
+                  ["Areas", (() => { try { return (JSON.parse(intake.areas) as string[]).map((a) => a.replace("_", " ")).join(", "); } catch { return "—"; } })()],
+                  ["Budget", intakeAnswers.toolBudget as string ?? "—"],
+                  ["Current software", intakeAnswers.currentSoftware as string ?? "—"],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <p className="font-mono text-2xs mb-0.5" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>{(label as string).toUpperCase()}</p>
+                    <p className="text-sm font-medium" style={{ color: "var(--canvas-text)" }}>{value as string}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <Link to="/start">
+                  <span className="btn-secondary text-sm py-2 px-3">Edit my intake →</span>
+                </Link>
+                <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
+                  Submitting a new intake re-personalises your Workbench.
+                </p>
               </div>
             </div>
-          </div>
-        )}
-
-        {account && (
-          <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-6">
-            <p className="text-xs font-bold text-blue tracking-widest uppercase mb-3">Your plan</p>
-            <p className="text-xl font-extrabold text-canvas-text">{TIER_LABELS[account.tier] ?? account.tier}</p>
-            {account.tier === "NONE" && (
-              <div className="mt-4 flex flex-col sm:flex-row gap-3">
-                <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn-primary text-sm">Book 1:1 with Shea</a>
-                <a href="/#tiers" className="btn-secondary text-sm">View plans</a>
-              </div>
-            )}
-            <p className="text-canvas-text text-xs mt-4">Billing is managed by Shea. Contact <a href="mailto:shea@atgconsulting.io" className="underline">shea@atgconsulting.io</a> for changes.</p>
-          </div>
-        )}
+          )}
+        </Section>
 
         {/* Digest preference */}
-        <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-6">
-          <p className="text-xs font-bold text-blue tracking-widest uppercase mb-3">Email digest</p>
+        <Section title="Email digest">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="font-semibold text-canvas-text text-sm">Daily digest emails</p>
-              <p className="text-canvas-text text-xs mt-0.5">Receive your daily AI digest when Shea publishes it.</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--canvas-text)" }}>Daily digest emails</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--canvas-text-2)" }}>
+                Receive your daily AI digest when Shea publishes it.
+              </p>
             </div>
             <button
-              onClick={() => saveDigestPreference(!effectiveDigest)}
-              disabled={saving}
-              aria-pressed={effectiveDigest}
-              className={`relative w-10 h-6 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue ${effectiveDigest ? "bg-blue" : "bg-canvas-2"}`}
+              onClick={() => saveDigest(!(digestOptIn ?? true))}
+              disabled={saving || digestOptIn === null}
+              aria-pressed={digestOptIn ?? true}
+              className="relative flex-shrink-0"
+              style={{
+                width: "40px", height: "24px", borderRadius: "12px",
+                background: (digestOptIn ?? true) ? "var(--blue-btn)" : "var(--canvas-border)",
+                border: "none", cursor: "pointer", padding: 0, transition: "background 200ms",
+              }}
             >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-canvas-1 rounded-full shadow transition-transform ${effectiveDigest ? "translate-x-4" : ""}`} />
+              <span
+                style={{
+                  position: "absolute", top: "2px",
+                  left: (digestOptIn ?? true) ? "18px" : "2px",
+                  width: "20px", height: "20px", borderRadius: "50%",
+                  background: "#fff", transition: "left 200ms", display: "block",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                }}
+              />
             </button>
           </div>
-        </div>
+        </Section>
 
-        {/* Billing */}
-        {account && <BillingSection account={account} />}
+        {/* Change history */}
+        {history.length > 1 && (
+          <Section title="Intake history">
+            <ul className="space-y-2">
+              {history.map((h, i) => (
+                <li key={h.id} className="flex items-center gap-3 text-sm">
+                  <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: i === 0 ? "rgba(59,107,255,0.08)" : "var(--canvas-2)", color: i === 0 ? "var(--blue)" : "var(--canvas-text-3)", letterSpacing: "0.06em" }}>
+                    {i === 0 ? "CURRENT" : `V${history.length - i}`}
+                  </span>
+                  <span style={{ color: "var(--canvas-text-2)" }}>
+                    {new Date(h.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                  <span style={{ color: "var(--canvas-text-3)" }}>
+                    {HELP_STYLE_LABELS[h.helpStyle] ?? h.helpStyle}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
 
         {/* Sign out */}
-        <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-6">
-          <p className="text-xs font-bold text-blue tracking-widest uppercase mb-3">Session</p>
-          <button
-            onClick={() => signOut()}
-            className="btn-secondary text-sm"
-          >
+        <Section title="Session">
+          <button onClick={() => signOut()} className="btn-secondary text-sm py-2 px-4">
             Sign out
           </button>
-        </div>
+        </Section>
       </div>
     </AppShell>
   );

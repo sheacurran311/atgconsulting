@@ -231,4 +231,29 @@ router.patch("/client/account", async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Intake summary for account page ──────────────────────────────────────────
+
+router.get("/client/intake/latest", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).atgUser!;
+  if (!user.clientId) { res.json(null); return; }
+  const intake = await prisma.intake.findFirst({
+    where: { clientId: user.clientId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, createdAt: true, aiComfort: true, hoursLost: true, helpStyle: true, areas: true, answers: true },
+  });
+  res.json(intake ?? null);
+});
+
+router.get("/client/intake/history", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).atgUser!;
+  if (!user.clientId) { res.json([]); return; }
+  const intakes = await prisma.intake.findMany({
+    where: { clientId: user.clientId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, createdAt: true, helpStyle: true },
+    take: 20,
+  });
+  res.json(intakes);
+});
+
 export default router;

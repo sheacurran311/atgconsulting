@@ -46,7 +46,26 @@ app.use(
   }),
 );
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-app.use(cors());
+// CORS — must use explicit origin list (not *) when credentials: "include" is used.
+// Set ALLOWED_ORIGINS to a comma-separated list of frontend origins.
+// Defaults to allowing any *.replit.dev and *.replit.app origin for Replit deployments,
+// plus localhost for local dev. In production, restrict this to your custom domain.
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS ?? "";
+const ALLOWED_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$|\.replit\.(dev|app)$/;
+app.use(cors({
+  origin: (origin, callback) => {
+    // Same-origin requests (no Origin header) or server-to-server are always allowed
+    if (!origin) return callback(null, true);
+    // Explicit allowlist overrides the pattern
+    if (allowedOriginsEnv) {
+      const list = allowedOriginsEnv.split(",").map((s) => s.trim());
+      return callback(null, list.includes(origin) ? origin : false);
+    }
+    // Default: allow Replit domains and localhost
+    return callback(null, ALLOWED_PATTERN.test(origin) ? origin : false);
+  },
+  credentials: true,
+}));
 // Stripe webhook requires raw body BEFORE express.json() is applied.
 // Must be registered before the main json middleware.
 app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), stripeWebhookHandler);

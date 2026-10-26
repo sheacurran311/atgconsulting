@@ -352,3 +352,19 @@ export const portalApi = {
   personalize: () => post<{ ok: boolean }>("/portal/personalize", {}),
 };
 
+
+// ── Client intake (for account page) ─────────────────────────────────────────
+export interface IntakeSummary {
+  id: string;
+  createdAt: string;
+  aiComfort: number;
+  hoursLost: number;
+  helpStyle: string;
+  areas: string;
+  answers: string; // JSON
+}
+
+export const clientIntakeApi = {
+  latest: () => get<IntakeSummary | null>("/client/intake/latest"),
+  history: () => get<{ id: string; createdAt: string; helpStyle: string }[]>("/client/intake/history"),
+};
