@@ -500,6 +500,7 @@ function buildTemplateFollowUp(input: { who: string; lastTouch: string; wantToSa
 
 export interface ToolRecommendation {
   name: string;       // tool name
+  slug?: string;      // Tool DB slug for /go/:slug links (populated when tool is in the DB)
   why: string;        // one sentence: why this tool for their situation
   costNote: string;   // "check current pricing" or "free tier available" – never invented numbers
 }
@@ -524,11 +525,13 @@ export interface ToolPlanInput {
   currentSoftware?: string;  // existing tools by name
   weeklyVolumes?: string;    // e.g. "10-50 leads/wk"
   timeSinks: string[];
+  aiPlatforms?: string[];    // e.g. ["grok_bot", "claude"]
 }
 
 const ToolPlanSchema = z.object({
   tools: z.array(z.object({
     name:     z.string().min(1).max(100),
+    slug:     z.string().max(80).optional(), // Tool DB slug for /go/:slug links
     why:      z.string().min(1).max(300),
     costNote: z.string().min(1).max(200),
   })).min(1).max(8),
@@ -595,18 +598,48 @@ function buildTemplatePlan(input: ToolPlanInput): ToolPlanOutput {
   return { tools, steps, source: "TEMPLATE" };
 }
 
+/** Load available tools from the DB to give the LLM a constrained list with slugs. */
+async function loadAvailableTools(): Promise<{ slug: string; name: string; category: string; pricingNote: string }[]> {
+  try {
+    const { prisma } = await import("./db");
+    const tools = await prisma.tool.findMany({
+      where: { enabled: true },
+      select: { slug: true, name: true, category: true, pricingNote: true },
+      orderBy: { sortOrder: "asc" },
+    });
+    return tools;
+  } catch {
+    return [];
+  }
+}
+
 export async function generateToolPlan(input: ToolPlanInput): Promise<ToolPlanOutput> {
   const llm = getClient();
-  if (!llm) return buildTemplatePlan(input);
+
+  // Always try to load the tool catalogue for slug enrichment
+  const availableTools = await loadAvailableTools();
+  const toolCatalogueNote = availableTools.length > 0
+    ? `\n\nAvailable tools (use these names and slugs where relevant; slug is for the /go/:slug link):\n${availableTools.map((t) => `- ${t.name} [slug:${t.slug}] (${t.category}): ${t.pricingNote || "check their site"}`).join("\n")}`
+    : "";
+
+  if (!llm) {
+    const plan = buildTemplatePlan(input);
+    // Enrich template tools with slugs from DB
+    plan.tools = plan.tools.map((tool) => {
+      const match = availableTools.find((t) => t.name.toLowerCase().includes(tool.name.toLowerCase().split(" ")[0]?.toLowerCase() ?? ""));
+      return match ? { ...tool, slug: match.slug } : tool;
+    });
+    return plan;
+  }
 
   try {
     const completion = await llm.chat.completions.create({
       model: MODEL,
       temperature: 0.5,
-      max_tokens: 900,
+      max_tokens: 1000,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: TOOL_PLAN_SYSTEM },
+        { role: "system", content: TOOL_PLAN_SYSTEM + toolCatalogueNote },
         { role: "user",   content: buildToolPlanPrompt(input) },
       ],
     });
