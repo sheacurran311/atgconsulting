@@ -121,6 +121,15 @@ export const api = {
     setGuidedSessions: (clientId: string, body: { guidedSessionsTotal: number; guidedSessionsUsed?: number }) => patch<unknown>(`/admin/clients/${clientId}/guided-sessions`, body),
     supportTickets:    (status?: string) => get<SupportTicket[]>(`/admin/support${status ? `?status=${status}` : ""}`),
     updateSupportTicket: (id: string, status: string) => patch<SupportTicket>(`/admin/support/${id}`, { status }),
+    // Playbook
+    generatePlaybook:          (clientId: string, intakeId?: string) => post<ClientPlaybook>(`/admin/clients/${clientId}/playbook`, intakeId ? { intakeId } : {}),
+    generatePlaybookFromIntake: (intakeId: string) => post<ClientPlaybook>(`/admin/intakes/${intakeId}/playbook`, {}),
+    getPlaybook:               (clientId: string) => get<ClientPlaybook>(`/admin/clients/${clientId}/playbook`),
+    listPlaybooks:             (clientId: string) => get<ClientPlaybook[]>(`/admin/clients/${clientId}/playbook/all`),
+    patchPlaybook:             (clientId: string, pbId: string, body: { content?: string; adminNotes?: string }) =>
+                                 patch<ClientPlaybook>(`/admin/clients/${clientId}/playbook/${pbId}`, body),
+    finalisePlaybook:          (clientId: string, pbId: string) =>
+                                 post<ClientPlaybook>(`/admin/clients/${clientId}/playbook/${pbId}/final`, {}),
   },
 };
 
@@ -201,5 +210,20 @@ export interface DfyApplication {
 export interface SupportTicket {
   id: string; clientId: string; subject: string; message: string;
   status: "open" | "replied" | "closed"; createdAt: string;
+}
+
+
+// ── Client Playbook types ─────────────────────────────────────────────────────
+export interface ClientPlaybook {
+  id: string;
+  clientId: string;
+  intakeId: string | null;
+  version: number;
+  status: "draft" | "final";
+  content: string;  // JSON stringified PlaybookContent
+  source: string;
+  adminNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
