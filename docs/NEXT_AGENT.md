@@ -84,6 +84,9 @@ Merge in this exact order. Each PR may depend on the previous.
 | **#18** | `cursor/skills-phase3-c8a4` | Phase 3: FAQ support, agent pipeline + AgentChain/AgentChainRun models | **YES** (AgentChain, AgentChainRun tables) | No |
 | **#19** | `cursor/portal-ux-c8a4` | Portal UX: intake gate, personalization, contrast, billing bypass | No | No |
 | **#20** | `cursor/marketing-account-c8a4` | Marketing refresh + account page fix (CORS, intake panel, portability) | No | No |
+| **#21** | `cursor/boundary-bugs-c8a4` | Bug fixes: day.ts GET read-only, edit/copy drafts, timezone, consultations, tier gating | **YES** (DayProfile default) | No |
+| **#22** | `cursor/boundary-tiers-c8a4` | Product boundary + self-serve auto-approval, no Shea gate | No | No |
+| **#23** | `cursor/install-first-c8a4` | Install-first: intake AI platforms, Install CTA, progress tracking, DayBlock reframe | **YES** (ClientWorkflowSettings columns) | No |
 
 After merging all four, run `pnpm db:push` once to apply all pending schema changes.
 

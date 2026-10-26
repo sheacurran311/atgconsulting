@@ -47,6 +47,10 @@ interface Props {
   personalizedSlugs?: string[];
   activeSkill: string | null;
   onSelectSkill: (slug: string) => void;
+  /** When provided, the primary CTA becomes "Install" rather than "Run" */
+  onInstall?: (slug: string, name: string) => void;
+  /** Map of slug → platform for already-installed workflows */
+  installStatus?: Record<string, string>;
 }
 
 export default function SkillLauncher({
@@ -55,6 +59,8 @@ export default function SkillLauncher({
   personalizedSlugs = [],
   activeSkill,
   onSelectSkill,
+  onInstall,
+  installStatus = {},
 }: Props) {
   const clientTierIdx = TIER_ORDER.indexOf(clientTier);
 
@@ -92,41 +98,52 @@ export default function SkillLauncher({
             const isFeatured = featured.includes(btn.slug);
             const isActive   = activeSkill === btn.slug;
             return (
-              <button
-                key={btn.slug}
-                type="button"
-                onClick={() => onSelectSkill(btn.slug)}
-                className="transition-all"
-                style={{
-                  display:        "inline-flex",
-                  alignItems:     "center",
-                  gap:            "5px",
-                  padding:        isFeatured ? "8px 14px" : "7px 12px",
-                  borderRadius:   "8px",
-                  fontSize:       "13px",
-                  fontWeight:     isFeatured ? 600 : 500,
-                  cursor:         "pointer",
-                  border:         `${isFeatured ? 2 : 1}px solid ${isActive ? "var(--blue)" : isFeatured ? "var(--blue)" : "var(--canvas-border)"}`,
-                  background:     isActive
-                    ? "rgba(59,107,255,0.10)"
-                    : isFeatured
-                    ? "rgba(59,107,255,0.06)"
-                    : "var(--canvas-1)",
-                  color:          isActive || isFeatured ? "var(--blue-btn)" : "var(--canvas-text)",
-                  // WCAG AA: canvas-text (#0A0A0B) on canvas-1 (#FFFFFF) = 21:1 ✅
-                  //           blue-btn (#2557E8) on canvas-1 = contextual, large text ✅
-                }}
-                aria-pressed={isActive}
-              >
-                <span aria-hidden="true">{btn.icon}</span>
-                {btn.label}
-                {isFeatured && !isActive && (
-                  <span
-                    className="font-mono"
-                    style={{ fontSize: "10px", letterSpacing: "0.06em", color: "var(--blue)", opacity: 0.7 }}
-                  >★</span>
+              <span key={btn.slug} className="inline-flex gap-1 items-center">
+                <button
+                  type="button"
+                  onClick={() => onSelectSkill(btn.slug)}
+                  className="transition-all"
+                  style={{
+                    display:        "inline-flex",
+                    alignItems:     "center",
+                    gap:            "5px",
+                    padding:        isFeatured ? "8px 14px" : "7px 12px",
+                    borderRadius:   "8px",
+                    fontSize:       "13px",
+                    fontWeight:     isFeatured ? 600 : 500,
+                    cursor:         "pointer",
+                    border:         `${isFeatured ? 2 : 1}px solid ${isActive ? "var(--blue)" : isFeatured ? "var(--blue)" : "var(--canvas-border)"}`,
+                    background:     isActive ? "rgba(59,107,255,0.10)" : isFeatured ? "rgba(59,107,255,0.06)" : "var(--canvas-1)",
+                    color:          isActive || isFeatured ? "var(--blue-btn)" : "var(--canvas-text)",
+                  }}
+                  aria-pressed={isActive}
+                >
+                  <span aria-hidden="true">{btn.icon}</span>
+                  {btn.label}
+                  {installStatus[btn.slug] && <span style={{ fontSize: "10px", color: "#16A34A" }}>✓</span>}
+                  {isFeatured && !isActive && !installStatus[btn.slug] && (
+                    <span className="font-mono" style={{ fontSize: "10px", letterSpacing: "0.06em", color: "var(--blue)", opacity: 0.7 }}>★</span>
+                  )}
+                </button>
+                {onInstall && (
+                  <button
+                    type="button"
+                    onClick={() => onInstall(btn.slug, btn.label)}
+                    className="transition-all"
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: "4px",
+                      padding: "7px 10px", borderRadius: "8px", fontSize: "12px",
+                      fontWeight: 500, cursor: "pointer",
+                      border: "1px solid rgba(59,107,255,0.25)",
+                      background: "rgba(59,107,255,0.04)",
+                      color: "var(--blue-btn)",
+                    }}
+                    title={`Install ${btn.label} in your AI platform`}
+                  >
+                    ↓ Install
+                  </button>
                 )}
-              </button>
+              </span>
             );
           })}
         </div>
