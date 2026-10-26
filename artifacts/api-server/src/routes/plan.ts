@@ -116,6 +116,41 @@ router.post("/plan/:intakeId/claim", withUser, requireAuth, async (req, res) => 
   personalizeClientWorkspace(client.id).catch(console.error);
   await ensureDayProfile(client.id).catch(console.error);
 
+  // For Self-serve (or unknown tier at claim time): auto-generate the tool plan
+  // immediately and approve it without requiring Shea's review. Runs in background.
+  const preferredHelp = (() => {
+    try { return (JSON.parse(intake.answers ?? "{}") as Record<string, unknown>).helpStyle as string ?? intake.helpStyle ?? ""; }
+    catch { return intake.helpStyle ?? ""; }
+  })();
+  if (!intake.clientId || preferredHelp === "self_serve" || client.tier === "SELF_SERVE" || client.tier === "NONE") {
+    import("../lib/llm").then(({ generateToolPlan }) => {
+      const answers = (() => { try { return JSON.parse(intake.answers ?? "{}") as Record<string, unknown>; } catch { return {}; } })();
+      const areas: string[] = (() => { try { return JSON.parse(client.areas ?? "[]") as string[]; } catch { return []; } })();
+      generateToolPlan({
+        industry: (answers.industry as string) ?? client.industry ?? "unknown",
+        areas,
+        aiComfort: client.aiLevel ?? 1,
+        toolBudget: typeof answers.toolBudget === "string" ? answers.toolBudget : undefined,
+        currentSoftware: typeof answers.currentSoftware === "string" ? answers.currentSoftware : undefined,
+        weeklyVolumes: typeof answers.weeklyVolumes === "string" ? answers.weeklyVolumes : undefined,
+        timeSinks: Array.isArray(answers.timeSinks) ? (answers.timeSinks as string[]) : [],
+      }).then((output) => {
+        const now = new Date();
+        return prisma.toolPlan.create({
+          data: {
+            clientId: client!.id,
+            intakeId: intake.id,
+            toolsJson: JSON.stringify(output.tools),
+            stepsJson: JSON.stringify(output.steps),
+            source: output.source,
+            status: "approved",
+            approvedAt: now,
+          },
+        });
+      }).catch(console.error);
+    }).catch(console.error);
+  }
+
   res.json({ ok: true, clientId: client.id });
 });
 

@@ -2,6 +2,49 @@
 
 Read this file before changing code. It is the source of truth.
 
+## ═══ PRODUCT BOUNDARY — standing rule, never remove ═══
+
+ATG diagnoses, prescribes, previews, and tracks. The **client's own AI platform** (Grok Bot first, then Claude or ChatGPT) handles live email/calendar, connectors, schedules/triggers, and sending.
+
+**Hard stops — ATG must never:**
+- Store OAuth tokens for client email or calendar accounts
+- Access client inboxes or calendars directly
+- Send or post anything from ATG servers on behalf of clients
+- Run background automations against client data on ATG infrastructure
+- Store client email or calendar contents (pasted samples only, short retention — env `SAMPLE_RETENTION_DAYS`, default 30)
+
+**What ATG does do:**
+- Generates diagnoses, tool plans, setup guides, and SKILL.md skill packages
+- Runs "Try it with a sample" previews using data the client pastes in
+- Tracks which workflows the client has installed (self-reported)
+- Stores session recaps and playbooks
+- Exports SKILL.md / routine packages for the client to install in their own AI platform
+
+Any feature that would break these hard stops requires explicit owner approval. Document the reason in NEXT_AGENT.md before implementing.
+
+## ═══ TIER MODEL (updated) ═══
+
+### Self-serve (fully automated)
+- Client submits enhanced intake → LLM (XAI_API_KEY / gpt-4o-mini) generates a combined report **immediately** — no Shea review gate
+- Report includes: situation diagnosis, recommended tool stack, platform-specific setup guides (Grok Bot, Claude, ChatGPT), recommended workflows to install first
+- ToolPlan created with `status: "approved"` immediately (auto-approval logic in `tiers.ts`)
+- After intake claim in `plan.ts`, auto-generates and auto-approves ToolPlan in background
+- Email support (replies within 2 business days)
+- All 10 workflows available in the Workbench app
+
+### Guided
+- Same automated report as Self-serve (auto-approved)
+- PLUS: package of 1:1 video sessions — Shea guides the full install on live calls
+- Session recordings (with consent) → recaps stored, visible to client
+- Direct message thread with Shea
+- Updated/regenerated reports as situation changes
+- Ongoing support
+
+### Done-for-you (unchanged)
+- By application only, limited spots, waitlist
+- Up to 3 custom workflows built, run, and tuned by Shea
+- Client approves every output before it goes anywhere
+
 ## Product framing
 
 Three tiers: Self-serve, Guided, Done-for-you (WHITE_GLOVE). Anyone not tech-savvy across 6 verticals. Follow-up draft is the first workflow, not the audience. Keep all copy broad. Client approval on by default; nothing auto-sent.
