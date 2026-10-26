@@ -8,12 +8,13 @@ import AppShell from "@/components/app/AppShell";
 import { api, type ToolPlan } from "@/lib/api";
 import { useAccount } from "@/lib/useAccount";
 
-interface Tool { name: string; why: string; costNote: string }
+interface Tool { name: string; slug?: string; why: string; costNote: string }
 interface Step  { order: number; title: string; detail: string }
 
 function PlanView({ plan }: { plan: ToolPlan }) {
   const tools: Tool[] = (() => { try { return JSON.parse(plan.toolsJson) as Tool[]; } catch { return []; } })();
   const steps: Step[]  = (() => { try { return JSON.parse(plan.stepsJson) as Step[]; } catch { return []; } })();
+  const hasReferralLinks = tools.some((t) => !!t.slug);
   return (
     <div className="space-y-8">
       <div className="rounded-xl p-5" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
@@ -25,11 +26,28 @@ function PlanView({ plan }: { plan: ToolPlan }) {
 
       {/* Tools */}
       <div>
-        <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>RECOMMENDED TOOLS</p>
+        <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>RECOMMENDED TOOLS</p>
+        {hasReferralLinks && (
+          <p className="text-xs mb-3" style={{ color: "var(--canvas-text-3)" }}>
+            Some links are referral links; ATG may earn credit at no extra cost to you.
+          </p>
+        )}
         <div className="space-y-3">
           {tools.map((t) => (
             <div key={t.name} className="rounded-xl p-5" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
-              <p className="font-semibold text-sm mb-1" style={{ color: "var(--canvas-text)", letterSpacing: "-0.01em" }}>{t.name}</p>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)", letterSpacing: "-0.01em" }}>{t.name}</p>
+                {t.slug && (
+                  <a
+                    href={`/go/${t.slug}?src=plan`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="text-xs font-medium"
+                    style={{ color: "var(--blue)" }}
+                  >
+                    Visit ↗
+                  </a>
+                )}
+              </div>
               <p className="text-sm mb-2" style={{ color: "var(--canvas-text-2)" }}>{t.why}</p>
               <p className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)" }}>💰 {t.costNote}</p>
             </div>

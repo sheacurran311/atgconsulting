@@ -20,6 +20,7 @@ import portalRouter from "./portal";
 import dayRouter from "./day";
 import toolsRouter from "./tools";
 import goRouter from "./go";
+import knowledgeRouter from "./knowledge";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(portalRouter);
 router.use(dayRouter);
 router.use(toolsRouter);
 router.use(goRouter);
+router.use(knowledgeRouter);
 
 export default router;

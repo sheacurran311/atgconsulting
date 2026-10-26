@@ -14,6 +14,8 @@ import RunHistory from "@/components/workbench/RunHistory";
 import { api, type HoursSavedData } from "@/lib/api";
 import { useAccount } from "@/lib/useAccount";
 import { hasOperator } from "@/lib/tiers";
+import ResourcesTab from "@/components/app/ResourcesTab";
+import InfoTab from "@/components/app/InfoTab";
 
 const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
 
@@ -82,6 +84,8 @@ const TABS = [
   { id: "workflows", label: "My workflows" },
   { id: "history",   label: "Run history" },
   { id: "hours",     label: "Hours saved" },
+  { id: "resources", label: "Resources" },
+  { id: "info",      label: "Guides" },
 ];
 
 export default function DashboardPage() {
@@ -134,6 +138,8 @@ export default function DashboardPage() {
         )}
         {tab === "history" && <div className="max-w-content"><RunHistory /></div>}
         {tab === "hours" && <div className="max-w-content"><HoursSavedTab tier={tier} /></div>}
+        {tab === "resources" && <div className="max-w-content"><ResourcesTab /></div>}
+        {tab === "info" && <div className="max-w-content"><InfoTab /></div>}
 
         <div className="max-w-content mt-8 pt-6" style={{ borderTop: "1px solid var(--canvas-border)" }}>
           {account ? (hasOperator(tier) ? <RequestWorkflowForm /> : <UpgradePrompt />) : null}

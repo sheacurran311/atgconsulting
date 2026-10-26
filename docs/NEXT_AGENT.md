@@ -87,6 +87,8 @@ Merge in this exact order. Each PR may depend on the previous.
 | **#21** | `cursor/boundary-bugs-c8a4` | Bug fixes: day.ts GET read-only, edit/copy drafts, timezone, consultations, tier gating | **YES** (DayProfile default) | No |
 | **#22** | `cursor/boundary-tiers-c8a4` | Product boundary + self-serve auto-approval, no Shea gate | No | No |
 | **#23** | `cursor/install-first-c8a4` | Install-first: intake AI platforms, Install CTA, progress tracking, DayBlock reframe | **YES** (ClientWorkflowSettings columns) | No |
+| **#24** | `cursor/tools-db-c8a4` | Tool DB, /go/:slug, admin CRUD + CSV, affiliate disclosure, LLM integration | **YES** (Tool, ToolClick, KnowledgeArticle) | No |
+| **#25** | `cursor/knowledge-c8a4` | Client Resources + Guides tabs, platform guides, personalised tool links | No | No |
 
 After merging all four, run `pnpm db:push` once to apply all pending schema changes.
 
