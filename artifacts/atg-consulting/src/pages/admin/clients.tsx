@@ -98,7 +98,7 @@ function ClientList() {
 
 // ── Client detail ─────────────────────────────────────────────────────────────
 
-const TABS = ["overview", "prep", "playbook", "sessions", "plan", "consultations", "documents", "reports", "outputs"];
+const TABS = ["overview", "prep", "playbook", "sessions", "plan", "consultations", "documents", "reports", "outputs", "workflows"];
 
 function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
   const [client, setClient] = useState<ClientDetail | null>(null);
@@ -172,6 +172,7 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
         {tab === "documents" && <DocumentsTab client={client} />}
         {tab === "reports" && <ReportsTab client={client} />}
         {tab === "outputs" && <OutputsTab client={client} onRefresh={() => api.admin.client(id).then(setClient)} />}
+        {tab === "workflows" && <ClientWorkflowsTab clientId={id} />}
       </div>
     </AdminShell>
   );
@@ -505,4 +506,57 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 // ── Playbook wrapper ──────────────────────────────────────────────────────────
 function PlaybookTabWrapper({ clientId, intakeId }: { clientId: string; intakeId?: string }) {
   return <PlaybookTab clientId={clientId} intakeId={intakeId} />;
+}
+
+// ── Client workflow settings tab ──────────────────────────────────────────────
+function ClientWorkflowsTab({ clientId }: { clientId: string }) {
+  const [settings, setSettings] = useState<{ slug: string; name: string; minTier: string; enabled: boolean; clientEnabled: boolean | null }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.admin.workflowSettings?.(clientId).then((d) => setSettings(d as typeof settings)).catch(() => null).finally(() => setLoading(false));
+  }, [clientId]);
+
+  async function toggle(slug: string, current: boolean | null) {
+    const next = current === null ? false : !current; // first toggle: disable (was using global=enabled)
+    await api.admin.patchWorkflowSetting?.(clientId, slug, next).catch(() => null);
+    setSettings((s) => s.map((x) => x.slug === slug ? { ...x, clientEnabled: next } : x));
+  }
+
+  const TIER_LABELS: Record<string, string> = { NONE: "All", SELF_SERVE: "Self-serve+", GUIDED: "Guided+", WHITE_GLOVE: "DFY" };
+
+  return (
+    <div>
+      <p className="text-sm mb-4" style={{ color: "var(--canvas-text-2)" }}>
+        Override per-client workflow availability. <strong style={{ color: "var(--canvas-text)" }}>null</strong> = uses global enabled state.
+      </p>
+      {loading ? <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
+      : settings.map((s) => {
+        const effective = s.clientEnabled ?? s.enabled;
+        return (
+          <div key={s.slug} className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg mb-2" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
+            <div>
+              <p className="text-sm font-medium" style={{ color: "var(--canvas-text)" }}>{s.name}</p>
+              <p className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)" }}>{s.slug} · {TIER_LABELS[s.minTier] ?? s.minTier} · global: {s.enabled ? "on" : "off"} · client: {s.clientEnabled === null ? "default" : s.clientEnabled ? "on" : "off"}</p>
+            </div>
+            <div className="flex gap-2 items-center">
+              <span className="font-mono text-2xs" style={{ color: effective ? "#16A34A" : "#DC2626" }}>{effective ? "ENABLED" : "DISABLED"}</span>
+              <button
+                onClick={() => toggle(s.slug, s.clientEnabled)}
+                className="btn-ghost text-xs py-1 px-2"
+              >
+                {s.clientEnabled === null ? "Override" : "Reset to default"}
+              </button>
+              {s.clientEnabled !== null && (
+                <button onClick={async () => {
+                  await api.admin.patchWorkflowSetting?.(clientId, s.slug, !s.clientEnabled!).catch(() => null);
+                  setSettings((x) => x.map((t) => t.slug === s.slug ? { ...t, clientEnabled: !t.clientEnabled } : t));
+                }} className="btn-secondary text-xs py-1 px-2">{s.clientEnabled ? "Disable" : "Enable"}</button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }

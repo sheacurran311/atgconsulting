@@ -1379,3 +1379,295 @@ export async function runSeoAudit(input: {
     return p.success ? { ...p.data, source: "LLM" } : fallback();
   } catch { return fallback(); }
 }
+
+// ── Phase 2 workflow LLM functions ─────────────────────────────────────────────
+
+// ── 5. Weekly money snapshot ───────────────────────────────────────────────────
+
+export interface MoneySnapshotOutput {
+  summary: string;
+  cashFlags: string[];
+  accountantQuestions: string[];
+  source: "LLM" | "TEMPLATE";
+}
+
+const MoneySnapshotZod = z.object({
+  summary:              z.string().min(1),
+  cashFlags:            z.array(z.string()),
+  accountantQuestions:  z.array(z.string()),
+});
+
+/** Simple CSV parser — date, description, amount. No external libraries. */
+function parseSimpleCsv(raw: string): string {
+  const lines = raw.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length <= 1) return raw; // treat as plain text
+  return lines
+    .slice(0, 200) // cap rows
+    .map((l) => l.replace(/"/g, "").trim())
+    .filter((l) => l.length > 0)
+    .join("\n");
+}
+
+export async function generateMoneySnapshot(input: {
+  data: string;
+  weekEnding?: string;
+  businessName?: string;
+}): Promise<MoneySnapshotOutput> {
+  const systemPrompt = await getSystemPrompt("money-snapshot");
+  const clean = parseSimpleCsv(sanitiseText(input.data, 20_000));
+
+  const fallback = (): MoneySnapshotOutput => ({
+    summary: "Your financial data has been received. Review the rows below and share with your accountant for a detailed summary.",
+    cashFlags: ["Review each transaction manually before discussing with your accountant."],
+    accountantQuestions: ["Are there any transactions I should categorize differently?", "What is my net position for the week?", "Are there any deductions I may be missing?"],
+    source: "TEMPLATE",
+  });
+
+  const llm = getClient();
+  if (!llm || !systemPrompt) return fallback();
+  try {
+    const completion = await llm.chat.completions.create({
+      model: MODEL, temperature: 0.3, max_tokens: 800,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Week ending: ${input.weekEnding ?? "not specified"}\nBusiness: ${promptSafe(input.businessName ?? "", "biz")}\n\nData:\n${clean}` },
+      ],
+    });
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const p = MoneySnapshotZod.safeParse(raw);
+    return p.success ? { ...p.data, source: "LLM" } : fallback();
+  } catch { return fallback(); }
+}
+
+// ── 6. Booking and reminder flow ───────────────────────────────────────────────
+
+export interface BookingFlowOutput {
+  bookingPageCopy: { headline: string; subheadline: string; body: string };
+  sequences: Array<{ trigger: string; channel: string; message: string }>;
+  setupChecklist: string[];
+  source: "LLM" | "TEMPLATE";
+}
+
+const BookingFlowZod = z.object({
+  bookingPageCopy: z.object({ headline: z.string(), subheadline: z.string(), body: z.string() }),
+  sequences: z.array(z.object({ trigger: z.string(), channel: z.string(), message: z.string() })),
+  setupChecklist: z.array(z.string()),
+});
+
+export async function generateBookingFlow(input: {
+  businessName: string;
+  serviceTypes: string;
+  platform: string;
+  channels: string;
+  senderName?: string;
+}): Promise<BookingFlowOutput> {
+  const systemPrompt = await getSystemPrompt("booking-flow");
+
+  const fallback = (): BookingFlowOutput => ({
+    bookingPageCopy: {
+      headline: `Book a ${input.serviceTypes.split(",")[0]?.trim() ?? "session"} with ${input.businessName}`,
+      subheadline: "Choose a time that works for you. We'll confirm right away.",
+      body: `${input.businessName} offers ${input.serviceTypes}. Book online and get an instant confirmation.\n\nHave a question before booking? Contact us directly.`,
+    },
+    sequences: [
+      { trigger: "Booking confirmed", channel: input.channels.split(",")[0]?.trim() ?? "email", message: `Your booking is confirmed! We look forward to seeing you. Reply to this message if you need to make any changes.\n\n— ${input.senderName ?? input.businessName}` },
+      { trigger: "24 hours before", channel: input.channels.split(",")[0]?.trim() ?? "email", message: `Reminder: your appointment is tomorrow. See you then!\n\n— ${input.senderName ?? input.businessName}` },
+      { trigger: "Day-of reminder", channel: input.channels.split(",")[0]?.trim() ?? "SMS", message: `Your appointment is today! Looking forward to it.\n— ${input.senderName ?? input.businessName}` },
+      { trigger: "No-show (2 hours after)", channel: input.channels.split(",")[0]?.trim() ?? "SMS", message: `Hi, we missed you today. Would you like to reschedule? Just reply to book a new time.\n— ${input.senderName ?? input.businessName}` },
+      { trigger: "Rebook offer (7 days after)", channel: input.channels.split(",")[0]?.trim() ?? "email", message: `It was great working with you! Ready to book your next appointment? Use the same link to choose a time.\n— ${input.senderName ?? input.businessName}` },
+    ],
+    setupChecklist: [
+      `Set up your ${input.platform} account and connect your calendar`,
+      "Set your availability and buffer times between appointments",
+      "Add your service types and durations",
+      "Enable automated confirmation emails in your scheduler",
+      "Test a booking yourself before sharing the link",
+      "Paste the message sequences above into your scheduler's automated message settings",
+    ],
+    source: "TEMPLATE",
+  });
+
+  const llm = getClient();
+  if (!llm || !systemPrompt) return fallback();
+  try {
+    const completion = await llm.chat.completions.create({
+      model: MODEL, temperature: 0.5, max_tokens: 1200,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Business: ${promptSafe(input.businessName, "biz")}\nServices: ${promptSafe(input.serviceTypes, "svcs")}\nPlatform: ${promptSafe(input.platform, "platform")}\nChannels: ${promptSafe(input.channels, "channels")}\nSender: ${promptSafe(input.senderName ?? input.businessName, "sender")}` },
+      ],
+    });
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const p = BookingFlowZod.safeParse(raw);
+    return p.success ? { ...p.data, source: "LLM" } : fallback();
+  } catch { return fallback(); }
+}
+
+// ── 7. Quote / proposal draft ──────────────────────────────────────────────────
+
+export interface QuoteProposalOutput {
+  proposalMarkdown: string;
+  scopeChecklist: string[];
+  termsChecklist: string[];
+  source: "LLM" | "TEMPLATE";
+}
+
+const QuoteProposalZod = z.object({
+  proposalMarkdown: z.string().min(1),
+  scopeChecklist:   z.array(z.string()),
+  termsChecklist:   z.array(z.string()),
+});
+
+export function proposalToHtml(md: string, clientName: string, businessName: string): string {
+  const lines = md.split("\n").map((l) => {
+    if (l.startsWith("## ")) return `<h2>${l.slice(3)}</h2>`;
+    if (l.startsWith("# "))  return `<h1>${l.slice(2)}</h1>`;
+    if (l.startsWith("- "))  return `<li>${l.slice(2)}</li>`;
+    if (l.trim() === "")     return "<br/>";
+    return `<p>${l}</p>`;
+  }).join("\n");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><title>Proposal for ${clientName}</title>
+<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:auto;padding:2rem;color:#0A0A0B}h1,h2{letter-spacing:-0.02em}li{margin:0.25rem 0}@media print{body{padding:1rem}}</style>
+</head>
+<body>
+<p style="color:#6B6B6E;font-size:0.9rem">Prepared by ${businessName} for ${clientName}</p>
+${lines}
+<p style="margin-top:3rem;color:#9E9EA1;font-size:0.8rem">This document was drafted for review. Please verify all details before sending.</p>
+</body></html>`;
+}
+
+export async function generateQuoteProposal(input: {
+  clientName: string;
+  businessName?: string;
+  servicesAndPricing: string;
+  scopeDescription: string;
+  termsNotes?: string;
+  senderName?: string;
+}): Promise<QuoteProposalOutput> {
+  const systemPrompt = await getSystemPrompt("quote-proposal");
+
+  const fallback = (): QuoteProposalOutput => ({
+    proposalMarkdown: `# Proposal: ${input.clientName}\n\nPrepared by ${input.businessName ?? input.senderName ?? "ATG Consulting"}\n\n## Services and Pricing\n\n${input.servicesAndPricing}\n\n## Scope\n\n${input.scopeDescription}\n\n## Payment Terms\n\n[Add payment terms here]\n\n## Questions or changes? Contact us before signing.`,
+    scopeChecklist: ["Confirm deliverables with client before starting", "Agree on revision rounds and timeline", "Confirm who provides assets or access"],
+    termsChecklist: ["Payment schedule agreed in writing", "Revision limit specified", "Cancellation clause included", "IP ownership clarified"],
+    source: "TEMPLATE",
+  });
+
+  const llm = getClient();
+  if (!llm || !systemPrompt) return fallback();
+  try {
+    const completion = await llm.chat.completions.create({
+      model: MODEL, temperature: 0.5, max_tokens: 1500,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Proposal for: ${promptSafe(input.clientName, "client")}\nPrepared by: ${promptSafe(input.senderName ?? "", "sender")}, ${promptSafe(input.businessName ?? "", "biz")}\nServices and pricing:\n${promptSafe(input.servicesAndPricing.slice(0, 3000), "services")}\nScope:\n${promptSafe(input.scopeDescription.slice(0, 2000), "scope")}\nTerms notes: ${promptSafe(input.termsNotes ?? "", "terms")}` },
+      ],
+    });
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const p = QuoteProposalZod.safeParse(raw);
+    return p.success ? { ...p.data, source: "LLM" } : fallback();
+  } catch { return fallback(); }
+}
+
+// ── 8. Prospect research and outreach drafts ──────────────────────────────────
+
+export interface ProspectResearchOutput {
+  prospects: Array<{
+    name: string;
+    url: string;
+    summary: string;
+    outreachEmail: { subject: string; body: string };
+  }>;
+  complianceNote: string;
+  source: "LLM" | "TEMPLATE";
+}
+
+const ProspectResearchZod = z.object({
+  prospects: z.array(z.object({
+    name:  z.string(),
+    url:   z.string(),
+    summary: z.string(),
+    outreachEmail: z.object({ subject: z.string(), body: z.string() }),
+  })),
+  complianceNote: z.string(),
+});
+
+const PROSPECT_FETCH_TIMEOUT = 10_000;
+const COMPLIANCE_NOTE = "CAN-SPAM reminder: before sending, add your physical mailing address and an unsubscribe mechanism to each email. Do not send to addresses obtained without consent.";
+
+async function fetchProspectHtml(url: string): Promise<string> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), PROSPECT_FETCH_TIMEOUT);
+    const r = await fetch(url, { signal: ctrl.signal, headers: { "User-Agent": "ATG-Research/1.0 (public page summary; contact shea@atgconsulting.io)" } });
+    clearTimeout(t);
+    if (!r.ok) return "";
+    const text = await r.text();
+    return text.slice(0, 15_000);
+  } catch { return ""; }
+}
+
+function extractProspectName(line: string): { name: string; url: string } {
+  const urlMatch = line.match(/https?:\/\/[^\s]+/);
+  const url = urlMatch?.[0] ?? "";
+  const name = url ? line.replace(url, "").trim().replace(/^[,\s]+|[,\s]+$/g, "") || url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]! : line.trim();
+  return { name: name || line.trim(), url };
+}
+
+export async function generateProspectResearch(input: {
+  icp: string;
+  prospects: string; // one per line, name or URL
+  businessName?: string;
+  senderName?: string;
+}): Promise<ProspectResearchOutput> {
+  const systemPrompt = await getSystemPrompt("prospect-research");
+
+  const lines = input.prospects.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 5);
+
+  // Fetch public pages for URL-based prospects
+  const fetched = await Promise.all(lines.map(async (line) => {
+    const { name, url } = extractProspectName(line);
+    const html = url ? await fetchProspectHtml(url) : "";
+    return { name, url, html };
+  }));
+
+  const fallback = (): ProspectResearchOutput => ({
+    prospects: fetched.map(({ name, url }) => ({
+      name, url,
+      summary: url ? "Public page was not accessible — research this prospect manually before outreach." : "Add a URL to enable automated research.",
+      outreachEmail: {
+        subject: `${input.businessName ?? "Our team"} — quick question for ${name}`,
+        body: `Hi,\n\nI came across ${name} and wanted to reach out.\n\n${input.icp ? `We help businesses like yours with: ${input.icp.slice(0, 200)}.` : ""}\n\nWould you be open to a quick call?\n\nBest,\n${input.senderName ?? input.businessName ?? ""}`,
+      },
+    })),
+    complianceNote: COMPLIANCE_NOTE,
+    source: "TEMPLATE",
+  });
+
+  const llm = getClient();
+  if (!llm || !systemPrompt) return fallback();
+
+  const prospectBlock = fetched.map(({ name, url, html }) =>
+    `--- Prospect: ${name}${url ? ` (${url})` : ""} ---\n${html ? html.slice(0, 3000) : "(no page content available)"}`
+  ).join("\n\n");
+
+  try {
+    const completion = await llm.chat.completions.create({
+      model: MODEL, temperature: 0.6, max_tokens: 2000,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `My ICP:\n${promptSafe(input.icp.slice(0, 500), "icp")}\n\nSender: ${promptSafe(input.senderName ?? "", "sender")}, ${promptSafe(input.businessName ?? "", "biz")}\n\nProspects:\n${promptSafe(prospectBlock, "prospects")}` },
+      ],
+    });
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const p = ProspectResearchZod.safeParse(raw);
+    return p.success ? { ...p.data, complianceNote: COMPLIANCE_NOTE, source: "LLM" } : fallback();
+  } catch { return fallback(); }
+}

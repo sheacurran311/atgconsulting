@@ -85,8 +85,9 @@ model Client {
   toolPlans         ToolPlan[]
   dfyApplication    DfyApplication?
   supportTickets    SupportTicket[]
-  playbooks         ClientPlaybook[]
-  sessionRecords    SessionRecord[]
+  playbooks              ClientPlaybook[]
+  sessionRecords         SessionRecord[]
+  clientWorkflowSettings ClientWorkflowSettings[]
 }
 
 // ── Intake ─────────────────────────────────────────────────────────────────────
@@ -574,4 +575,21 @@ model WorkflowTemplate {
   version          Int      @default(1)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+// ── Per-client workflow overrides ─────────────────────────────────────────────
+
+/// Admin can enable or disable individual workflows per client.
+/// A missing row means the global template `enabled` flag applies.
+model ClientWorkflowSettings {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  slug      String   // WorkflowTemplate slug
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, slug])
+  @@index([clientId])
 }
