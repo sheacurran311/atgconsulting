@@ -1,11 +1,11 @@
 ---
-description: Restart dev servers through Replit workflows, not as localhost processes
+description: Use the Replit dev URL only. Never use localhost or restart dev servers.
 alwaysApply: true
 ---
 
-# Restart dev servers in Replit
+# Replit dev URL only
 
-This workspace runs on Replit. App processes are managed workflows supervised by the platform. Restart them there.
+This workspace runs on Replit. The app is already served by managed workflows. Do not start, stop, kill, or restart them. Restarting opens duplicate ports. If a restart is needed, ask the user to restart the workflow in Replit. They will do that manually.
 
 Managed workflows:
 
@@ -13,10 +13,14 @@ Managed workflows:
 - `artifacts/api-server: API Server`
 - `artifacts/mockup-sandbox: Component Preview Server`
 
-When a server needs a restart, restart that Replit workflow. Leave its `PORT`, `BASE_PATH`, and proxy host as Replit set them.
+Leave each workflow's `PORT`, `BASE_PATH`, and proxy host as Replit set them.
 
-Do not kill a managed process and start a replacement from the shell (`vite`, `pnpm dev`, `pnpm --filter … run dev`, or `node`). Do not bind a server to `127.0.0.1` or `localhost`, and do not verify the app at `http://127.0.0.1:<port>`.
+Do not run a dev server from the shell (`vite`, `pnpm dev`, `pnpm --filter … run dev`, or `node`). Do not bind anything to `127.0.0.1` or `localhost`.
 
-Open and verify the app through the Replit preview URL or the shared proxy. Hostname-derived config, including the Clerk publishable key, follows the page host. A localhost host makes that config point at an address that does not exist.
+Verify the app only at:
 
-One-off commands that are not the dev server — typecheck, tests, installs, builds — can still run in the shell.
+https://3e58f60d-93ea-4e0d-91d8-799c20a3158f-00-2noc46nremglm.kirk.replit.dev/
+
+Do not open `http://127.0.0.1:<port>`, `http://localhost:<port>`, or any other host. Hostname-derived config, including the Clerk publishable key, follows the page host.
+
+One-off commands that are not a server — typecheck, tests, installs, builds — can still run in the shell.

@@ -65,8 +65,16 @@ function useRunLog(lines: string[], active: boolean) {
     if (reduced) { setVisible(lines); return; }
     let i = 0;
     const id = setInterval(() => {
-      if (i < lines.length) { setVisible((v) => [...v, lines[i]!]); i++; }
-      else clearInterval(id);
+      if (i >= lines.length) {
+        clearInterval(id);
+        return;
+      }
+      // Snapshot before incrementing. The updater runs after this callback
+      // returns, so reading lines[i] inside it would see the next index and
+      // eventually append undefined.
+      const line = lines[i];
+      i += 1;
+      if (line !== undefined) setVisible((v) => [...v, line]);
     }, 420);
     return () => clearInterval(id);
   }, [lines, active, reduced]);
@@ -123,7 +131,7 @@ function WorkflowCanvas({ demo, animate }: { demo: DemoWorkflow; animate: boolea
         </p>
         <div className="space-y-1">
           {log.map((line, i) => (
-            <p key={i} style={{ color: line.startsWith("✓") ? "var(--blue)" : "var(--ink-text-2)", fontWeight: line.startsWith("✓") ? 600 : 400 }}>
+            <p key={i} style={{ color: line?.startsWith("✓") ? "var(--blue)" : "var(--ink-text-2)", fontWeight: line?.startsWith("✓") ? 600 : 400 }}>
               {line}
             </p>
           ))}
