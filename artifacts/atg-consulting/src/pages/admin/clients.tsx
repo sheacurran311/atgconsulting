@@ -150,6 +150,7 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
               className="rounded-xl border border-canvas-border px-3 py-2 text-sm text-canvas-text focus:outline-none focus:ring-2 focus:ring-blue">
               {["PROSPECT", "ACTIVE", "PAUSED", "CHURNED"].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
+            <PersonalizeButton clientId={id} />
           </div>
         </div>
 
@@ -557,6 +558,34 @@ function ClientWorkflowsTab({ clientId }: { clientId: string }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── Personalize button ────────────────────────────────────────────────────────
+function PersonalizeButton({ clientId }: { clientId: string }) {
+  const [running, setRunning] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function run() {
+    setRunning(true);
+    const result = await api.admin.personalizeClient?.(clientId).catch(() => null);
+    setMsg(result?.message ?? "Done.");
+    setRunning(false);
+    setTimeout(() => setMsg(null), 4000);
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={run}
+        disabled={running}
+        className="btn-secondary text-xs py-1.5 px-3"
+        title="Re-run workspace personalization from latest intake data"
+      >
+        {running ? "Personalizing…" : "Re-run personalization"}
+      </button>
+      {msg && <span className="text-xs" style={{ color: "var(--blue)" }}>{msg}</span>}
     </div>
   );
 }

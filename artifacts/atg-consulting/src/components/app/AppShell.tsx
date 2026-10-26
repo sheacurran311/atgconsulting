@@ -2,6 +2,7 @@ import { useUser } from "@clerk/react";
 import { Link, useLocation, Redirect } from "wouter";
 import LogoLockup from "@/components/LogoLockup";
 import OperatorPanel from "@/components/workbench/OperatorPanel";
+import IntakeGate from "@/components/app/IntakeGate";
 import { useAccount } from "@/lib/useAccount";
 import { hasOperator } from "@/lib/tiers";
 
@@ -36,6 +37,7 @@ export default function AppShell({ children }: Props) {
   if (!isSignedIn) return <Redirect to="/sign-in" />;
 
   return (
+    <IntakeGate>
     <div className="min-h-screen flex" style={{ background: "var(--canvas)" }}>
 
       {/* Desktop sidebar */}
@@ -122,6 +124,7 @@ export default function AppShell({ children }: Props) {
         </div>
       </main>
     </div>
+    </IntakeGate>
   );
 }
 

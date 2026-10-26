@@ -156,6 +156,7 @@ export const api = {
                         post<{ id: string }>(`/admin/clients/${clientId}/agent-chains`, body),
     patchAgentChain:  (id: string, body: { name?: string; slugs?: string[]; enabled?: boolean }) =>
                         patch<{ id: string }>(`/admin/agent-chains/${id}`, body),
+    personalizeClient: (clientId: string) => post<{ ok: boolean; message: string }>(`/admin/clients/${clientId}/personalize`, {}),
   },
 };
 
@@ -332,5 +333,22 @@ export const skills3Api = {
                    post<{ output: OutputItem; result: unknown }>("/workbench/faq-support", body),
   pipelineRun:   (body: { chainId: string; stepIndex: number; currentInput: string; previousOutput?: string }) =>
                    post<{ output: OutputItem; result: unknown; totalSteps: number; nextStep: number | null }>("/workbench/agent-pipeline/run", body),
+};
+
+
+// ── Portal status + personalization ──────────────────────────────────────────
+export interface PortalStatus {
+  hasClient:         boolean;
+  hasIntake:         boolean;
+  clientId:          string | null;
+  tier:              string;
+  testMode:          boolean;
+  personalizedSlugs: string[];
+  intakePrefill:     { email: string | null; name: string | null };
+}
+
+export const portalApi = {
+  status:      () => get<PortalStatus>("/portal/status"),
+  personalize: () => post<{ ok: boolean }>("/portal/personalize", {}),
 };
 

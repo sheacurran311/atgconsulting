@@ -6,6 +6,7 @@
 
 import { Router } from "express";
 import { prisma } from "../lib/db";
+import { personalizeClientWorkspace } from "../lib/personalization";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
 
 const router = Router();
@@ -108,6 +109,9 @@ router.post("/plan/:intakeId/claim", withUser, requireAuth, async (req, res) => 
       });
     }
   }
+
+  // Seed personalized workspace from intake data
+  personalizeClientWorkspace(client.id).catch(console.error);
 
   res.json({ ok: true, clientId: client.id });
 });

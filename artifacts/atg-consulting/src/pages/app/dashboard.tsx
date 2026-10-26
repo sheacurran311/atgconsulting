@@ -14,6 +14,7 @@ import SkillForm from "@/components/workbench/SkillsForms";
 import SkillForm2 from "@/components/workbench/SkillsForms2";
 import SkillForm3 from "@/components/workbench/SkillsForms3";
 import SkillLauncher from "@/components/workbench/SkillLauncher";
+import { usePortal } from "@/components/app/IntakeGate";
 import RunHistory from "@/components/workbench/RunHistory";
 import { api, type HoursSavedData } from "@/lib/api";
 import { useAccount } from "@/lib/useAccount";
@@ -93,7 +94,10 @@ export default function DashboardPage() {
   const [compose, setCompose] = useState(false);
   const [activeSkill, setActiveSkill] = useState<string | null>(null);
   const { account } = useAccount();
-  const tier = account?.tier ?? "NONE";
+  const portal = usePortal();
+  const tier = account?.tier ?? portal?.tier ?? "NONE";
+  const testMode = portal?.testMode ?? false;
+  const personalizedSlugs = portal?.personalizedSlugs ?? [];
 
   function openDraft() {
     setTab("today");
@@ -141,6 +145,8 @@ export default function DashboardPage() {
         {tab === "today" && !activeSkill && (
           <SkillLauncher
             clientTier={tier}
+            testMode={testMode}
+            personalizedSlugs={personalizedSlugs}
             activeSkill={activeSkill}
             onSelectSkill={(slug) => setActiveSkill(slug)}
           />

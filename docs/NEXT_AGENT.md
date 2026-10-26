@@ -118,3 +118,50 @@ WorkflowTemplate rows are seeded automatically on first server start.
 - Start a dev server or bind 127.0.0.1
 - Switch Prisma provider to sqlite
 - Narrow copy to sales reps
+
+## PR #19 — Portal UX, intake gate, personalization, contrast fixes
+
+Stack: skills-phase3 → this PR.
+
+### db:push NOT required (no new schema changes in this PR)
+### pnpm install NOT required
+
+### What changed
+
+**1. Billing bypass for test mode**
+`src/lib/access.ts` — centralised `checkWorkflowAccess()` shared by all skills routes.
+When `BILLING_ENABLED !== "true"` (the default), every signed-in client with a profile
+has access to every enabled workflow, regardless of tier. A test-mode banner appears
+in the skill launcher. All three skills routes updated to use the shared helper.
+
+**2. Intake-first onboarding (IntakeGate)**
+`src/components/app/IntakeGate.tsx` wraps the entire AppShell.
+On load, calls `GET /api/portal/status` which:
+  - Checks if the user has a linked intake
+  - Auto-links any anonymous intake submitted with the same email (within 7 days)
+  - Creates the Client row and runs personalization if auto-linked
+If no intake is found, shows a pre-filled prompt to complete /start.
+Portal context (testMode, personalizedSlugs, tier) is available via `usePortal()`.
+
+**3. Workspace personalization**
+`src/lib/personalization.ts` — `personalizeClientWorkspace(clientId)`:
+  - Scores all 11 workflow slugs by intake data (areas, time sinks, AI comfort)
+  - follow-up always gets +5 as the starting workflow
+  - Upserts ClientWorkflowSettings with enabled=true for all (ordering = relevance)
+  - Stores ranked slug list in Client.notes as `__RANK__{...json}`
+Called automatically after intake claim (plan.ts) and on demand via:
+  - `POST /api/portal/personalize` (client)
+  - `POST /api/admin/clients/:id/personalize` (admin)
+Admin UI: "Re-run personalization" button on client detail page.
+
+**4. Contrast fixes (WCAG AA)**
+- Locked skill buttons: `canvas-text-3` (#9E9EA1, 2.8:1 ❌) → `canvas-text-2` (#6B6B6E, 5.7:1 ✅)
+- `.skill-btn-locked` CSS class with compliant colors
+- Featured/unlocked skills: `canvas-text` (#0A0A0B, 21:1) on white ✅
+- Primary actions use explicit `var(--blue-btn)` (#2557E8) with white text (4.9:1 ✅)
+- Test-mode banner uses blue accent text on very-light-blue background (sufficient contrast)
+
+**5. Personalized skill launcher**
+`SkillLauncher.tsx` accepts `personalizedSlugs` and `testMode` from portal status.
+Featured slugs (top-3 from personalization) appear first with a ★ marker and blue border.
+Test mode shows a notice and unlocks all workflows.

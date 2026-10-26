@@ -1,3 +1,4 @@
+import { checkWorkflowAccess } from "../lib/access";
 /**
  * Phase 1 Workbench skills — Self-serve workflows.
  * Every output lands in OutputItem awaiting client approval.
@@ -25,24 +26,10 @@ import {
 const router = Router();
 router.use(withUser, requireAuth);
 
-const TIER_ORDER = ["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"];
-
 function clientId(req: AuthedRequest, res: Parameters<typeof requireAuth>[1]): string | null {
   const id = req.atgUser?.clientId;
   if (!id) { res.status(404).json({ error: "Complete the intake and save your plan before running workflows." }); return null; }
   return id;
-}
-
-/** Check that the client tier meets the template minTier. */
-async function checkTier(clientId: string, slug: string): Promise<boolean> {
-  const [client, template] = await Promise.all([
-    prisma.client.findUnique({ where: { id: clientId }, select: { tier: true } }),
-    prisma.workflowTemplate.findUnique({ where: { slug }, select: { minTier: true, enabled: true } }),
-  ]);
-  if (!template?.enabled) return false;
-  const minIdx = TIER_ORDER.indexOf(template.minTier);
-  const clientIdx = TIER_ORDER.indexOf(client?.tier ?? "NONE");
-  return clientIdx >= minIdx;
 }
 
 /** Upsert the workflow for this client (creates if missing, updates lastRunAt). */
@@ -92,7 +79,7 @@ router.post("/workbench/inbox-triage", async (req, res) => {
   if (!cid) return;
   const parsed = InboxTriageBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "messages is required.", issues: parsed.error.flatten() }); return; }
-  if (!await checkTier(cid, "inbox-triage")) { res.status(403).json({ error: "Upgrade your plan to access inbox triage." }); return; }
+  const _it = await checkWorkflowAccess(cid, "inbox-triage"); if (!_it.allowed) { res.status(403).json({ error: _it.reason }); return; }
 
   const user = (req as AuthedRequest).atgUser!;
   const result = await triageInbox({
@@ -124,7 +111,7 @@ router.post("/workbench/review-request", async (req, res) => {
   if (!cid) return;
   const parsed = ReviewRequestBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "businessName, businessType, and channels are required." }); return; }
-  if (!await checkTier(cid, "review-request")) { res.status(403).json({ error: "Upgrade your plan to access review workflows." }); return; }
+  const _rr = await checkWorkflowAccess(cid, "review-request"); if (!_rr.allowed) { res.status(403).json({ error: _rr.reason }); return; }
 
   const user = (req as AuthedRequest).atgUser!;
   const result = await generateReviewContent({
@@ -159,7 +146,7 @@ router.post("/workbench/social-calendar", async (req, res) => {
   if (!cid) return;
   const parsed = SocialCalendarBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "businessDescription and platforms are required." }); return; }
-  if (!await checkTier(cid, "social-calendar")) { res.status(403).json({ error: "Upgrade your plan to access social calendar." }); return; }
+  const _sc = await checkWorkflowAccess(cid, "social-calendar"); if (!_sc.allowed) { res.status(403).json({ error: _sc.reason }); return; }
 
   const result = await generateSocialCalendar({
     businessDescription: sanitiseText(parsed.data.businessDescription, 400),
@@ -195,7 +182,7 @@ router.post("/workbench/seo-audit", async (req, res) => {
   if (!cid) return;
   const parsed = SeoAuditBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "url and businessType are required.", issues: parsed.error.flatten() }); return; }
-  if (!await checkTier(cid, "seo-audit")) { res.status(403).json({ error: "Upgrade your plan to access SEO audit." }); return; }
+  const _sa = await checkWorkflowAccess(cid, "seo-audit"); if (!_sa.allowed) { res.status(403).json({ error: _sa.reason }); return; }
 
   const { url, businessType, cityArea } = parsed.data;
 
