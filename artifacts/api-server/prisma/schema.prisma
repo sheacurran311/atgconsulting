@@ -638,7 +638,7 @@ model DayProfile {
   id          String   @id @default(cuid())
   clientId    String   @unique
   client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  timezone    String   @default("America/Denver")
+  timezone    String   @default("UTC")
   /// JSON array of weekday numbers, Sunday = 0
   workDays    String   @default("[1,2,3,4,5]")
   startMin    Int      @default(480)

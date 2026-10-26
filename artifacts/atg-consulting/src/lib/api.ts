@@ -66,6 +66,8 @@ export const api = {
 
   day: {
     get: () => get<DayPayload>("/day"),
+    /** Reconcile today's suggestions (writes DayBlock rows); call once on mount. GET is read-only. */
+    refresh: () => post<DayPayload>("/day/refresh", {}),
     saveProfile: (body: DayAnswersPayload) => put<DayProfile>("/day/profile", body),
     addAccount: (body: { realm: "professional" | "personal"; kind: "email" | "calendar" | "other"; provider: "gmail" | "outlook" | "apple" | "other"; label: string }) =>
       post<DeclaredAccount>("/day/accounts", body),

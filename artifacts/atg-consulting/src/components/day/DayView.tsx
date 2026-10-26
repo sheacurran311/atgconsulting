@@ -42,7 +42,21 @@ export default function DayView({ tier, testMode }: { tier: string; testMode: bo
       .finally(() => { setLoading(false); setBusyId(null); });
   }
 
-  useEffect(() => { load(); }, []);
+  // On first mount: refresh suggestions (writes DayBlocks) then load. Subsequent
+  // navigations just use GET (read-only). This avoids P2002 on concurrent GETs.
+  useEffect(() => {
+    setLoading(true);
+    api.day.refresh()
+      .then((payload) => { setDay(payload); setError(null); })
+      .catch(() => {
+        // Fallback to read-only GET if refresh fails
+        api.day.get()
+          .then((payload) => { setDay(payload); setError(null); })
+          .catch((err) => setError(err instanceof Error ? err.message : "Could not load your day."));
+      })
+      .finally(() => { setLoading(false); setBusyId(null); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading && !day) return <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading your day…</p>;
   if (error && !day) return <p className="text-sm" role="alert" style={{ color: "#DC2626" }}>{error}</p>;
@@ -101,7 +115,7 @@ export default function DayView({ tier, testMode }: { tier: string; testMode: bo
       </div>
 
       <p className="text-xs mb-4" style={{ color: "var(--canvas-text-3)" }}>
-        Suggestions stay on this day until you add them. Nothing is written to a real calendar yet.
+        Suggestions help you plan your day. When you're ready, install a workflow routine in your AI platform to run on a schedule.
       </p>
 
       {actionError && <p className="text-sm mb-3" role="alert" style={{ color: "#DC2626" }}>{actionError}</p>}
@@ -257,9 +271,9 @@ function AccountRail({ accounts, onChanged }: { accounts: DeclaredAccount[]; onC
 
   return (
     <section className="rounded-xl p-4" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
-      <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>ACCOUNTS</p>
+      <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>YOUR ASSISTANT'S CONNECTIONS</p>
       <p className="text-xs mb-3" style={{ color: "var(--canvas-text-3)" }}>
-        Work and personal stay apart. These are not connected yet.
+        Tell your AI platform (Grok Bot, Claude, etc.) which accounts to connect. ATG never accesses these directly.
       </p>
       {groups.map((group) => {
         const rows = accounts.filter((account) => account.realm === group.id);
@@ -273,7 +287,8 @@ function AccountRail({ accounts, onChanged }: { accounts: DeclaredAccount[]; onC
                 <div>
                   <p className="text-sm font-medium" style={{ color: "var(--canvas-text)" }}>{account.label}</p>
                   <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
-                    {ACCOUNT_PROVIDER_LABELS[account.provider] ?? account.provider} · {ACCOUNT_KIND_LABELS[account.kind] ?? account.kind} · Not connected yet
+                    {ACCOUNT_PROVIDER_LABELS[account.provider] ?? account.provider} · {ACCOUNT_KIND_LABELS[account.kind] ?? account.kind}
+                    <span className="ml-1 px-1 py-0.5 rounded text-2xs font-mono" style={{ background: "rgba(59,107,255,0.08)", color: "var(--blue)" }}>Add to your AI platform</span>
                   </p>
                 </div>
                 <button type="button" onClick={() => remove(account.id)} className="text-xs underline" style={{ color: "var(--canvas-text-3)" }}>
@@ -322,26 +337,42 @@ function AccountRail({ accounts, onChanged }: { accounts: DeclaredAccount[]; onC
 function ReminderRail({ day, onChanged }: { day: DayPayload; onChanged: () => void }) {
   const [drafts, setDrafts] = useState(day.reminders.drafts);
   const [copied, setCopied] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
   useEffect(() => { setDrafts(day.reminders.drafts); }, [day]);
 
-  async function review(id: string, action: "approve" | "dismiss") {
+  async function approveDraft(id: string) {
     try {
-      const updated = await api.workbench.reviewOutput(id, action);
-      if (action === "dismiss") setDrafts((prev) => prev.filter((item) => item.id !== id));
-      else setDrafts((prev) => prev.map((item) => item.id === id ? { ...item, ...updated, status: updated.status } : item));
+      const updated = await api.workbench.reviewOutput(id, "approve");
+      setDrafts((prev) => prev.map((item) => item.id === id ? { ...item, status: updated.status } : item));
       onChanged();
-    } catch {
-      /* keep the list as it was */
-    }
+    } catch { /* keep list */ }
   }
 
-  async function copy(id: string, text: string) {
+  async function saveDraftEdit(id: string) {
+    try {
+      const updated = await api.workbench.reviewOutput(id, "edit", editContent);
+      setDrafts((prev) => prev.map((item) => item.id === id ? { ...item, content: editContent, status: updated.status } : item));
+      setEditingId(null);
+      onChanged();
+    } catch { /* keep list */ }
+  }
+
+  async function dismissDraft(id: string) {
+    try {
+      await api.workbench.reviewOutput(id, "dismiss");
+      setDrafts((prev) => prev.filter((item) => item.id !== id));
+      onChanged();
+    } catch { /* keep list */ }
+  }
+
+  async function copyToClipboard(id: string, subject: string | null, content: string) {
+    const text = subject ? `${subject}\n\n${content}` : content;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(id);
-    } catch {
-      setCopied(null);
-    }
+      setTimeout(() => setCopied((prev) => prev === id ? null : prev), 2000);
+    } catch { setCopied(null); }
   }
 
   const { consultations, actionItems } = day.reminders;
@@ -349,42 +380,74 @@ function ReminderRail({ day, onChanged }: { day: DayPayload; onChanged: () => vo
 
   return (
     <section className="rounded-xl p-4" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
-      <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>REMINDERS</p>
-      {quiet && <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>Nothing else is due today.</p>}
+      <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>WAITING ON YOU</p>
+      {quiet && <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>Nothing due today.</p>}
       {consultations.map((item) => (
         <p key={item.id} className="text-sm mb-2" style={{ color: "var(--canvas-text)" }}>
           {item.title}
-          <span className="block text-xs" style={{ color: "var(--canvas-text-3)" }}>{item.durationMin} min on your calendar</span>
+          <span className="block text-xs" style={{ color: "var(--canvas-text-3)" }}>Scheduled session · {item.durationMin} min</span>
         </p>
       ))}
       {actionItems.map((item) => (
         <p key={item.id} className="text-sm mb-2" style={{ color: "var(--canvas-text)" }}>{item.text}</p>
       ))}
-      {drafts.length > 0 && (
-        <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--canvas-border)" }}>
-          <p className="font-mono text-2xs mb-2" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>WAITING ON YOU</p>
-          {drafts.map((draft) => {
-            const ready = draft.status === "approved" || draft.status === "edited";
-            return (
-              <div key={draft.id} className="mb-3">
-                <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>{DRAFT_LABELS[draft.type] ?? draft.type}</p>
-                <p className="text-sm font-medium" style={{ color: "var(--canvas-text)" }}>{draft.subject || draft.workflowName}</p>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {!ready && (
-                    <button type="button" onClick={() => review(draft.id, "approve")} className="text-xs font-semibold underline" style={{ color: "var(--blue)" }}>Approve</button>
-                  )}
-                  {ready && (
-                    <button type="button" onClick={() => copy(draft.id, `${draft.subject}\n\n${draft.content}`)} className="text-xs font-semibold underline" style={{ color: "var(--blue)" }}>
-                      {copied === draft.id ? "Copied" : "Copy"}
-                    </button>
-                  )}
-                  <button type="button" onClick={() => review(draft.id, "dismiss")} className="text-xs underline" style={{ color: "var(--canvas-text-3)" }}>Dismiss</button>
+      {drafts.map((draft) => {
+        const approved = draft.status === "approved" || draft.status === "edited";
+        const isEditing = editingId === draft.id;
+        return (
+          <div key={draft.id} className="mb-4 last:mb-0 pt-3" style={{ borderTop: "1px solid var(--canvas-border)" }}>
+            <p className="font-mono text-2xs mb-0.5" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>
+              {DRAFT_LABELS[draft.type] ?? draft.type}
+              {approved && <span className="ml-2 text-green-600">✓ APPROVED</span>}
+            </p>
+            <p className="text-sm font-semibold mb-1" style={{ color: "var(--canvas-text)" }}>
+              {draft.subject || draft.workflowName}
+            </p>
+            {isEditing ? (
+              <div className="space-y-2">
+                <textarea
+                  className="field-input text-xs w-full"
+                  rows={6}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  style={{ fontFamily: "var(--font-mono)", resize: "vertical" }}
+                />
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => saveDraftEdit(draft.id)} className="btn-primary text-xs" style={{ padding: "5px 10px" }}>Save edit</button>
+                  <button type="button" onClick={() => setEditingId(null)} className="btn-ghost text-xs">Cancel</button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {!approved && (
+                  <button type="button" onClick={() => approveDraft(draft.id)} className="text-xs font-semibold underline" style={{ color: "var(--blue)" }}>
+                    Approve
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(draft.id, draft.subject, draft.content)}
+                  className="text-xs font-semibold underline"
+                  style={{ color: "var(--blue)" }}
+                >
+                  {copied === draft.id ? "Copied ✓" : "Copy"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEditingId(draft.id); setEditContent(draft.content); }}
+                  className="text-xs underline"
+                  style={{ color: "var(--canvas-text-2)" }}
+                >
+                  Edit
+                </button>
+                <button type="button" onClick={() => dismissDraft(draft.id)} className="text-xs underline" style={{ color: "var(--canvas-text-3)" }}>
+                  Dismiss
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </section>
   );
 }

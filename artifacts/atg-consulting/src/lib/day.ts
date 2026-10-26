@@ -60,7 +60,7 @@ export function defaultTimezone(): string {
   } catch {
     /* fall through */
   }
-  return "America/Denver";
+  return "UTC";
 }
 
 export function defaultDayAnswers(): DayAnswers {
