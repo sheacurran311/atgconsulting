@@ -1,3 +1,4 @@
+import { checkWorkflowAccess } from "../lib/access";
 /**
  * Phase 3 Workbench skills — Done-for-you tier.
  *
@@ -60,7 +61,7 @@ router.post("/workbench/faq-support", withUser, requireAuth, async (req, res) =>
   if (!clientId) return;
   const parsed = FaqSupportBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "faqSource is required." }); return; }
-  if (!await checkAccess(clientId, "faq-support")) { res.status(403).json({ error: "This workflow requires the Done-for-you plan." }); return; }
+  const _faq = await checkWorkflowAccess(clientId, "faq-support"); if (!_faq.allowed) { res.status(403).json({ error: _faq.reason }); return; }
 
   const result = await buildFaqAndReply({
     faqSource: sanitiseText(parsed.data.faqSource, 10000),
@@ -90,7 +91,7 @@ router.post("/workbench/agent-pipeline/run", withUser, requireAuth, async (req, 
   if (!clientId) return;
   const parsed = PipelineRunBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "chainId, stepIndex, and currentInput are required." }); return; }
-  if (!await checkAccess(clientId, "agent-pipeline")) { res.status(403).json({ error: "This workflow requires the Done-for-you plan." }); return; }
+  const _ap = await checkWorkflowAccess(clientId, "agent-pipeline"); if (!_ap.allowed) { res.status(403).json({ error: _ap.reason }); return; }
 
   const chain = await prisma.agentChain.findFirst({ where: { id: parsed.data.chainId, clientId, enabled: true } });
   if (!chain) { res.status(404).json({ error: "Chain not found or not enabled for your account." }); return; }

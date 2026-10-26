@@ -16,6 +16,7 @@ import workflowTemplatesRouter from "./workflow-templates";
 import skillsRouter from "./skills";
 import skills2Router from "./skills2";
 import skills3Router from "./skills3";
+import portalRouter from "./portal";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(workflowTemplatesRouter);
 router.use(skillsRouter);
 router.use(skills2Router);
 router.use(skills3Router);
+router.use(portalRouter);
 
 export default router;

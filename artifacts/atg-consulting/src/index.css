@@ -294,3 +294,58 @@
     background-size: 48px 48px;
   }
 }
+
+  /* ── Portal test-mode banner ─────────────────────────────────────────────── */
+  .test-mode-banner {
+    background: rgba(59,107,255,0.08);
+    border-bottom: 1px solid rgba(59,107,255,0.2);
+    color: var(--blue-btn);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-align: center;
+    padding: 6px 16px;
+  }
+
+  /* ── Skill launcher button overrides for WCAG AA contrast ────────────────── */
+  /* Locked skill button: use canvas-text-2 (#6B6B6E, 5.7:1 on canvas-2) not  */
+  /* canvas-text-3 (#9E9EA1, 2.8:1 — fails AA).                                */
+  .skill-btn-locked {
+    border: 1px solid var(--canvas-border);
+    color: var(--canvas-text-2);
+    background: var(--canvas-2);
+    cursor: not-allowed;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    user-select: none;
+  }
+  .skill-btn-locked .lock-icon {
+    opacity: 0.5;
+  }
+
+  /* ── Personalized workflow card ──────────────────────────────────────────── */
+  .workflow-card-featured {
+    border: 2px solid var(--blue);
+    background: rgba(59,107,255,0.04);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+  }
+  .workflow-card-featured .featured-badge {
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    background: var(--blue-btn);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 9999px;
+  }
