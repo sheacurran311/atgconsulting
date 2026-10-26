@@ -1102,3 +1102,280 @@ export async function summarizeSession(
     return buildTemplateSessionSummary(transcript, sessionType);
   }
 }
+
+// ── Phase 1 workflow LLM functions ────────────────────────────────────────────
+// Each loads the active WorkflowTemplate from DB, falls back to TEMPLATE_SEEDS.
+// Client approval of output is always on. Nothing is sent automatically.
+
+import { TEMPLATE_SEEDS } from "./templates";
+
+async function getSystemPrompt(slug: string): Promise<string> {
+  const tpl = await loadWorkflowTemplate(slug);
+  if (tpl?.systemPrompt) return tpl.systemPrompt;
+  return TEMPLATE_SEEDS.find((s) => s.slug === slug)?.systemPrompt ?? "";
+}
+
+// ── 1. Inbox triage ───────────────────────────────────────────────────────────
+
+export interface InboxTriageOutput {
+  items: Array<{
+    index: number;
+    preview: string;
+    urgency: "urgent" | "normal" | "low";
+    type: "inquiry" | "complaint" | "compliment" | "request" | "other";
+    draftReply: string;
+  }>;
+  source: "LLM" | "TEMPLATE";
+}
+
+const InboxTriageZod = z.object({
+  items: z.array(z.object({
+    index:      z.number(),
+    preview:    z.string(),
+    urgency:    z.enum(["urgent", "normal", "low"]),
+    type:       z.enum(["inquiry", "complaint", "compliment", "request", "other"]),
+    draftReply: z.string(),
+  })).min(1),
+});
+
+export async function triageInbox(input: {
+  messages: string;
+  businessDescription?: string;
+  senderName?: string;
+}): Promise<InboxTriageOutput> {
+  const systemPrompt = await getSystemPrompt("inbox-triage");
+  const lines = input.messages.split(/\r?\n/).filter((l) => l.trim());
+  const numbered = lines.map((l, i) => `${i + 1}. ${l}`).join("\n");
+
+  const fallback = (): InboxTriageOutput => ({
+    items: lines.slice(0, 10).map((l, i) => ({
+      index: i + 1,
+      preview: l.slice(0, 60),
+      urgency: "normal" as const,
+      type: "inquiry" as const,
+      draftReply: `Hi, thank you for reaching out. I'll follow up shortly.\n\nBest,\n${input.senderName ?? "Shea"}`,
+    })),
+    source: "TEMPLATE",
+  });
+
+  const llm = getClient();
+  if (!llm || !systemPrompt) return fallback();
+
+  try {
+    const completion = await llm.chat.completions.create({
+      model: MODEL, temperature: 0.3, max_tokens: 1200,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `My name: ${promptSafe(input.senderName ?? "Me", "name")}\nBusiness: ${promptSafe(input.businessDescription ?? "", "biz")}\nMessages:\n${promptSafe(numbered, "messages")}` },
+      ],
+    });
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const p = InboxTriageZod.safeParse(raw);
+    return p.success ? { ...p.data, source: "LLM" } : fallback();
+  } catch { return fallback(); }
+}
+
+// ── 2. Review requests + reply drafts ─────────────────────────────────────────
+
+export interface ReviewRequestOutput {
+  requestMessages: Array<{ channel: string; message: string }>;
+  reviewReplies: Array<{ review: string; reply: string }>;
+  source: "LLM" | "TEMPLATE";
+}
+
+const ReviewRequestZod = z.object({
+  requestMessages: z.array(z.object({ channel: z.string(), message: z.string() })),
+  reviewReplies:   z.array(z.object({ review: z.string(), reply: z.string() })),
+});
+
+export async function generateReviewContent(input: {
+  businessName: string;
+  businessType: string;
+  channels: string;
+  reviews?: string;
+  senderName?: string;
+}): Promise<ReviewRequestOutput> {
+  const systemPrompt = await getSystemPrompt("review-request");
+
+  const fallback = (): ReviewRequestOutput => {
+    const channels = input.channels.split(/[,;]/).map((c) => c.trim()).filter(Boolean);
+    return {
+      requestMessages: channels.map((ch) => ({
+        channel: ch,
+        message: `Hi! We really enjoyed working with you. If you have a moment, leaving us a review on ${ch === "SMS" ? "Google" : ch} would mean a lot. Thanks so much!\n— ${input.senderName ?? input.businessName}`,
+      })),
+      reviewReplies: [],
+      source: "TEMPLATE",
+    };
+  };
+
+  const llm = getClient();
+  if (!llm || !systemPrompt) return fallback();
+
+  try {
+    const completion = await llm.chat.completions.create({
+      model: MODEL, temperature: 0.5, max_tokens: 1000,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Business name: ${promptSafe(input.businessName, "biz")}\nType: ${promptSafe(input.businessType, "type")}\nChannels: ${promptSafe(input.channels, "channels")}\nSender: ${promptSafe(input.senderName ?? input.businessName, "sender")}${input.reviews ? `\nReviews to reply to:\n${promptSafe(input.reviews.slice(0, 3000), "reviews")}` : ""}` },
+      ],
+    });
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const p = ReviewRequestZod.safeParse(raw);
+    return p.success ? { ...p.data, source: "LLM" } : fallback();
+  } catch { return fallback(); }
+}
+
+// ── 3. Social content calendar ─────────────────────────────────────────────────
+
+export interface SocialCalendarOutput {
+  calendarWeeks: Array<{
+    week: number;
+    posts: Array<{ day: string; platform: string; topic: string; draft: string }>;
+  }>;
+  source: "LLM" | "TEMPLATE";
+}
+
+const SocialCalendarZod = z.object({
+  calendarWeeks: z.array(z.object({
+    week:  z.number(),
+    posts: z.array(z.object({ day: z.string(), platform: z.string(), topic: z.string(), draft: z.string() })),
+  })),
+});
+
+const DAYS = ["Monday", "Wednesday", "Friday"];
+
+export async function generateSocialCalendar(input: {
+  businessDescription: string;
+  offers?: string;
+  platforms: string;
+  cadence: number;
+  weeks: number;
+}): Promise<SocialCalendarOutput> {
+  const systemPrompt = await getSystemPrompt("social-calendar");
+  const platforms = input.platforms.split(/[,;]/).map((p) => p.trim()).filter(Boolean);
+  const fallbackWeeks = Math.min(input.weeks, 4);
+
+  const fallback = (): SocialCalendarOutput => ({
+    calendarWeeks: Array.from({ length: fallbackWeeks }, (_, wi) => ({
+      week: wi + 1,
+      posts: platforms.slice(0, 2).flatMap((platform) =>
+        DAYS.slice(0, Math.min(input.cadence, 3)).map((day) => ({
+          day, platform,
+          topic: `Week ${wi + 1} content for ${input.businessDescription.slice(0, 40)}`,
+          draft: `[Draft for ${day} on ${platform} — add your specific content here. Review before posting.]`,
+        }))
+      ),
+    })),
+    source: "TEMPLATE",
+  });
+
+  const llm = getClient();
+  if (!llm || !systemPrompt) return fallback();
+
+  try {
+    const completion = await llm.chat.completions.create({
+      model: MODEL, temperature: 0.7, max_tokens: 2000,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Business: ${promptSafe(input.businessDescription.slice(0, 400), "biz")}\nOffers: ${promptSafe((input.offers ?? "").slice(0, 300), "offers")}\nPlatforms: ${promptSafe(input.platforms, "platforms")}\nPosts per week per platform: ${input.cadence}\nWeeks to plan: ${input.weeks}` },
+      ],
+    });
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const p = SocialCalendarZod.safeParse(raw);
+    return p.success ? { ...p.data, source: "LLM" } : fallback();
+  } catch { return fallback(); }
+}
+
+// ── 4. Local SEO audit ─────────────────────────────────────────────────────────
+
+export interface SeoAuditOutput {
+  pageTitle: string;
+  metaDescription: string;
+  h1: string;
+  findings: Array<{
+    priority: "P0" | "P1" | "P2";
+    category: string;
+    issue: string;
+    fix: string;
+    toolNote: string | null;
+  }>;
+  gbpChecklist: Array<{ item: string; done: boolean | null }>;
+  source: "LLM" | "TEMPLATE";
+}
+
+const SeoAuditZod = z.object({
+  pageTitle:       z.string(),
+  metaDescription: z.string(),
+  h1:              z.string(),
+  findings: z.array(z.object({
+    priority: z.enum(["P0", "P1", "P2"]),
+    category: z.string(),
+    issue:    z.string(),
+    fix:      z.string(),
+    toolNote: z.string().nullable(),
+  })).min(1),
+  gbpChecklist: z.array(z.object({ item: z.string(), done: z.boolean().nullable() })),
+});
+
+const GBP_CHECKLIST = [
+  "Google Business Profile claimed and verified",
+  "Business name, address, and phone match the website",
+  "Business hours accurate and up to date",
+  "Primary category set correctly",
+  "At least 5 recent photos uploaded",
+  "Review responses posted within 1 week",
+];
+
+function buildSeoFallback(html: string, businessType: string, cityArea: string): SeoAuditOutput {
+  const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+  const metaMatch  = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)/i);
+  const h1Match    = html.match(/<h1[^>]*>([^<]*)<\/h1>/i);
+
+  const pageTitle       = titleMatch?.[1]?.trim() ?? "";
+  const metaDescription = metaMatch?.[1]?.trim() ?? "";
+  const h1              = h1Match?.[1]?.trim() ?? "";
+
+  const findings: SeoAuditOutput["findings"] = [];
+  if (!pageTitle) findings.push({ priority: "P0", category: "Title tag", issue: "Title tag is missing", fix: `Add a title like "${businessType} in ${cityArea || "your city"}"`, toolNote: null });
+  else if (pageTitle.length < 30 || pageTitle.length > 60) findings.push({ priority: "P1", category: "Title tag", issue: `Title is ${pageTitle.length} chars (aim for 30-60)`, fix: "Rewrite to 30-60 chars including business type and city", toolNote: null });
+  if (!metaDescription) findings.push({ priority: "P0", category: "Meta description", issue: "Meta description is missing", fix: "Add a 120-160 char description with business type, city, and primary service", toolNote: null });
+  if (!h1) findings.push({ priority: "P0", category: "H1", issue: "H1 heading is missing", fix: "Add one H1 heading with the primary keyword and city", toolNote: null });
+  if (!html.includes("LocalBusiness") && !html.includes("schema.org")) findings.push({ priority: "P1", category: "Schema markup", issue: "No LocalBusiness schema found", fix: "Add JSON-LD LocalBusiness schema with name, address, phone, and hours", toolNote: null });
+  findings.push({ priority: "P2", category: "Page speed", issue: "Page speed not assessed (HTML-only audit)", fix: "Run Google PageSpeed Insights for Core Web Vitals", toolNote: "Use PageSpeed Insights (free) for full report" });
+  findings.push({ priority: "P2", category: "Backlinks", issue: "Backlink data not available in HTML-only audit", fix: "Check Ahrefs or Google Search Console for link authority", toolNote: "Use Ahrefs or GSC for backlink data" });
+
+  return { pageTitle, metaDescription, h1, findings, gbpChecklist: GBP_CHECKLIST.map((item) => ({ item, done: null })), source: "TEMPLATE" };
+}
+
+export async function runSeoAudit(input: {
+  html: string;  // already fetched server-side, max 20k chars
+  businessType: string;
+  cityArea?: string;
+}): Promise<SeoAuditOutput> {
+  const systemPrompt = await getSystemPrompt("seo-audit");
+  const truncated = input.html.slice(0, 20_000);
+  const cityArea = input.cityArea ?? "";
+
+  const fallback = () => buildSeoFallback(truncated, input.businessType, cityArea);
+
+  const llm = getClient();
+  if (!llm || !systemPrompt) return fallback();
+
+  try {
+    const completion = await llm.chat.completions.create({
+      model: MODEL, temperature: 0.3, max_tokens: 1500,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Business type: ${promptSafe(input.businessType, "type")}\nCity/area: ${promptSafe(cityArea, "city")}\nPage HTML:\n${truncated}` },
+      ],
+    });
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const p = SeoAuditZod.safeParse(raw);
+    return p.success ? { ...p.data, source: "LLM" } : fallback();
+  } catch { return fallback(); }
+}
