@@ -586,13 +586,18 @@ model WorkflowTemplate {
 /// Admin can enable or disable individual workflows per client.
 /// A missing row means the global template `enabled` flag applies.
 model ClientWorkflowSettings {
-  id        String   @id @default(cuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  slug      String   // WorkflowTemplate slug
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                      String    @id @default(cuid())
+  clientId                String
+  client                  Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  slug                    String    // WorkflowTemplate slug
+  enabled                 Boolean   @default(true)
+  /// grok_bot | claude | chatgpt | other | null = not yet installed
+  installedPlatform       String?
+  installedAt             DateTime?
+  /// Self-reported hours saved per month on this workflow
+  selfReportedHoursSaved  Float?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   @@unique([clientId, slug])
   @@index([clientId])

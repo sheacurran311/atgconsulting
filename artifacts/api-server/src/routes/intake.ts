@@ -44,10 +44,13 @@ const IntakeSchema = z.object({
   hoursLost: z.number().int().min(1).max(40),
   preferredHelp: z.enum(HELP_STYLES),
   freeText: z.string().max(280).optional(),
-  // New tier-model fields
+  // Tier-model fields
   toolBudget:       z.enum(TOOL_BUDGETS).optional(),
   currentSoftware:  z.string().max(300).optional(),
   weeklyVolumes:    z.enum(WEEKLY_VOLUMES).optional(),
+  // Install-first fields (stored in answers JSON)
+  aiPlatforms:      z.array(z.enum(["grok_bot","claude","chatgpt","none","not_sure"])).optional(),
+  setupComfort:     z.enum(["very_comfortable","somewhat_comfortable","need_guidance","not_sure"]).optional(),
   timezone: z.string().min(1).max(64).optional(),
   workDays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
   startMin: z.number().int().min(0).max(24 * 60).optional(),

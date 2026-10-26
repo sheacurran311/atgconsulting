@@ -194,14 +194,14 @@ function BlockCard({
     >
       <div className="flex items-center justify-between gap-3 mb-1">
         <p className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>
-          {formatMinutes(block.startMin)}–{formatMinutes(block.endMin)}
+          {block.skillSlug ? "WORKFLOW ROUTINE" : `${formatMinutes(block.startMin)}–${formatMinutes(block.endMin)}`}
         </p>
         <div className="flex items-center gap-2">
           <span className="font-mono text-2xs" style={{ color: block.realm === "personal" ? "#7C3AED" : "var(--blue)", letterSpacing: "0.06em" }}>
             {block.realm === "personal" ? "PERSONAL" : "PROFESSIONAL"}
           </span>
           <span className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>
-            {done ? "DONE" : scheduled ? "ON YOUR DAY" : "SUGGESTED"}
+            {done ? "DONE" : scheduled ? "SETTING UP" : "SUGGESTED"}
           </span>
         </div>
       </div>
@@ -213,20 +213,20 @@ function BlockCard({
       {!done && (
         <div className="flex flex-wrap gap-2 mt-3">
           {!scheduled && (
-            <button type="button" disabled={busy} onClick={() => onAct(block.id, "schedule")} className="btn-primary text-sm" style={{ padding: "6px 12px" }}>
-              Add to my day
+            <button type="button" disabled={busy} onClick={() => onAct(block.id, "schedule")} className="btn-secondary text-sm" style={{ padding: "6px 12px" }}>
+              Set up this routine
             </button>
           )}
           {scheduled && (
             <button type="button" disabled={busy} onClick={() => onAct(block.id, "done")} className="btn-primary text-sm" style={{ padding: "6px 12px" }}>
-              Done
+              Mark done
             </button>
           )}
-          <button type="button" onClick={onHelp} className="btn-secondary text-sm" style={{ padding: "6px 12px" }}>
-            Help
+          <button type="button" onClick={onHelp} className="btn-ghost text-sm" style={{ padding: "6px 12px" }}>
+            How to install
           </button>
           <button type="button" disabled={busy} onClick={() => onAct(block.id, "dismiss")} className="btn-ghost text-sm">
-            Not today
+            Skip
           </button>
         </div>
       )}

@@ -64,6 +64,12 @@ export const api = {
     draftFollowUp:   (body: { who: string; lastTouch: string; wantToSay: string }) => post<OutputItem>("/workbench/follow-up", body),
   },
 
+  install: {
+    status: () => get<{ slug: string; installedPlatform: string | null; installedAt: string | null; selfReportedHoursSaved: number | null }[]>("/workbench/install/status"),
+    mark: (slug: string, platform: "grok_bot" | "claude" | "chatgpt" | "other") => post<{ ok: boolean; installedPlatform: string | null; installedAt: string | null }>("/workbench/install/mark", { slug, platform }),
+    reportHours: (slug: string, hoursSaved: number) => post<{ ok: boolean; selfReportedHoursSaved: number | null }>("/workbench/install/hours", { slug, hoursSaved }),
+  },
+
   day: {
     get: () => get<DayPayload>("/day"),
     /** Reconcile today's suggestions (writes DayBlock rows); call once on mount. GET is read-only. */

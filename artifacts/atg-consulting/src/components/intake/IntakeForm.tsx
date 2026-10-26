@@ -20,6 +20,7 @@ type FieldKey =
   | "tools" | "timeSinks" | "automateFirst"
   | "hoursLost" | "preferredHelp" | "freeText"
   | "toolBudget" | "currentSoftware" | "weeklyVolumes"
+  | "aiPlatforms" | "setupComfort"
   | "day";
 
 interface QuestionDef {
@@ -32,6 +33,15 @@ interface QuestionDef {
   skip?: (data: Partial<FormData>) => boolean;
 }
 
+type AIPlatform = "grok_bot" | "claude" | "chatgpt" | "none" | "not_sure";
+const AI_PLATFORM_LABELS: Record<AIPlatform, string> = {
+  grok_bot: "Grok Bot (xAI subscription)",
+  claude: "Claude (Anthropic subscription)",
+  chatgpt: "ChatGPT (OpenAI subscription)",
+  none: "None yet",
+  not_sure: "Not sure",
+};
+
 type FormData = {
   name: string; email: string; role: string; industry: string;
   bizSize: BizSize; areas: Area[]; aiComfort: number;
@@ -39,6 +49,8 @@ type FormData = {
   automateFirst: string; hoursLost: number;
   preferredHelp: PreferredHelp; freeText: string; honeypot: string;
   toolBudget: string; currentSoftware: string; weeklyVolumes: string;
+  aiPlatforms: AIPlatform[];
+  setupComfort: string;
 } & DayAnswers;
 
 const TOOL_BUDGETS = [
@@ -62,6 +74,7 @@ const DEFAULT: FormData = {
   tools: [], timeSinks: [], automateFirst: "",
   hoursLost: 10, preferredHelp: "not_sure", freeText: "", honeypot: "",
   toolBudget: "", currentSoftware: "", weeklyVolumes: "",
+  aiPlatforms: [], setupComfort: "",
   ...defaultDayAnswers(),
 };
 
@@ -123,6 +136,25 @@ function buildQuestions(data: Partial<FormData>): QuestionDef[] {
       options: TOOL_BUDGETS,
     },
     { key: "currentSoftware", prompt: "What software do you use most in your business?", sub: "By name — e.g. Gmail, QuickBooks, HubSpot. Helps us recommend tools that connect.", type: "text", optional: true },
+    {
+      key: "aiPlatforms",
+      prompt: "Which AI platforms are you willing to pay for?",
+      sub: "Your report will include setup guides for the ones you pick. You can use free tiers too — just pick the ones you're open to.",
+      type: "multi",
+      options: (["grok_bot", "claude", "chatgpt", "none", "not_sure"] as AIPlatform[]).map((p) => ({ value: p, label: AI_PLATFORM_LABELS[p] })),
+    },
+    {
+      key: "setupComfort",
+      prompt: "How comfortable are you with setting up software?",
+      sub: "We'll tailor the setup guide to your level — no judgment either way.",
+      type: "radio",
+      options: [
+        { value: "very_comfortable", label: "Very comfortable — I can follow technical docs" },
+        { value: "somewhat_comfortable", label: "Somewhat comfortable — step-by-step is fine" },
+        { value: "need_guidance", label: "I'd need hand-holding — prefer live help" },
+        { value: "not_sure", label: "Not sure" },
+      ],
+    },
     {
       key: "weeklyVolumes", prompt: "How many of your main tasks happen per week?", sub: "E.g. leads, jobs, customer emails, orders — pick the range that fits best.", type: "radio",
       options: WEEKLY_VOLUMES,
@@ -275,6 +307,7 @@ export default function IntakeForm({ preselectedTier }: { preselectedTier?: "don
         else if (q.key === "preferredHelp") next.preferredHelp = value as PreferredHelp;
         else if (q.key === "toolBudget") next.toolBudget = value;
         else if (q.key === "weeklyVolumes") next.weeklyVolumes = value;
+        else if (q.key === "setupComfort") next.setupComfort = value;
         dataRef.current = next;
         return next;
       });
@@ -301,6 +334,13 @@ export default function IntakeForm({ preselectedTier }: { preselectedTier?: "don
             ? d.timeSinks.filter((x) => x !== value)
             : [...d.timeSinks, value as TimeSink];
           return { ...d, timeSinks: arr };
+        });
+      } else if (q.key === "aiPlatforms") {
+        setData((d) => {
+          const arr = d.aiPlatforms.includes(value as AIPlatform)
+            ? d.aiPlatforms.filter((x) => x !== value)
+            : [...d.aiPlatforms, value as AIPlatform];
+          return { ...d, aiPlatforms: arr };
         });
       }
     }
@@ -391,12 +431,14 @@ export default function IntakeForm({ preselectedTier }: { preselectedTier?: "don
     q.key === "aiComfort" ? String(data.aiComfort) :
     q.key === "preferredHelp" ? data.preferredHelp :
     q.key === "toolBudget" ? data.toolBudget :
-    q.key === "weeklyVolumes" ? data.weeklyVolumes : "";
+    q.key === "weeklyVolumes" ? data.weeklyVolumes :
+    q.key === "setupComfort" ? data.setupComfort : "";
 
   const currentMultiValues: string[] =
     q.key === "areas" ? data.areas :
     q.key === "tools" ? data.tools :
-    q.key === "timeSinks" ? data.timeSinks : [];
+    q.key === "timeSinks" ? data.timeSinks :
+    q.key === "aiPlatforms" ? data.aiPlatforms : [];
 
   return (
     <div className="grid lg:grid-cols-[1fr_320px] gap-8 items-start">

@@ -225,4 +225,54 @@ router.post("/workbench/seo-audit", async (req, res) => {
   res.status(201).json({ output, audit: result, fetchError });
 });
 
+// ── Workflow install tracking ─────────────────────────────────────────────────
+
+const MarkInstalledSchema = z.object({
+  slug: z.string().min(1).max(80),
+  platform: z.enum(["grok_bot", "claude", "chatgpt", "other"]),
+});
+
+const ReportHoursSchema = z.object({
+  slug: z.string().min(1).max(80),
+  hoursSaved: z.number().min(0).max(10000),
+});
+
+router.post("/workbench/install/mark", async (req, res) => {
+  const user = (req as AuthedRequest).atgUser!;
+  if (!user.clientId) { res.status(404).json({ error: "No client profile." }); return; }
+  const parsed = MarkInstalledSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "slug and platform are required." }); return; }
+  const { slug, platform } = parsed.data;
+  const updated = await prisma.clientWorkflowSettings.upsert({
+    where: { clientId_slug: { clientId: user.clientId, slug } },
+    create: { clientId: user.clientId, slug, enabled: true, installedPlatform: platform, installedAt: new Date() },
+    update: { installedPlatform: platform, installedAt: new Date() },
+  });
+  res.json({ ok: true, installedPlatform: updated.installedPlatform, installedAt: updated.installedAt });
+});
+
+router.post("/workbench/install/hours", async (req, res) => {
+  const user = (req as AuthedRequest).atgUser!;
+  if (!user.clientId) { res.status(404).json({ error: "No client profile." }); return; }
+  const parsed = ReportHoursSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "slug and hoursSaved are required." }); return; }
+  const { slug, hoursSaved } = parsed.data;
+  const updated = await prisma.clientWorkflowSettings.upsert({
+    where: { clientId_slug: { clientId: user.clientId, slug } },
+    create: { clientId: user.clientId, slug, enabled: true, selfReportedHoursSaved: hoursSaved },
+    update: { selfReportedHoursSaved: hoursSaved },
+  });
+  res.json({ ok: true, selfReportedHoursSaved: updated.selfReportedHoursSaved });
+});
+
+router.get("/workbench/install/status", async (req, res) => {
+  const user = (req as AuthedRequest).atgUser!;
+  if (!user.clientId) { res.json([]); return; }
+  const settings = await prisma.clientWorkflowSettings.findMany({
+    where: { clientId: user.clientId, installedPlatform: { not: null } },
+    select: { slug: true, installedPlatform: true, installedAt: true, selfReportedHoursSaved: true },
+  });
+  res.json(settings);
+});
+
 export default router;

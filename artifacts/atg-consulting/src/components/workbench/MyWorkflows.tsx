@@ -1,11 +1,13 @@
 /**
- * My Workflows — list with status, schedule, last run.
+ * My Workflows — list with status, schedule, last run, and install tracking.
+ * Install CTA is primary; "Try with sample" is secondary.
  */
 import { useState, useEffect } from "react";
 import { api, type WorkflowListItem as WFItem } from "@/lib/api";
 import EmptyWorkbench from "@/components/workbench/EmptyWorkbench";
 import SkillLauncher from "@/components/workbench/SkillLauncher";
 import SkillRunner from "@/components/workbench/SkillRunner";
+import InstallModal from "@/components/workbench/InstallModal";
 
 const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   designing: { label: "Designing", color: "var(--canvas-text-3)", bg: "var(--canvas-2)" },
@@ -28,10 +30,19 @@ export default function MyWorkflows({
   const [workflows, setWorkflows] = useState<WFItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSkill, setActiveSkill] = useState<string | null>(null);
+  const [installSlug, setInstallSlug] = useState<string | null>(null);
+  const [installStatus, setInstallStatus] = useState<Record<string, string>>({});
 
   useEffect(() => {
     api.workbench.workflows().then(setWorkflows).catch(() => null).finally(() => setLoading(false));
+    api.install.status().then((items) => {
+      const map: Record<string, string> = {};
+      items.forEach((i) => { if (i.installedPlatform) map[i.slug] = i.installedPlatform; });
+      setInstallStatus(map);
+    }).catch(() => null);
   }, []);
+
+  const PLATFORM_LABELS: Record<string, string> = { grok_bot: "Grok Bot", claude: "Claude", chatgpt: "ChatGPT", other: "Other" };
 
   return (
     <div>
@@ -74,7 +85,7 @@ export default function MyWorkflows({
                     {st.label.toUpperCase()}
                   </span>
                 </div>
-                <div className="flex items-center gap-4 mt-3">
+                <div className="flex flex-wrap items-center gap-3 mt-3">
                   <span className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>{AREA_LABELS[wf.area] ?? wf.area}</span>
                   {wf.schedule && <span className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)" }}>↻ {wf.schedule}</span>}
                   {(wf.lastRun || wf.runs[0]?.runAt) && (
@@ -82,13 +93,53 @@ export default function MyWorkflows({
                       Last run {new Date(wf.lastRun || wf.runs[0]!.runAt).toLocaleDateString()}
                     </span>
                   )}
-                  {wf.setupNote && <span className="font-mono text-2xs ml-auto" style={{ color: "var(--canvas-text-3)" }}>{wf.setupNote}</span>}
+                  {installStatus[wf.name.toLowerCase().replace(/\s+/g, "-")] ? (
+                    <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.08)", color: "#16A34A", letterSpacing: "0.06em" }}>
+                      ✓ Running in {PLATFORM_LABELS[installStatus[wf.name.toLowerCase().replace(/\s+/g, "-")]!] ?? "your platform"}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {/* SkillLauncher install-first mode */}
+      <div className="mt-6">
+        <p className="font-mono text-2xs mb-3" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>READY-MADE WORKFLOWS — INSTALL IN YOUR AI PLATFORM</p>
+        <SkillLauncher
+          clientTier={tier}
+          testMode={testMode}
+          personalizedSlugs={personalizedSlugs}
+          activeSkill={activeSkill}
+          onSelectSkill={setActiveSkill}
+          onInstall={(slug, name) => setInstallSlug(slug + "|" + name)}
+          installStatus={installStatus}
+        />
+        {activeSkill && (
+          <div className="mt-3">
+            <SkillRunner skill={activeSkill} onClose={() => setActiveSkill(null)} onOutput={() => setActiveSkill(null)} />
+          </div>
+        )}
+      </div>
+
+      {installSlug && (() => {
+        const [slug, ...rest] = installSlug.split("|");
+        const name = rest.join("|");
+        return (
+          <InstallModal
+            slug={slug!}
+            name={name}
+            onClose={() => setInstallSlug(null)}
+            onMarkInstalled={(p) => {
+              setInstallStatus((prev) => ({ ...prev, [slug!]: p }));
+              setInstallSlug(null);
+            }}
+            onTrySample={() => { setInstallSlug(null); setActiveSkill(slug!); }}
+          />
+        );
+      })()}
     </div>
   );
 }

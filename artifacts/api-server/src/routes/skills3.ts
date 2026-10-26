@@ -3,7 +3,7 @@ import { checkWorkflowAccess } from "../lib/access";
  * Phase 3 Workbench skills — Done-for-you tier.
  *
  * POST /api/workbench/faq-support            — FAQ build + support reply draft
- * POST /api/workbench/agent-pipeline/run     — run one step of a pipeline chain
+ * POST /api/workbench/agent-pipeline/run     — preview one step using pasted sample data (export SKILL.md for scheduled runs in your AI platform)
  * POST /api/admin/clients/:id/agent-chains   — create pipeline chain
  * GET  /api/admin/clients/:id/agent-chains   — list chains
  * PATCH /api/admin/agent-chains/:id          — edit chain (slugs, name, enabled)
@@ -112,7 +112,16 @@ router.post("/workbench/agent-pipeline/run", withUser, requireAuth, async (req, 
   const output = await makeOutput(clientId, wf.id, "briefing",
     `Pipeline step ${parsed.data.stepIndex + 1}: ${template?.name ?? slug}${!result.readyForNextStep ? " — review required" : ""}`,
     JSON.stringify(result));
-  res.status(201).json({ output, result, totalSteps: slugs.length, nextStep: parsed.data.stepIndex + 1 < slugs.length ? parsed.data.stepIndex + 1 : null });
+  // Product boundary: this is an in-app PREVIEW using pasted sample data.
+  // For scheduled, automated multi-step execution, export the chain as a SKILL.md
+  // and install it in your AI platform (Grok Bot, Claude, or ChatGPT).
+  res.status(201).json({
+    output,
+    result,
+    totalSteps: slugs.length,
+    nextStep: parsed.data.stepIndex + 1 < slugs.length ? parsed.data.stepIndex + 1 : null,
+    exportNote: "This is a sample preview. For scheduled runs, install the SKILL.md in your AI platform.",
+  });
 });
 
 // ── Admin: agent chains ───────────────────────────────────────────────────────
