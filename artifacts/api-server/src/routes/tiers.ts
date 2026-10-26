@@ -43,11 +43,15 @@ function cid(req: AuthedRequest, res: Parameters<typeof requireAuth>[1]): string
 router.get("/tool-plan", withUser, requireAuth, async (req, res) => {
   const clientId = cid(req as AuthedRequest, res);
   if (!clientId) return;
+
+  // Return the best available plan: approved first, then draft (for clients who
+  // generated a plan before their tier was confirmed). Self-serve plans are
+  // approved immediately on generation — no Shea review required.
   const plan = await prisma.toolPlan.findFirst({
-    where: { clientId, status: "approved" },
-    orderBy: { approvedAt: "desc" },
+    where: { clientId, status: { in: ["approved", "draft"] } },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }], // "approved" sorts before "draft"
   });
-  if (!plan) { res.status(404).json({ error: "No approved plan yet. Shea will review and release it soon." }); return; }
+  if (!plan) { res.status(404).json({ error: "Your tool plan has not been generated yet. Generate it from your dashboard." }); return; }
   res.json(plan);
 });
 
@@ -81,13 +85,25 @@ router.post("/tool-plan/generate", withUser, requireAuth, async (req, res) => {
 
   const output = await generateToolPlan(input);
 
-  // Upsert draft (admin will approve separately)
-  const existing = await prisma.toolPlan.findFirst({ where: { clientId, status: "draft" }, orderBy: { createdAt: "desc" } });
-  const plan = existing
-    ? await prisma.toolPlan.update({ where: { id: existing.id }, data: { toolsJson: JSON.stringify(output.tools), stepsJson: JSON.stringify(output.steps), source: output.source, intakeId: intake?.id ?? null } })
-    : await prisma.toolPlan.create({ data: { clientId, intakeId: intake?.id ?? null, toolsJson: JSON.stringify(output.tools), stepsJson: JSON.stringify(output.steps), source: output.source } });
+  // Self-serve: plan is delivered immediately — no Shea approval gate.
+  // Guided / DFY: plan stays as "draft" so Shea can review and personalise before release.
+  const tier = client?.tier ?? "NONE";
+  const autoApprove = tier === "SELF_SERVE" || tier === "NONE"; // NONE = new user or test mode
+  const now = new Date();
 
-  res.status(201).json({ ...plan, _pending: true });
+  const existing = await prisma.toolPlan.findFirst({ where: { clientId, status: "draft" }, orderBy: { createdAt: "desc" } });
+  const planData = {
+    toolsJson: JSON.stringify(output.tools),
+    stepsJson: JSON.stringify(output.steps),
+    source: output.source,
+    intakeId: intake?.id ?? null,
+    ...(autoApprove ? { status: "approved", approvedAt: now } : {}),
+  };
+  const plan = existing
+    ? await prisma.toolPlan.update({ where: { id: existing.id }, data: planData })
+    : await prisma.toolPlan.create({ data: { clientId, ...planData } });
+
+  res.status(201).json({ ...plan, _autoApproved: autoApprove });
 });
 
 // ── Support tickets — client (SELF_SERVE) ────────────────────────────────────

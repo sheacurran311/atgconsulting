@@ -8,11 +8,11 @@ const faqs = [
   },
   {
     q: "What is the Self-serve tier?",
-    a: "You get a personalised tool plan — which software to use for your business, why, and a step-by-step guide to set it up. You also get access to ready-made workflows in the ATG Workbench app and email support within 2 business days. No calls.",
+    a: "Complete the intake and get your personalised report immediately — no waiting for a human review. The report includes a diagnosis of your situation, a recommended tool stack, step-by-step setup guides for your AI platform (Grok Bot, Claude, or ChatGPT), and the workflows to install first as SKILL.md files. You also get access to all 10 ready-made workflows in the ATG Workbench app, plus email support within 2 business days.",
   },
   {
     q: "What does the Guided tier include?",
-    a: "A package of 1:1 build sessions with Shea. You and Shea design and build your workflows together on live calls. Sessions are recorded with your consent so you get a recap. Includes everything in Self-serve plus a direct message thread with Shea.",
+    a: "Everything in Self-serve, plus Shea joins you on live video calls to guide the full install of your tools and workflows — screen-share, hands-on setup, and configuration. Sessions are recorded with your consent so you get a recap. Includes direct messaging with Shea between sessions and updated reports as your situation changes.",
   },
   {
     q: "What is Done-for-you?",
