@@ -1,183 +1,120 @@
 # ATG Consulting — audit and next-agent handoff
 
-Read this file before changing code.
+Read this file before changing code. It is the source of truth.
 
-## Product: three tiers, one product
+## Product framing
 
-1. **Self-serve** (`SELF_SERVE`): paid deliverable = a personalised tool plan (which tools to use given their intake, budget, current software, and volumes) + a step-by-step setup guide, plus email support (replies within 2 business days). NO 1:1 calls with Shea. Workbench access with ready-made workflows (follow-up draft today).
-2. **Guided** (`GUIDED`): a package of 1:1 build sessions with Shea (e.g. 4 × 90 min over 6–8 weeks; copy says "a package of 1:1 build sessions"). Includes operator message thread and everything in Self-serve. Admin sets `guidedSessionsTotal` on Client.
-3. **Done-for-you** (`WHITE_GLOVE` in schema): premium managed option. By application, limited spots (`DFY_MONTHLY_CAP` env, default 1, waitlist when full). Up to 3 workflows Shea builds, runs, monitors, tunes. Client approves output. Also offered as upgrade after Guided.
+Three tiers: Self-serve, Guided, Done-for-you (WHITE_GLOVE). Anyone not tech-savvy across 6 verticals. Follow-up draft is the first workflow, not the audience. Keep all copy broad. Client approval on by default; nothing auto-sent.
 
-`NONE` = no plan yet. Gate like Self-serve for operator features.
-
-ATG serves anyone across all six verticals: `trades`, `realestate`, `hospitality`, `professional`, `salesrep`, `solo`. Keep all copy broad — the follow-up draft is the first workflow, not the audience.
+Full tier details: see previous NEXT_AGENT content. WorkflowTemplate.minTier enforces access:
+- SELF_SERVE: Phase 1 workflows (follow-up, inbox triage, review request, social calendar, SEO audit)
+- GUIDED: Phase 2 workflows (money snapshot, booking flow, quote proposal, prospect research)
+- WHITE_GLOVE: Phase 3 workflows (FAQ support, agent pipeline)
 
 ## Stack
 
 - Frontend: Vite + React + wouter in `artifacts/atg-consulting`
-- API: Express + Prisma + PostgreSQL in `artifacts/api-server`. `provider = "postgresql"`. Apply with `pnpm db:push`.
-- Auth: Clerk. Admin = `ADMIN_EMAILS` (default `shea@atgconsulting.io`).
-- New env vars: `DFY_MONTHLY_CAP` (int, default 1).
+- API: Express + Prisma + PostgreSQL in `artifacts/api-server`. `provider = "postgresql"`.
+- Auth: Clerk. Admin = `ADMIN_EMAILS`.
+- Template engine: `WorkflowTemplate` model, seeded from `src/lib/templates.ts`, admin-editable.
 
-## Schema (current — all new fields added this pass)
+## ═══ FINAL MERGE-ORDER CHECKLIST ═══
 
-### New fields on `Intake`
-- `toolBudget String?` — budget range selected: `<$50/mo | $50-150/mo | $150-500/mo | $500+/mo | not_sure`
-- `currentSoftware String?` — free text
-- `weeklyVolumes String?` — volume range: `<10/wk | 10-50/wk | 50-200/wk | 200+/wk | varies`
+Merge in this exact order. Each PR may depend on the previous.
 
-### New fields on `Client`
-- `guidedSessionsTotal Int?` — total sessions in Guided package
-- `guidedSessionsUsed Int @default(0)` — sessions used so far
+### ✅ Already merged (main)
+- PR #1–9: initial site, intake, auth, workbench, tiers, sessions, Stripe, audit fixes
+- PR #10: tier model (ToolPlan, DfyApplication, SupportTicket) — db:push ✓
+- PR #11: playbook generator — db:push ✓
+- PR #12: session recordings — db:push ✓
+- PR #13: Stripe billing — db:push ✓
+- PR #14: Clerk sign-in logo fix — no db:push
+- Hero fix (3cc8958) — no db:push
 
-### New models
-- `ToolPlan` — personalised tool plan (draft → approved by admin). Admin reviews, edits JSON, approves. Client sees only approved plans at `/app/plan`.
-- `DfyApplication` — DFY application/waitlist. Status: `applied | waitlisted | accepted | declined`. Accepting auto-sets client tier to WHITE_GLOVE.
-- `SupportTicket` — email support for Self-serve. Status: `open | replied | closed`.
+### 🔲 Pending (merge in order)
 
-**`pnpm db:push` IS required after merging this PR** (new columns and tables).
+| # | Branch | Title | db:push | pnpm install |
+|---|---|---|---|---|
+| **#15** | `cursor/skills-foundation-c8a4` | WorkflowTemplate model, prompt-template→llm.ts wiring, SKILL.md export | **YES** (WorkflowTemplate table) | No |
+| **#16** | `cursor/skills-phase1-c8a4` | Phase 1: inbox triage, review, social calendar, SEO audit | No | No |
+| **#17** | `cursor/skills-phase2-c8a4` | Phase 2: money snapshot, booking flow, quote proposal, prospect research + ClientWorkflowSettings + tier gating UI + run history | **YES** (ClientWorkflowSettings table) | No |
+| **#18** | `cursor/skills-phase3-c8a4` | Phase 3: FAQ support, agent pipeline + AgentChain/AgentChainRun models | **YES** (AgentChain, AgentChainRun tables) | No |
 
-## Intake form (16 questions now)
+After merging all four, run `pnpm db:push` once to apply all pending schema changes.
 
-Order: name, email, bizSize, industry (vertical), role, areas (multi), aiComfort, tools (multi), timeSinks (multi, filtered), automateFirst (optional), hoursLost (slider), **toolBudget (radio)**, **currentSoftware (optional text)**, **weeklyVolumes (radio)**, preferredHelp, freeText (optional).
+### Commands for Shea after all four PRs merge and republish:
+```bash
+pnpm db:push   # applies WorkflowTemplate, ClientWorkflowSettings, AgentChain, AgentChainRun
+```
+WorkflowTemplate rows are seeded automatically on first server start.
 
-Query param `?tier=done_for_you` preselects `preferredHelp` and changes the page header.
+## What each PR adds
 
-## Tier recommendation (fixed)
+### PR #15 — Foundation
+- `WorkflowTemplate` model: slug, systemPrompt, userPromptTemplate, inputSchema, outputFormat, minTier, verticalTags, enabled, version
+- Seeds: follow-up, inbox-triage, review-request, social-calendar, seo-audit, money-snapshot, booking-flow, quote-proposal, prospect-research, faq-support, agent-pipeline
+- `loadActivePrompt(key)` + `loadWorkflowTemplate(slug)` in llm.ts — DB-first, code-default fallback
+- Admin template editor `/admin/workflow-templates` — edit, reset, enable/disable, SKILL.md export
+- SKILL.md export: downloadable Markdown for Grok Bot / Claude / ChatGPT
 
-`recommendTier()` in `lib/llm.ts` — exported and unit-tested:
-- Explicit `helpStyle` (not "not_sure") → always respected
-- `not_sure` + `aiComfort <= 1` + `hoursLost >= 10` → `done_for_you`
-- `not_sure` + `aiComfort >= 3` → `self_serve`
-- Otherwise → `guided`
+### PR #16 — Phase 1 workflows (Self-serve)
+- 4 new routes: inbox-triage, review-request, social-calendar, seo-audit
+- 4 new LLM functions with template loading + fallback
+- 4 skill forms in dashboard Today tab
+- All: creates WorkflowRun + OutputItem, client approves
 
-## New routes
+### PR #17 — Phase 2 workflows (Guided) + infrastructure
+- 4 new routes: money-snapshot, booking-flow, quote-proposal, prospect-research
+- `proposalToHtml()` for printable HTML export
+- `ClientWorkflowSettings` model: admin per-client workflow enable/disable
+- `SkillLauncher.tsx`: tier-gating with locked workflow CTA (no hardcoded prices)
+- `RunHistory.tsx`: new Run history tab on dashboard
 
-### Client
-- `GET /api/tool-plan` — approved ToolPlan or 404
-- `POST /api/tool-plan/generate` — generate (or refresh draft), creates draft for admin approval
-- `POST /api/support` — submit support ticket (Zod: subject, message)
-- `POST /api/dfy/apply` — apply for DFY
-- `GET /api/dfy/status` — current application status
-- `GET /api/guided/sessions` — session package status
+### PR #18 — Phase 3 workflows (Done-for-you) + NEXT_AGENT
+- 2 new routes: faq-support, agent-pipeline
+- `AgentChain` model: admin-configurable multi-step pipeline per client
+- `AgentChainRun` model: records step outputs
+- Admin routes: create/list/edit agent chains
+- 3 skill forms (faq-support, agent-pipeline, chain admin)
+- Full NEXT_AGENT.md with this checklist
 
-### Admin
-- `GET /api/admin/tool-plans` — draft plans awaiting review
-- `GET /api/admin/clients/:id/tool-plan` — get client's plan
-- `PATCH /api/admin/clients/:id/tool-plan` — edit toolsJson/stepsJson/adminNotes (Zod)
-- `POST /api/admin/clients/:id/tool-plan/approve` — approve and release to client
-- `GET /api/admin/dfy-applications` — list with cap and spotsLeft
-- `PATCH /api/admin/dfy-applications/:id` — update status (Zod enum); accepting sets tier to WHITE_GLOVE
-- `PATCH /api/admin/clients/:id/guided-sessions` — set session package (Zod), also sets tier to GUIDED
-- `GET /api/admin/support` — support ticket inbox
-- `PATCH /api/admin/support/:id` — update status (Zod enum)
+## WorkflowTemplate slug reference
 
-## New frontend pages and components
+| Slug | Phase | minTier | Description |
+|---|---|---|---|
+| `follow-up` | 1 | SELF_SERVE | Single follow-up email draft |
+| `inbox-triage` | 1 | SELF_SERVE | Classify and draft replies for pasted messages |
+| `review-request` | 1 | SELF_SERVE | Review request messages + reply drafts |
+| `social-calendar` | 1 | SELF_SERVE | 2-4 week content calendar + post drafts |
+| `seo-audit` | 1 | SELF_SERVE | Server-side page fetch + prioritised fix list |
+| `money-snapshot` | 2 | GUIDED | Weekly financial summary from CSV/P&L |
+| `booking-flow` | 2 | GUIDED | Booking page copy + message sequences |
+| `quote-proposal` | 2 | GUIDED | Proposal draft + printable HTML |
+| `prospect-research` | 2 | GUIDED | Prospect research + outreach drafts (CAN-SPAM note) |
+| `faq-support` | 3 | WHITE_GLOVE | FAQ build + reply drafts |
+| `agent-pipeline` | 3 | WHITE_GLOVE | Multi-step configurable pipeline |
 
-| File | Purpose |
-|---|---|
-| `src/pages/app/plan.tsx` | `/app/plan` — shows approved ToolPlan; upgrade gate for NONE; request button if no plan |
-| `src/components/workbench/SupportForm.tsx` | Email support form for SELF_SERVE (replaces OperatorPanel for non-Guided) |
-| `src/pages/admin/tiers.tsx` | `/admin/tiers` — tool plan review, DFY applications, support tickets |
+## P2 — not done yet
 
-Dashboard now includes `GuidedSessionsPanel` for GUIDED clients (sessions remaining + booking link).
-
-AppShell nav includes "My plan" → `/app/plan`.
-
-AdminShell nav includes "Plans & DFY" → `/admin/tiers`.
-
-## Tests (7 total)
-
-- `follow-up.test.ts` — follow-up template fallback ✅
-- `intake.test.ts` — skips on postgresql provider ✅ (skip is expected)
-- `tier.test.ts` — **4 new tests**:
-  - explicit preference always wins ✅
-  - not_sure + low comfort + high hours → done_for_you ✅
-  - not_sure + high comfort → self_serve ✅
-  - not_sure + mid comfort → guided ✅
-  - tool plan template returns tools and steps without invented prices ✅
-
-## What remains (P2)
-
-- Learn modules: no seed content. Admin can create modules; no module linked from self-serve plan.
-- Plan PDF: fields on Plan model, no generator.
-- Report digest email and cron timezone fix.
-- Security headers, IDOR tests.
-- Document upload UI, local file serving 403 in production.
-- Booking URL needs a real `VITE_BOOKING_URL` before launch.
-- Prompt-template editor does not feed into `llm.ts`.
+- Learn modules seeded for self-serve workflows
+- Plan PDF generator
+- Report digest email + Denver timezone cron
+- Security headers, IDOR tests
+- Document upload UI
+- Stripe production checklist
 
 ## Leave for Shea
 
-- Tier prices (all `[$ placeholder]`)
-- Founder photo (`/brand/shea.jpg`), LinkedIn URL, booking URL
-- Final privacy and terms wording (marked drafts)
-- Whether self-serve is a seminar + templates or just the in-app workflow (currently in-app only — no seminar referenced)
-- DFY monthly capacity (`DFY_MONTHLY_CAP`, default 1)
+- Tier prices (all [$ placeholder])
+- Booking URL, LinkedIn, founder photo, bio line
+- Final privacy/terms wording
+- DFY_MONTHLY_CAP (default 1)
+- VITE_BOOKING_URL
 
 ## Do not
 
-- Invent prices, testimonials, stats, or hours-saved figures
-- Send email, post to social, write to a CRM
-- Add Stripe, S3, new auth providers, or extra agents
-- Narrow copy to sales reps; keep all verticals
+- Invent prices, testimonials, stats, client names
+- Send email, post to social, write to a CRM automatically
 - Start a dev server or bind 127.0.0.1
-- Switch Prisma provider back to sqlite
-
-## Manual QA checklist for Shea after merge, `pnpm db:push`, and republish
-
-1. Complete `/start` — pick a business type, complete all 16 questions including budget, software, and volumes. Land on `/start/result/:id`, not an error.
-2. Sign in and claim the plan. Open `/app/plan` — see "no plan yet" or a pending message.
-3. As admin: go to `/admin/tiers` → Tool plans tab → approve the generated plan. Reload `/app/plan` as the client → see the tool recommendations and setup steps.
-4. As self-serve client: open the Dashboard → see the support form (not a live message thread). Submit a ticket. Check `/admin/tiers` → Support tickets to see it.
-5. As admin: go to `/admin/tiers` → DFY applications. Apply as a client via `/start?tier=done_for_you`. Confirm it appears. Accept it → confirm client tier becomes White Glove.
-6. As admin: set a client to Guided (`/admin/clients/:id` → tier dropdown) and set a session package (total/used). As the client → dashboard → Today tab → see "X / Y sessions remaining" with booking link.
-7. `/#services` anchor resolves. `/privacy`, `/terms`, and custom 404 all work. Mobile nav shows Sign in.
-8. Draft a follow-up in the workbench. Approve it. Copy text. Nothing is sent.
-
-## Workbench Skills — Foundation (added this pass)
-
-### PromptTemplate → llm.ts wiring (fixed)
-
-`llm.ts` now calls `loadActivePrompt(key)` before using code-default strings.
-- `key = "plan"` overrides the client snapshot system prompt
-- `key = "admin_report"` overrides the admin pre-call report system prompt
-- `key = "digest"` reserved for daily digest (not yet called)
-Admin creates a new version via `POST /admin/content/prompts`; llm.ts loads it on the next request.
-
-### WorkflowTemplate model
-
-New Prisma model `WorkflowTemplate` (slug unique):
-- `systemPrompt` — used by llm.ts at runtime
-- `userPromptTemplate` — {{variable}} placeholders; shown in SKILL.md export
-- `inputSchema` — JSON Schema for inputs
-- `outputFormat` — description of output shape
-- `minTier`, `verticalTags`, `enabled`, `version`
-
-Seeded from `src/lib/templates.ts` at server start (only creates missing slugs; admin edits preserved).
-**`pnpm db:push` is required** for the new model.
-
-Current slugs: `follow-up`, `inbox-triage`, `review-request`, `social-calendar`, `seo-audit`
-
-Admin routes:
-- `GET /admin/workflow-templates` — list all
-- `PATCH /admin/workflow-templates/:slug` — edit (versioned)
-- `POST /admin/workflow-templates/:slug/reset` — restore code default
-- `GET /admin/workflow-templates/:slug/skill` — download as SKILL.md
-
-Admin UI: `/admin/workflow-templates` — list, edit, enable/disable, download SKILL.md.
-
-### SKILL.md export
-
-`renderSkillMd(template)` in `src/lib/templates.ts` produces a Markdown file clients can paste into Grok Bot, Claude, or ChatGPT to run the workflow themselves. Each export includes: name, slug, tier, system prompt, user prompt template with {{variables}}, input schema, and expected output format.
-
-## Workbench Skills — Phase 1 (next pass)
-
-The 4 Phase 1 workflows (inbox-triage, review-request, social-calendar, seo-audit) need:
-- New routes in `artifacts/api-server/src/routes/skills.ts`
-- LLM functions calling `loadWorkflowTemplate(slug)` then falling back to TEMPLATE_SEEDS
-- Frontend workflow forms in TodayInbox / a new Workflows section
-- SEO audit: server-side URL fetch with AbortController (20s timeout), no paid APIs
-- Tests for template fallback for each workflow
-
-Client approval of every output is on by default. Nothing is sent automatically.
+- Switch Prisma provider to sqlite
+- Narrow copy to sales reps

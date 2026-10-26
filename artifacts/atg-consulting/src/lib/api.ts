@@ -150,6 +150,12 @@ export const api = {
                             get<{ slug: string; name: string; minTier: string; enabled: boolean; clientEnabled: boolean | null }[]>(`/admin/clients/${clientId}/workflow-settings`),
     patchWorkflowSetting: (clientId: string, slug: string, enabled: boolean) =>
                             patch<{ clientId: string; slug: string; enabled: boolean }>(`/admin/clients/${clientId}/workflow-settings/${slug}`, { enabled }),
+    // Agent chains (Phase 3)
+    agentChains:      (clientId: string) => get<{ id: string; name: string; slugs: string; enabled: boolean }[]>(`/admin/clients/${clientId}/agent-chains`),
+    createAgentChain: (clientId: string, body: { name: string; slugs: string[]; description?: string }) =>
+                        post<{ id: string }>(`/admin/clients/${clientId}/agent-chains`, body),
+    patchAgentChain:  (id: string, body: { name?: string; slugs?: string[]; enabled?: boolean }) =>
+                        patch<{ id: string }>(`/admin/agent-chains/${id}`, body),
   },
 };
 
@@ -317,5 +323,14 @@ export const skills2Api = {
   prospectResearch: (body: { icp: string; prospects: string; businessName?: string }) =>
                       post<{ output: OutputItem; result: unknown }>("/workbench/prospect-research", body),
   runHistory:       (skip = 0, take = 20) => get<unknown[]>(`/workbench/run-history?skip=${skip}&take=${take}`),
+};
+
+
+// ── Phase 3 skills ────────────────────────────────────────────────────────────
+export const skills3Api = {
+  faqSupport:    (body: { faqSource: string; customerQuestion?: string }) =>
+                   post<{ output: OutputItem; result: unknown }>("/workbench/faq-support", body),
+  pipelineRun:   (body: { chainId: string; stepIndex: number; currentInput: string; previousOutput?: string }) =>
+                   post<{ output: OutputItem; result: unknown; totalSteps: number; nextStep: number | null }>("/workbench/agent-pipeline/run", body),
 };
 

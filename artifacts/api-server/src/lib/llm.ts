@@ -1671,3 +1671,109 @@ export async function generateProspectResearch(input: {
     return p.success ? { ...p.data, complianceNote: COMPLIANCE_NOTE, source: "LLM" } : fallback();
   } catch { return fallback(); }
 }
+
+// ── Phase 3 workflow LLM functions ─────────────────────────────────────────────
+
+// ── 9. Customer FAQ and support replies ────────────────────────────────────────
+
+export interface FaqSupportOutput {
+  faqItems: Array<{ question: string; answer: string }>;
+  replyDraft: string | null;
+  lowConfidence: boolean;
+  lowConfidenceReason: string | null;
+  source: "LLM" | "TEMPLATE";
+}
+
+const FaqSupportZod = z.object({
+  faqItems: z.array(z.object({ question: z.string(), answer: z.string() })),
+  replyDraft: z.string().nullable(),
+  lowConfidence: z.boolean(),
+  lowConfidenceReason: z.string().nullable(),
+});
+
+export async function buildFaqAndReply(input: {
+  faqSource: string;
+  customerQuestion?: string;
+}): Promise<FaqSupportOutput> {
+  const systemPrompt = await getSystemPrompt("faq-support");
+  const source = sanitiseText(input.faqSource, 10_000);
+  const question = input.customerQuestion ? sanitiseShortText(input.customerQuestion) : null;
+
+  const fallback = (): FaqSupportOutput => {
+    const lines = source.split(/\r?\n/).filter((l) => l.trim().length > 10).slice(0, 15);
+    const faqItems = lines.slice(0, 8).map((l, i) => ({
+      question: l.trim().slice(0, 80) + (l.length > 80 ? "…" : ""),
+      answer: `[Add your answer for item ${i + 1} here]`,
+    }));
+    return {
+      faqItems,
+      replyDraft: question ? `Thank you for reaching out. ${question.trim().endsWith("?") ? "Great question." : ""} Let me get back to you shortly with the right information.` : null,
+      lowConfidence: !!question,
+      lowConfidenceReason: question ? "Template fallback — review and personalise before sending." : null,
+      source: "TEMPLATE",
+    };
+  };
+
+  const llm = getClient();
+  if (!llm || !systemPrompt) return fallback();
+  try {
+    const completion = await llm.chat.completions.create({
+      model: MODEL, temperature: 0.3, max_tokens: 1200,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `FAQ source text:\n${promptSafe(source, "source")}${question ? `\n\nCustomer question: ${promptSafe(question, "question")}` : ""}` },
+      ],
+    });
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const p = FaqSupportZod.safeParse(raw);
+    return p.success ? { ...p.data, source: "LLM" } : fallback();
+  } catch { return fallback(); }
+}
+
+// ── 10. Agent pipeline (single step) ──────────────────────────────────────────
+
+export interface PipelineStepOutput {
+  stepOutput: string;
+  qualityFlags: string[];
+  readyForNextStep: boolean;
+  source: "LLM" | "TEMPLATE";
+}
+
+const PipelineStepZod = z.object({
+  stepOutput:       z.string().min(1),
+  qualityFlags:     z.array(z.string()),
+  readyForNextStep: z.boolean(),
+});
+
+export async function runPipelineStep(input: {
+  stepName: string;
+  stepInstructions: string;
+  previousOutput?: string;
+  currentInput: string;
+}): Promise<PipelineStepOutput> {
+  const systemPrompt = await getSystemPrompt("agent-pipeline");
+
+  const fallback = (): PipelineStepOutput => ({
+    stepOutput: `[Step "${input.stepName}" output placeholder — configure LLM key to generate automatically.\n\nInstructions were: ${input.stepInstructions.slice(0, 200)}\n\nInput was: ${input.currentInput.slice(0, 200)}]`,
+    qualityFlags: ["LLM not configured — review manually before proceeding"],
+    readyForNextStep: false,
+    source: "TEMPLATE",
+  });
+
+  const llm = getClient();
+  if (!llm || !systemPrompt) return fallback();
+  try {
+    const completion = await llm.chat.completions.create({
+      model: MODEL, temperature: 0.5, max_tokens: 1000,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Step: ${promptSafe(input.stepName, "step")}\nInstructions: ${promptSafe(input.stepInstructions.slice(0, 2000), "instructions")}\nPrevious output: ${promptSafe((input.previousOutput ?? "none").slice(0, 5000), "previous")}\nCurrent input: ${promptSafe(input.currentInput.slice(0, 5000), "input")}` },
+      ],
+    });
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const p = PipelineStepZod.safeParse(raw);
+    return p.success ? { ...p.data, source: "LLM" } : fallback();
+  } catch { return fallback(); }
+}

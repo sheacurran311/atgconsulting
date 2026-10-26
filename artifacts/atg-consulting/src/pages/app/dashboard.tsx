@@ -12,6 +12,7 @@ import EmptyWorkbench from "@/components/workbench/EmptyWorkbench";
 import SupportForm from "@/components/workbench/SupportForm";
 import SkillForm from "@/components/workbench/SkillsForms";
 import SkillForm2 from "@/components/workbench/SkillsForms2";
+import SkillForm3 from "@/components/workbench/SkillsForms3";
 import SkillLauncher from "@/components/workbench/SkillLauncher";
 import RunHistory from "@/components/workbench/RunHistory";
 import { api, type HoursSavedData } from "@/lib/api";
@@ -159,6 +160,16 @@ export default function DashboardPage() {
           <div className="mb-6">
             <SkillForm2
               skillKey={activeSkill as "money-snapshot"|"booking-flow"|"quote-proposal"|"prospect-research"}
+              onOutput={(item) => { setActiveSkill(null); }}
+              onClose={() => setActiveSkill(null)}
+            />
+          </div>
+        )}
+        {/* Active skill form — Phase 3 */}
+        {activeSkill && ["faq-support","agent-pipeline"].includes(activeSkill) && (
+          <div className="mb-6">
+            <SkillForm3
+              skillKey={activeSkill as "faq-support"|"agent-pipeline"}
               onOutput={(item) => { setActiveSkill(null); }}
               onClose={() => setActiveSkill(null)}
             />
