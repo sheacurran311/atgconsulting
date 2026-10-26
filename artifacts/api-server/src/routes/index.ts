@@ -13,6 +13,7 @@ import playbookRouter from "./playbook";
 import sessionsRouter from "./sessions";
 import billingRouter from "./billing";
 import workflowTemplatesRouter from "./workflow-templates";
+import skillsRouter from "./skills";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(playbookRouter);
 router.use(sessionsRouter);
 router.use(billingRouter);
 router.use(workflowTemplatesRouter);
+router.use(skillsRouter);
 
 export default router;

@@ -287,3 +287,15 @@ export const workflowTemplatesApi = {
   list: () => get<WorkflowTemplate[]>("/workflow-templates"),
 };
 
+
+// ── Phase 1 Workbench skills ──────────────────────────────────────────────────
+export const skillsApi = {
+  inboxTriage:     (body: { messages: string; businessDescription?: string }) =>
+                     post<{ output: OutputItem; triage: unknown }>("/workbench/inbox-triage", body),
+  reviewRequest:   (body: { businessName: string; businessType: string; channels: string; reviews?: string }) =>
+                     post<{ output: OutputItem; result: unknown }>("/workbench/review-request", body),
+  socialCalendar:  (body: { businessDescription: string; offers?: string; platforms: string; cadence?: number; weeks?: number }) =>
+                     post<{ output: OutputItem; calendar: unknown }>("/workbench/social-calendar", body),
+  seoAudit:        (body: { url: string; businessType: string; cityArea?: string }) =>
+                     post<{ output: OutputItem; audit: unknown; fetchError: string | null }>("/workbench/seo-audit", body),
+};
