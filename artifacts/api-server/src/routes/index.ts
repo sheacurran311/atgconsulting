@@ -14,6 +14,7 @@ import sessionsRouter from "./sessions";
 import billingRouter from "./billing";
 import workflowTemplatesRouter from "./workflow-templates";
 import skillsRouter from "./skills";
+import skills2Router from "./skills2";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(sessionsRouter);
 router.use(billingRouter);
 router.use(workflowTemplatesRouter);
 router.use(skillsRouter);
+router.use(skills2Router);
 
 export default router;

@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { TEMPLATE_SEEDS } from "./templates";
+import { TEMPLATE_SEEDS, PHASE2_SEEDS } from "./templates";
 
 // PrismaClient singleton — prevents multiple instances during hot reload in dev.
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
@@ -24,7 +24,8 @@ export async function initializeDatabase(): Promise<void> {
 
 async function seedWorkflowTemplates(): Promise<void> {
   try {
-    for (const seed of TEMPLATE_SEEDS) {
+    const allSeeds = [...TEMPLATE_SEEDS, ...PHASE2_SEEDS];
+    for (const seed of allSeeds) {
       const existing = await prisma.workflowTemplate.findUnique({ where: { slug: seed.slug } });
       if (!existing) {
         await prisma.workflowTemplate.create({

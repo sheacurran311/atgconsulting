@@ -11,6 +11,9 @@ import MyWorkflows from "@/components/workbench/MyWorkflows";
 import EmptyWorkbench from "@/components/workbench/EmptyWorkbench";
 import SupportForm from "@/components/workbench/SupportForm";
 import SkillForm from "@/components/workbench/SkillsForms";
+import SkillForm2 from "@/components/workbench/SkillsForms2";
+import SkillLauncher from "@/components/workbench/SkillLauncher";
+import RunHistory from "@/components/workbench/RunHistory";
 import { api, type HoursSavedData } from "@/lib/api";
 import { useAccount } from "@/lib/useAccount";
 import { hasOperator } from "@/lib/tiers";
@@ -80,14 +83,14 @@ function HoursSavedTab({ tier, onDraft }: { tier: string; onDraft: () => void })
 const TABS = [
   { id: "today",     label: "Today" },
   { id: "workflows", label: "My workflows" },
+  { id: "history",   label: "Run history" },
   { id: "hours",     label: "Hours saved" },
 ];
 
 export default function DashboardPage() {
   const [tab, setTab] = useState("today");
   const [compose, setCompose] = useState(false);
-  type SkillKey = "inbox-triage" | "review-request" | "social-calendar" | "seo-audit";
-  const [activeSkill, setActiveSkill] = useState<SkillKey | null>(null);
+  const [activeSkill, setActiveSkill] = useState<string | null>(null);
   const { account } = useAccount();
   const tier = account?.tier ?? "NONE";
 
@@ -133,27 +136,37 @@ export default function DashboardPage() {
 
         {/* Tab content */}
         {tab === "today" && tier === "GUIDED" && <GuidedSessionsPanel />}
-        {/* Phase 1 skill forms */}
-        {activeSkill && (
+        {/* Skill launcher (tier-aware, shows locked workflows with upgrade CTA) */}
+        {tab === "today" && !activeSkill && (
+          <SkillLauncher
+            clientTier={tier}
+            activeSkill={activeSkill}
+            onSelectSkill={(slug) => setActiveSkill(slug)}
+          />
+        )}
+        {/* Active skill form — Phase 1 */}
+        {activeSkill && ["inbox-triage","review-request","social-calendar","seo-audit","follow-up"].includes(activeSkill) && (
           <div className="mb-6">
             <SkillForm
-              skillKey={activeSkill}
-              onOutput={(item) => { setActiveSkill(null); /* TodayInbox auto-refreshes on next load */ }}
+              skillKey={activeSkill as "inbox-triage"|"review-request"|"social-calendar"|"seo-audit"}
+              onOutput={(item) => { setActiveSkill(null); }}
               onClose={() => setActiveSkill(null)}
             />
           </div>
         )}
-        {/* Skills launcher (always visible on Today tab) */}
-        {tab === "today" && !activeSkill && (
-          <div className="mb-5 flex flex-wrap gap-2">
-            <button onClick={() => setActiveSkill("inbox-triage")} className="btn-secondary text-xs py-1.5 px-3">📥 Inbox triage</button>
-            <button onClick={() => setActiveSkill("review-request")} className="btn-secondary text-xs py-1.5 px-3">⭐ Review requests</button>
-            <button onClick={() => setActiveSkill("social-calendar")} className="btn-secondary text-xs py-1.5 px-3">📅 Social calendar</button>
-            <button onClick={() => setActiveSkill("seo-audit")} className="btn-secondary text-xs py-1.5 px-3">🔍 SEO audit</button>
+        {/* Active skill form — Phase 2 */}
+        {activeSkill && ["money-snapshot","booking-flow","quote-proposal","prospect-research"].includes(activeSkill) && (
+          <div className="mb-6">
+            <SkillForm2
+              skillKey={activeSkill as "money-snapshot"|"booking-flow"|"quote-proposal"|"prospect-research"}
+              onOutput={(item) => { setActiveSkill(null); }}
+              onClose={() => setActiveSkill(null)}
+            />
           </div>
         )}
         {tab === "today"     && <TodayInbox tier={tier} compose={compose} onCompose={setCompose} />}
         {tab === "workflows" && <MyWorkflows tier={tier} onDraft={openDraft} />}
+        {tab === "history"   && <RunHistory />}
         {tab === "hours"     && <HoursSavedTab tier={tier} onDraft={openDraft} />}
 
         <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--canvas-border)" }}>

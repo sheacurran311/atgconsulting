@@ -145,6 +145,11 @@ export const api = {
                              patch<WorkflowTemplate>(`/admin/workflow-templates/${slug}`, body),
     resetWorkflowTemplate: (slug: string) => post<WorkflowTemplate>(`/admin/workflow-templates/${slug}/reset`, {}),
     skillMdUrl:            (slug: string) => `${typeof window !== "undefined" ? window.location.origin : ""}/api/admin/workflow-templates/${slug}/skill`,
+    // Per-client workflow settings
+    workflowSettings:     (clientId: string) =>
+                            get<{ slug: string; name: string; minTier: string; enabled: boolean; clientEnabled: boolean | null }[]>(`/admin/clients/${clientId}/workflow-settings`),
+    patchWorkflowSetting: (clientId: string, slug: string, enabled: boolean) =>
+                            patch<{ clientId: string; slug: string; enabled: boolean }>(`/admin/clients/${clientId}/workflow-settings/${slug}`, { enabled }),
   },
 };
 
@@ -299,3 +304,18 @@ export const skillsApi = {
   seoAudit:        (body: { url: string; businessType: string; cityArea?: string }) =>
                      post<{ output: OutputItem; audit: unknown; fetchError: string | null }>("/workbench/seo-audit", body),
 };
+
+// ── Phase 2 skills ────────────────────────────────────────────────────────────
+export const skills2Api = {
+  moneySnapshot:    (body: { data: string; weekEnding?: string; businessName?: string }) =>
+                      post<{ output: OutputItem; result: unknown }>("/workbench/money-snapshot", body),
+  bookingFlow:      (body: { businessName: string; serviceTypes: string; platform: string; channels: string }) =>
+                      post<{ output: OutputItem; result: unknown }>("/workbench/booking-flow", body),
+  quoteProposal:    (body: { clientName: string; businessName?: string; servicesAndPricing: string; scopeDescription: string; termsNotes?: string }) =>
+                      post<{ output: OutputItem; result: unknown }>("/workbench/quote-proposal", body),
+  proposalHtmlUrl:  (id: string) => `${typeof window !== "undefined" ? window.location.origin : ""}/api/workbench/quote-proposal/${id}/html`,
+  prospectResearch: (body: { icp: string; prospects: string; businessName?: string }) =>
+                      post<{ output: OutputItem; result: unknown }>("/workbench/prospect-research", body),
+  runHistory:       (skip = 0, take = 20) => get<unknown[]>(`/workbench/run-history?skip=${skip}&take=${take}`),
+};
+
