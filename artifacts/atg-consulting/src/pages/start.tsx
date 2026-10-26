@@ -1,8 +1,14 @@
+import { useSearch } from "wouter";
 import IntakeForm from "@/components/intake/IntakeForm";
 import Footer from "@/components/sections/Footer";
 import LogoMark from "@/components/LogoMark";
 
 export default function StartPage() {
+  // ?tier=done_for_you preselects the Done-for-you option in the form
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const preselectedTier = params.get("tier") as "done_for_you" | "guided" | "self_serve" | null;
+
   return (
     <div style={{ background: "var(--canvas)", minHeight: "100vh" }}>
       <main>
@@ -12,13 +18,15 @@ export default function StartPage() {
             <LogoMark variant="light" size={36} className="flex-shrink-0 mt-1" />
             <div>
               <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
-                FREE · NO ACCOUNT NEEDED
+                {preselectedTier === "done_for_you" ? "APPLY FOR DONE-FOR-YOU" : "FREE · NO ACCOUNT NEEDED"}
               </p>
               <h1 className="display-lg" style={{ color: "var(--canvas-text)" }}>
-                Map my workflow.
+                {preselectedTier === "done_for_you" ? "Apply for Done-for-you." : "Map my workflow."}
               </h1>
               <p className="mt-2 text-base" style={{ color: "var(--canvas-text-2)" }}>
-                Answer a few questions. Shea reviews your intake and sends your snapshot.
+                {preselectedTier === "done_for_you"
+                  ? "Tell us about your business. Shea reviews applications personally — spots are very limited."
+                  : "Answer a few questions. Shea reviews your intake and sends your snapshot."}
               </p>
             </div>
           </div>
@@ -28,7 +36,7 @@ export default function StartPage() {
             className="rounded-2xl p-6 sm:p-10"
             style={{ background: "var(--canvas-1)", border: "1px solid var(--canvas-border)" }}
           >
-            <IntakeForm />
+            <IntakeForm preselectedTier={preselectedTier} />
           </div>
         </div>
       </main>

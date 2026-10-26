@@ -9,11 +9,33 @@ import AppShell from "@/components/app/AppShell";
 import TodayInbox from "@/components/workbench/TodayInbox";
 import MyWorkflows from "@/components/workbench/MyWorkflows";
 import EmptyWorkbench from "@/components/workbench/EmptyWorkbench";
+import SupportForm from "@/components/workbench/SupportForm";
 import { api, type HoursSavedData } from "@/lib/api";
 import { useAccount } from "@/lib/useAccount";
 import { hasOperator } from "@/lib/tiers";
 
 const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
+
+function GuidedSessionsPanel() {
+  const [sessions, setSessions] = useState<{ guidedSessionsTotal: number | null; guidedSessionsUsed: number } | null>(null);
+  useEffect(() => { api.guidedSessions.get().then(setSessions).catch(() => null); }, []);
+  if (!sessions?.guidedSessionsTotal) return null;
+  const remaining = sessions.guidedSessionsTotal - sessions.guidedSessionsUsed;
+  return (
+    <div className="rounded-xl p-5 mb-6" style={{ border: "1px solid rgba(59,107,255,0.25)", background: "rgba(59,107,255,0.05)" }}>
+      <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>YOUR SESSION PACKAGE</p>
+      <p className="font-extrabold text-2xl mb-1" style={{ color: "var(--canvas-text)", letterSpacing: "-0.03em" }}>
+        {remaining} / {sessions.guidedSessionsTotal}
+      </p>
+      <p className="text-sm mb-3" style={{ color: "var(--canvas-text-2)" }}>sessions remaining</p>
+      {remaining > 0 && (
+        <a href={BOOKING_URL} target={BOOKING_URL.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" className="btn-primary text-sm" style={{ padding: "8px 14px" }}>
+          Book next session
+        </a>
+      )}
+    </div>
+  );
+}
 
 function HoursSavedTab({ tier, onDraft }: { tier: string; onDraft: () => void }) {
   const [data, setData] = useState<HoursSavedData | null>(null);
@@ -107,12 +129,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Tab content */}
+        {tab === "today" && tier === "GUIDED" && <GuidedSessionsPanel />}
         {tab === "today"     && <TodayInbox tier={tier} compose={compose} onCompose={setCompose} />}
         {tab === "workflows" && <MyWorkflows tier={tier} onDraft={openDraft} />}
         {tab === "hours"     && <HoursSavedTab tier={tier} onDraft={openDraft} />}
 
         <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--canvas-border)" }}>
           {account ? (hasOperator(tier) ? <RequestWorkflowForm /> : <UpgradePrompt />) : null}
+          {account && <div className="mt-6"><SupportForm tier={tier} /></div>}
         </div>
       </div>
     </AppShell>

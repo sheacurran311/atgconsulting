@@ -26,6 +26,9 @@ const TIME_SINKS = ["email", "prospecting", "followups", "research", "proposals"
 const BIZ_SIZES = ["solo", "2-10", "11-50", "50+"] as const;
 const HELP_STYLES = ["self_serve", "guided", "done_for_you", "not_sure"] as const;
 
+const TOOL_BUDGETS = ["<$50/mo", "$50-150/mo", "$150-500/mo", "$500+/mo", "not_sure"] as const;
+const WEEKLY_VOLUMES = ["<10/wk", "10-50/wk", "50-200/wk", "200+/wk", "varies"] as const;
+
 const IntakeSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email().max(200),
@@ -40,6 +43,10 @@ const IntakeSchema = z.object({
   hoursLost: z.number().int().min(1).max(40),
   preferredHelp: z.enum(HELP_STYLES),
   freeText: z.string().max(280).optional(),
+  // New tier-model fields
+  toolBudget:       z.enum(TOOL_BUDGETS).optional(),
+  currentSoftware:  z.string().max(300).optional(),
+  weeklyVolumes:    z.enum(WEEKLY_VOLUMES).optional(),
   honeypot: z.string().default(""),
 });
 
@@ -85,6 +92,9 @@ router.post("/intake", async (req, res) => {
       aiComfort: safe.aiComfort,
       hoursLost: safe.hoursLost,
       helpStyle: safe.preferredHelp,
+      toolBudget:      safe.toolBudget ?? null,
+      currentSoftware: safe.currentSoftware ? sanitiseText(safe.currentSoftware, 300) : null,
+      weeklyVolumes:   safe.weeklyVolumes ?? null,
       ipHash: hashIp(ip),
       userAgent: req.headers["user-agent"]?.slice(0, 500) ?? null,
       status: "NEW",
