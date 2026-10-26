@@ -35,12 +35,12 @@
   --blue-subtle-lt: rgba(59,107,255,0.08); /* tinted bg on light canvas      */
   --blue-glow:      0 0 0 1px rgba(59,107,255,0.3), 0 0 28px rgba(59,107,255,0.12);
 
-  /* ── Legacy aliases (keeps --accent refs working during migration) ─────── */
+  /* ── Legacy alias (keeps --accent refs working during migration) ──────── */
+  /* Do not reassign --blue-btn / --blue-pressed / --blue-subtle-* to       */
+  /* themselves. A self-reference is a cycle, so the color is invalid and   */
+  /* buttons fall back to a transparent fill — white text on the light      */
+  /* canvas of the client and admin portals.                                */
   --accent:           var(--blue);
-  --blue-btn:       var(--blue-btn);
-  --blue-pressed:   var(--blue-pressed);
-  --blue-subtle-dk: var(--blue-subtle-dk);
-  --blue-subtle-lt: var(--blue-subtle-lt);
 
   /* ── Radius ───────────────────────────────────────────────────────────── */
   --radius-sm: 4px;
@@ -100,8 +100,8 @@
 
   /* Clerk overrides */
   .cl-formFieldInput::placeholder { color: var(--canvas-text-3); }
-  .cl-formButtonPrimary { background-color: var(--blue-btn) !important; }
-  .cl-formButtonPrimary:hover { background-color: var(--blue-pressed) !important; }
+  .cl-formButtonPrimary { background-color: var(--blue-btn, #2557E8) !important; color: #ffffff !important; }
+  .cl-formButtonPrimary:hover { background-color: var(--blue-pressed, #1B45CC) !important; }
   .cl-card { border: 1px solid var(--canvas-border) !important; box-shadow: none !important; }
   .cl-headerTitle { font-family: var(--font-sans) !important; letter-spacing: -0.03em; }
 }
@@ -121,24 +121,25 @@
     transition-duration: var(--duration-fast);
     transition-timing-function: var(--ease-standard);
   }
-  /* Primary — white text on blue-btn (#2557E8) = 4.9:1 WCAG AA ✅ */
+  /* Primary — blue fill on light canvas, white label. #2557E8 on white = 4.9:1 AA */
   .btn-primary {
     @apply btn;
-    background-color: var(--blue-btn);
+    background-color: var(--blue-btn, #2557E8);
     color: #ffffff;
     border: 1px solid transparent;
     @apply focus-visible:ring-blue;
   }
-  .btn-primary:hover  { background-color: var(--blue-pressed); }
+  .btn-primary:hover  { background-color: var(--blue-pressed, #1B45CC); }
   .btn-primary:active { transform: scale(0.98); }
 
+  /* Secondary on light canvas — blue label, not white */
   .btn-secondary {
     @apply btn;
-    background-color: transparent;
-    color: var(--canvas-text);
-    border: 1px solid var(--canvas-border);
+    background-color: var(--canvas-1, #ffffff);
+    color: var(--blue-btn, #2557E8);
+    border: 1px solid var(--blue-btn, #2557E8);
   }
-  .btn-secondary:hover { background-color: var(--canvas-2); }
+  .btn-secondary:hover { background-color: var(--blue-subtle-lt, rgba(59,107,255,0.08)); }
 
   .btn-secondary-white {
     @apply btn;
@@ -151,11 +152,11 @@
   .btn-ghost {
     @apply btn;
     background: transparent;
-    color: var(--canvas-text-2);
+    color: var(--blue-btn, #2557E8);
     border: 1px solid transparent;
     padding: 8px 12px;
   }
-  .btn-ghost:hover { background-color: var(--canvas-2); color: var(--canvas-text); }
+  .btn-ghost:hover { background-color: var(--blue-subtle-lt, rgba(59,107,255,0.08)); color: var(--blue-pressed, #1B45CC); }
 
   .btn-ghost-dark {
     @apply btn;
@@ -272,8 +273,8 @@
   .chip-selected {
     @apply chip;
     border-color: var(--blue);
-    background-color: var(--blue-subtle-light);
-    color: var(--blue-btn);
+    background-color: var(--blue-subtle-lt, rgba(59,107,255,0.08));
+    color: var(--blue-btn, #2557E8);
     font-weight: 600;
   }
   .chip-unselected { @apply chip; }

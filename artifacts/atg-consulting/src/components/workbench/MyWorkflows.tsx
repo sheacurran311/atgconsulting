@@ -4,6 +4,8 @@
 import { useState, useEffect } from "react";
 import { api, type WorkflowListItem as WFItem } from "@/lib/api";
 import EmptyWorkbench from "@/components/workbench/EmptyWorkbench";
+import SkillLauncher from "@/components/workbench/SkillLauncher";
+import SkillRunner from "@/components/workbench/SkillRunner";
 
 const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   designing: { label: "Designing", color: "var(--canvas-text-3)", bg: "var(--canvas-2)" },
@@ -14,9 +16,18 @@ const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }
 
 const AREA_LABELS: Record<string, string> = { ea: "Admin & ops", marketing: "Marketing", sales: "Sales", cs: "Customer replies" };
 
-export default function MyWorkflows({ tier, onDraft }: { tier: string; onDraft: () => void }) {
+export default function MyWorkflows({
+  tier,
+  testMode,
+  personalizedSlugs,
+}: {
+  tier: string;
+  testMode: boolean;
+  personalizedSlugs: string[];
+}) {
   const [workflows, setWorkflows] = useState<WFItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeSkill, setActiveSkill] = useState<string | null>(null);
 
   useEffect(() => {
     api.workbench.workflows().then(setWorkflows).catch(() => null).finally(() => setLoading(false));
@@ -31,10 +42,23 @@ export default function MyWorkflows({ tier, onDraft }: { tier: string; onDraft: 
         </div>
       </div>
 
+      <SkillLauncher
+        clientTier={tier}
+        testMode={testMode}
+        personalizedSlugs={personalizedSlugs}
+        activeSkill={activeSkill}
+        onSelectSkill={setActiveSkill}
+      />
+      {activeSkill && (
+        <div className="mb-6">
+          <SkillRunner skill={activeSkill} onClose={() => setActiveSkill(null)} onOutput={() => setActiveSkill(null)} />
+        </div>
+      )}
+
       {loading ? (
         <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
       ) : workflows.length === 0 ? (
-        <EmptyWorkbench tier={tier} onDraft={onDraft} />
+        <EmptyWorkbench tier={tier} message="Workflows Shea sets up for you show up here. You can run one from the buttons above." />
       ) : (
         <div className="space-y-3">
           {workflows.map((wf) => {

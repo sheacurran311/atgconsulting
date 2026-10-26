@@ -27,7 +27,7 @@ function FormActions({ onClose, onSubmit, loading, error, label = "Generate draf
         <button onClick={onSubmit} disabled={loading} className="btn-primary text-sm" style={{ minWidth: "140px" }}>{loading ? "Working…" : label}</button>
         <button onClick={onClose} className="btn-ghost text-sm">Cancel</button>
       </div>
-      <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>Output appears in Today inbox for your review. Nothing is sent automatically.</p>
+      <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>Your draft shows up on Today, under Reminders. Nothing is sent automatically.</p>
     </>
   );
 }

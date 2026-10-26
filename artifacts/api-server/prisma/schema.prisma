@@ -89,6 +89,9 @@ model Client {
   sessionRecords         SessionRecord[]
   clientWorkflowSettings ClientWorkflowSettings[]
   agentChains         AgentChain[]
+  dayProfile          DayProfile?
+  declaredAccounts    DeclaredAccount[]
+  dayBlocks           DayBlock[]
 }
 
 // ── Intake ─────────────────────────────────────────────────────────────────────
@@ -626,4 +629,64 @@ model AgentChainRun {
   createdAt   DateTime   @default(now())
 
   @@index([clientId])
+}
+
+// ── Day dashboard ─────────────────────────────────────────────────────────────
+
+/// Work hours and typical day. One row per client. Live mail is not connected.
+model DayProfile {
+  id          String   @id @default(cuid())
+  clientId    String   @unique
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  timezone    String   @default("America/Denver")
+  /// JSON array of weekday numbers, Sunday = 0
+  workDays    String   @default("[1,2,3,4,5]")
+  startMin    Int      @default(480)
+  endMin      Int      @default(1020)
+  /// JSON array of typical-day block keys, in the order they happen
+  typicalDay  String   @default("[]")
+  typicalNote String?
+  scope       String   @default("individual") // individual | team
+  teamNote    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// An email, calendar, or other account the client says they use.
+/// realm splits professional from personal. No OAuth token is stored.
+model DeclaredAccount {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  realm     String   // professional | personal
+  kind      String   // email | calendar | other
+  provider  String   // gmail | outlook | apple | other
+  label     String
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
+/// One suggested or pinned block on a client's day.
+/// suggestionKey is stable so a refresh does not duplicate a pinned or dismissed block.
+model DayBlock {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date          String   // YYYY-MM-DD in the profile timezone
+  suggestionKey String
+  realm         String   // professional | personal
+  title         String
+  detail        String   @default("")
+  efficiency    String   @default("")
+  skillSlug     String?
+  startMin      Int
+  endMin        Int
+  status        String   @default("suggested") // suggested | scheduled | done | dismissed
+  source        String   // workflow | connection | consultation | action | intake
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([clientId, date, suggestionKey])
+  @@index([clientId, date])
 }

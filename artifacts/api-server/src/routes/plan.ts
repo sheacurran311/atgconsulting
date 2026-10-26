@@ -7,6 +7,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/db";
 import { personalizeClientWorkspace } from "../lib/personalization";
+import { ensureDayProfile } from "../lib/dayProfile";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
 
 const router = Router();
@@ -84,6 +85,7 @@ router.post("/plan/:intakeId/claim", withUser, requireAuth, async (req, res) => 
         userId: user.id,
         industry: answers?.industry ?? null,
         roleTitle: answers?.role ?? null,
+        size: typeof answers?.bizSize === "string" ? answers.bizSize : null,
         aiLevel: intake.aiComfort,
         areas: intake.areas,
         helpStyle: intake.helpStyle,
@@ -112,6 +114,7 @@ router.post("/plan/:intakeId/claim", withUser, requireAuth, async (req, res) => 
 
   // Seed personalized workspace from intake data
   personalizeClientWorkspace(client.id).catch(console.error);
+  await ensureDayProfile(client.id).catch(console.error);
 
   res.json({ ok: true, clientId: client.id });
 });

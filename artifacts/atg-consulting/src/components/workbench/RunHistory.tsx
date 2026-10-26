@@ -1,6 +1,6 @@
 /**
  * Run history — shows recent workflow runs for the signed-in client.
- * Each run links to its OutputItem in TodayInbox.
+ * Recent workflow runs for the signed-in client.
  */
 import { useState, useEffect } from "react";
 import { skills2Api } from "@/lib/api";
@@ -34,7 +34,7 @@ export default function RunHistory() {
   if (runs.length === 0) return (
     <div className="rounded-xl p-6 text-center" style={{ border: "1px dashed var(--canvas-border)", background: "var(--canvas-2)" }}>
       <p className="font-mono text-2xs mb-2" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>NO RUNS YET</p>
-      <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>Use the workflow launcher above to run your first workflow. Each run appears here.</p>
+      <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>Run a workflow from My workflows. Each run shows up here.</p>
     </div>
   );
 

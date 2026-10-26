@@ -10,6 +10,7 @@ import { Link } from "wouter";
 import AppShell from "@/components/app/AppShell";
 import { useAccount } from "@/lib/useAccount";
 import { api, clientIntakeApi, type IntakeSummary, billing } from "@/lib/api";
+import DaySetup from "@/components/day/DaySetup";
 
 const TIER_LABELS: Record<string, string> = {
   NONE: "No plan yet",
@@ -204,6 +205,10 @@ export default function AccountPage() {
               </div>
             </div>
           )}
+        </Section>
+
+        <Section title="Your day">
+          <DaySetup />
         </Section>
 
         {/* Digest preference */}

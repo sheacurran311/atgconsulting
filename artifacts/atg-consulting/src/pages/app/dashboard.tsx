@@ -1,19 +1,14 @@
 /**
- * Client Workbench dashboard — the product.
- * Tabs: Today (output inbox) · My Workflows · Hours Saved
- * Persistent operator panel in sidebar.
+ * Client dashboard.
+ * Today is the day view. Workflows, run history, and hours saved stay as tabs.
  */
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import AppShell from "@/components/app/AppShell";
-import TodayInbox from "@/components/workbench/TodayInbox";
+import DayView from "@/components/day/DayView";
 import MyWorkflows from "@/components/workbench/MyWorkflows";
 import EmptyWorkbench from "@/components/workbench/EmptyWorkbench";
 import SupportForm from "@/components/workbench/SupportForm";
-import SkillForm from "@/components/workbench/SkillsForms";
-import SkillForm2 from "@/components/workbench/SkillsForms2";
-import SkillForm3 from "@/components/workbench/SkillsForms3";
-import SkillLauncher from "@/components/workbench/SkillLauncher";
 import { usePortal } from "@/components/app/IntakeGate";
 import RunHistory from "@/components/workbench/RunHistory";
 import { api, type HoursSavedData } from "@/lib/api";
@@ -43,7 +38,7 @@ function GuidedSessionsPanel() {
   );
 }
 
-function HoursSavedTab({ tier, onDraft }: { tier: string; onDraft: () => void }) {
+function HoursSavedTab({ tier }: { tier: string }) {
   const [data, setData] = useState<HoursSavedData | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => { api.workbench.hoursSaved().then(setData).catch(() => null).finally(() => setLoading(false)); }, []);
@@ -57,7 +52,7 @@ function HoursSavedTab({ tier, onDraft }: { tier: string; onDraft: () => void })
 
       {loading ? <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
       : !data || (data.totalRuns === 0 && data.approved === 0) ? (
-        <EmptyWorkbench tier={tier} onDraft={onDraft} />
+        <EmptyWorkbench tier={tier} message="Hours show up after a workflow finishes. Run one from My workflows." />
       ) : (
         <div className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-4">
@@ -91,23 +86,15 @@ const TABS = [
 
 export default function DashboardPage() {
   const [tab, setTab] = useState("today");
-  const [compose, setCompose] = useState(false);
-  const [activeSkill, setActiveSkill] = useState<string | null>(null);
   const { account } = useAccount();
   const portal = usePortal();
   const tier = account?.tier ?? portal?.tier ?? "NONE";
   const testMode = portal?.testMode ?? false;
   const personalizedSlugs = portal?.personalizedSlugs ?? [];
 
-  function openDraft() {
-    setTab("today");
-    setCompose(true);
-  }
-
   return (
-    <AppShell>
-      <div className="max-w-content mx-auto">
-        {/* Header */}
+    <AppShell wide>
+      <div>
         <div className="flex items-center justify-between gap-4 mb-6">
           <div>
             <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>ATG WORKBENCH</p>
@@ -118,14 +105,13 @@ export default function DashboardPage() {
           </a>
         </div>
 
-        {/* Tab nav */}
-        <div className="flex gap-1 mb-6" style={{ borderBottom: "1px solid var(--canvas-border)" }}>
+        <div className="flex gap-1 mb-6 overflow-x-auto" style={{ borderBottom: "1px solid var(--canvas-border)" }}>
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className="px-4 py-2.5 text-sm font-semibold transition-colors"
+              className="px-4 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap"
               style={{
                 color: tab === t.id ? "var(--blue)" : "var(--canvas-text-2)",
                 marginBottom: "-1px",
@@ -139,54 +125,17 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Tab content */}
         {tab === "today" && tier === "GUIDED" && <GuidedSessionsPanel />}
-        {/* Skill launcher (tier-aware, shows locked workflows with upgrade CTA) */}
-        {tab === "today" && !activeSkill && (
-          <SkillLauncher
-            clientTier={tier}
-            testMode={testMode}
-            personalizedSlugs={personalizedSlugs}
-            activeSkill={activeSkill}
-            onSelectSkill={(slug) => setActiveSkill(slug)}
-          />
-        )}
-        {/* Active skill form — Phase 1 */}
-        {activeSkill && ["inbox-triage","review-request","social-calendar","seo-audit","follow-up"].includes(activeSkill) && (
-          <div className="mb-6">
-            <SkillForm
-              skillKey={activeSkill as "inbox-triage"|"review-request"|"social-calendar"|"seo-audit"}
-              onOutput={(item) => { setActiveSkill(null); }}
-              onClose={() => setActiveSkill(null)}
-            />
+        {tab === "today" && <DayView tier={tier} testMode={testMode} />}
+        {tab === "workflows" && (
+          <div className="max-w-content">
+            <MyWorkflows tier={tier} testMode={testMode} personalizedSlugs={personalizedSlugs} />
           </div>
         )}
-        {/* Active skill form — Phase 2 */}
-        {activeSkill && ["money-snapshot","booking-flow","quote-proposal","prospect-research"].includes(activeSkill) && (
-          <div className="mb-6">
-            <SkillForm2
-              skillKey={activeSkill as "money-snapshot"|"booking-flow"|"quote-proposal"|"prospect-research"}
-              onOutput={(item) => { setActiveSkill(null); }}
-              onClose={() => setActiveSkill(null)}
-            />
-          </div>
-        )}
-        {/* Active skill form — Phase 3 */}
-        {activeSkill && ["faq-support","agent-pipeline"].includes(activeSkill) && (
-          <div className="mb-6">
-            <SkillForm3
-              skillKey={activeSkill as "faq-support"|"agent-pipeline"}
-              onOutput={(item) => { setActiveSkill(null); }}
-              onClose={() => setActiveSkill(null)}
-            />
-          </div>
-        )}
-        {tab === "today"     && <TodayInbox tier={tier} compose={compose} onCompose={setCompose} />}
-        {tab === "workflows" && <MyWorkflows tier={tier} onDraft={openDraft} />}
-        {tab === "history"   && <RunHistory />}
-        {tab === "hours"     && <HoursSavedTab tier={tier} onDraft={openDraft} />}
+        {tab === "history" && <div className="max-w-content"><RunHistory /></div>}
+        {tab === "hours" && <div className="max-w-content"><HoursSavedTab tier={tier} /></div>}
 
-        <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--canvas-border)" }}>
+        <div className="max-w-content mt-8 pt-6" style={{ borderTop: "1px solid var(--canvas-border)" }}>
           {account ? (hasOperator(tier) ? <RequestWorkflowForm /> : <UpgradePrompt />) : null}
           {account && <div className="mt-6"><SupportForm tier={tier} /></div>}
         </div>

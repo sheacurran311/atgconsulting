@@ -28,6 +28,7 @@ const HELP_STYLES = ["self_serve", "guided", "done_for_you", "not_sure"] as cons
 
 const TOOL_BUDGETS = ["<$50/mo", "$50-150/mo", "$150-500/mo", "$500+/mo", "not_sure"] as const;
 const WEEKLY_VOLUMES = ["<10/wk", "10-50/wk", "50-200/wk", "200+/wk", "varies"] as const;
+const DAY_BLOCKS = ["morning_email", "client_work", "followups", "admin", "deep_work", "lunch", "personal"] as const;
 
 const IntakeSchema = z.object({
   name: z.string().min(1).max(100),
@@ -47,7 +48,19 @@ const IntakeSchema = z.object({
   toolBudget:       z.enum(TOOL_BUDGETS).optional(),
   currentSoftware:  z.string().max(300).optional(),
   weeklyVolumes:    z.enum(WEEKLY_VOLUMES).optional(),
+  timezone: z.string().min(1).max(64).optional(),
+  workDays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+  startMin: z.number().int().min(0).max(24 * 60).optional(),
+  endMin: z.number().int().min(0).max(24 * 60).optional(),
+  typicalDay: z.array(z.enum(DAY_BLOCKS)).max(7).optional(),
+  typicalNote: z.string().max(280).optional(),
+  dayScope: z.enum(["individual", "team"]).optional(),
+  teamNote: z.string().max(200).optional(),
   honeypot: z.string().default(""),
+}).superRefine((val, ctx) => {
+  if (val.startMin != null && val.endMin != null && val.endMin <= val.startMin) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Work needs to end after it starts.", path: ["endMin"] });
+  }
 });
 
 const router = Router();
@@ -80,7 +93,11 @@ router.post("/intake", async (req, res) => {
     industry: sanitiseShortText(data.industry),
     automateFirst: data.automateFirst ? sanitiseShortText(data.automateFirst) : undefined,
     freeText: data.freeText ? sanitiseText(data.freeText) : undefined,
+    typicalNote: data.typicalNote ? sanitiseText(data.typicalNote, 280) : undefined,
+    teamNote: data.teamNote ? sanitiseText(data.teamNote, 200) : undefined,
+    dayScope: data.bizSize === "2-10" ? data.dayScope : "individual",
   };
+  if (safe.bizSize !== "2-10") safe.teamNote = undefined;
 
   // ── Store Intake record ──────────────────────────────────────────────────
   const intake = await prisma.intake.create({

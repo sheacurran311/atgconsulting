@@ -22,7 +22,6 @@ interface SkillButton {
 }
 
 const ALL_SKILL_BUTTONS: SkillButton[] = [
-  { slug: "follow-up",         label: "Follow-up draft",    icon: "✉",  minTier: "SELF_SERVE" },
   { slug: "inbox-triage",      label: "Inbox triage",       icon: "📥", minTier: "SELF_SERVE" },
   { slug: "review-request",    label: "Review requests",    icon: "⭐", minTier: "SELF_SERVE" },
   { slug: "social-calendar",   label: "Social calendar",    icon: "📅", minTier: "SELF_SERVE" },
@@ -34,6 +33,13 @@ const ALL_SKILL_BUTTONS: SkillButton[] = [
   { slug: "faq-support",       label: "FAQ & support",      icon: "💬", minTier: "WHITE_GLOVE" },
   { slug: "agent-pipeline",    label: "Agent pipeline",     icon: "⚙",  minTier: "WHITE_GLOVE" },
 ];
+
+export function skillUnlocked(slug: string, clientTier: string, testMode: boolean): boolean {
+  const btn = ALL_SKILL_BUTTONS.find((item) => item.slug === slug);
+  if (!btn) return false;
+  if (testMode) return true;
+  return TIER_ORDER.indexOf(clientTier) >= TIER_ORDER.indexOf(btn.minTier);
+}
 
 interface Props {
   clientTier: string;

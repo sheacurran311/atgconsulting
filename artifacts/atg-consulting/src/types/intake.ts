@@ -113,6 +113,14 @@ export interface IntakeFormData {
   hoursLost: number; // 1–40
   preferredHelp: PreferredHelp;
   freeText?: string;
+  timezone?: string;
+  workDays?: number[];
+  startMin?: number;
+  endMin?: number;
+  typicalDay?: string[];
+  typicalNote?: string;
+  dayScope?: "individual" | "team";
+  teamNote?: string;
   // Anti-spam (always submitted, humans leave blank)
   honeypot?: string;
 }

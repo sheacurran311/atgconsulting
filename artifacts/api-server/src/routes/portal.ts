@@ -10,6 +10,7 @@ import { Router } from "express";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { personalizeClientWorkspace, extractPersonalizedSlugs } from "../lib/personalization";
+import { ensureDayProfile } from "../lib/dayProfile";
 import { billingActive } from "../lib/access";
 
 const router = Router();
@@ -41,6 +42,7 @@ router.get("/portal/status", withUser, requireAuth, async (req, res) => {
               userId: user.id,
               industry:  answers?.industry ?? null,
               roleTitle: answers?.role ?? null,
+              size:      typeof answers?.bizSize === "string" ? answers.bizSize : null,
               aiLevel:   latestIntake.aiComfort,
               areas:     latestIntake.areas,
               helpStyle: latestIntake.helpStyle,
@@ -50,6 +52,7 @@ router.get("/portal/status", withUser, requireAuth, async (req, res) => {
           });
           await prisma.intake.update({ where: { id: latestIntake.id }, data: { clientId: client.id, status: "CONVERTED" } });
           await personalizeClientWorkspace(client.id).catch(console.error);
+          await ensureDayProfile(client.id).catch(console.error);
         }
       }
     }

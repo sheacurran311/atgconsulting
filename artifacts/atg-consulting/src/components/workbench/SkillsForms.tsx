@@ -1,7 +1,7 @@
 /**
  * Phase 1 Workbench skill forms — four self-serve workflows.
  * Each form collects inputs, calls the API, and returns an OutputItem
- * for the parent (TodayInbox) to display for approval.
+ * for Today to show under Reminders.
  * Client approval is always required; nothing is sent automatically.
  */
 import { useState } from "react";
@@ -205,7 +205,7 @@ function FormActions({ onClose, onSubmit, loading, error, submitLabel = "Generat
         <button onClick={onClose} className="btn-ghost text-sm">Cancel</button>
       </div>
       <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
-        Your draft will appear in the Today inbox. Nothing is sent automatically — you review and copy it yourself.
+        Your draft shows up on Today, under Reminders. Nothing is sent automatically — you review and copy it yourself.
       </p>
     </>
   );

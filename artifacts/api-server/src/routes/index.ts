@@ -17,6 +17,7 @@ import skillsRouter from "./skills";
 import skills2Router from "./skills2";
 import skills3Router from "./skills3";
 import portalRouter from "./portal";
+import dayRouter from "./day";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(skillsRouter);
 router.use(skills2Router);
 router.use(skills3Router);
 router.use(portalRouter);
+router.use(dayRouter);
 
 export default router;

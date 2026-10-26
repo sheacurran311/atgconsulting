@@ -21,7 +21,9 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 
 const get = <T>(path: string) => req<T>("GET", path);
 const post = <T>(path: string, body?: unknown) => req<T>("POST", path, body);
+const put = <T>(path: string, body?: unknown) => req<T>("PUT", path, body);
 const patch = <T>(path: string, body?: unknown) => req<T>("PATCH", path, body);
+const del = <T>(path: string) => req<T>("DELETE", path);
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const api = {
@@ -60,6 +62,16 @@ export const api = {
     hoursSaved:      () => get<HoursSavedData>("/workbench/hours-saved"),
     requestWorkflow: (description: string) => post<{ id: string }>("/workbench/requests", { description }),
     draftFollowUp:   (body: { who: string; lastTouch: string; wantToSay: string }) => post<OutputItem>("/workbench/follow-up", body),
+  },
+
+  day: {
+    get: () => get<DayPayload>("/day"),
+    saveProfile: (body: DayAnswersPayload) => put<DayProfile>("/day/profile", body),
+    addAccount: (body: { realm: "professional" | "personal"; kind: "email" | "calendar" | "other"; provider: "gmail" | "outlook" | "apple" | "other"; label: string }) =>
+      post<DeclaredAccount>("/day/accounts", body),
+    removeAccount: (id: string) => del<{ ok: boolean }>(`/day/accounts/${id}`),
+    updateBlock: (id: string, action: "schedule" | "done" | "dismiss") =>
+      patch<DayBlock>(`/day/blocks/${id}`, { action }),
   },
 
   // ── Tier services ──────────────────────────────────────────────────────────
@@ -201,6 +213,60 @@ export interface WorkflowListItem {
 export interface HoursSavedData {
   runs: { runAt: string; summary: string | null; outputCount: number }[];
   approved: number; totalRuns: number;
+}
+export interface DayAnswersPayload {
+  timezone: string;
+  workDays: number[];
+  startMin: number;
+  endMin: number;
+  typicalDay: string[];
+  typicalNote?: string;
+  dayScope?: "individual" | "team";
+  teamNote?: string;
+}
+export interface DayProfile {
+  timezone: string;
+  workDays: number[];
+  startMin: number;
+  endMin: number;
+  typicalDay: string[];
+  typicalNote: string | null;
+  scope: "individual" | "team";
+  teamNote: string | null;
+}
+export interface DeclaredAccount {
+  id: string;
+  realm: string;
+  kind: string;
+  provider: string;
+  label: string;
+}
+export interface DayBlock {
+  id: string;
+  suggestionKey: string;
+  realm: string;
+  title: string;
+  detail: string;
+  efficiency: string;
+  skillSlug: string | null;
+  startMin: number;
+  endMin: number;
+  status: string;
+  source: string;
+}
+export interface DayPayload {
+  profile: DayProfile | null;
+  bizSize: string | null;
+  accounts: DeclaredAccount[];
+  date: string;
+  weekday: number;
+  isWorkDay: boolean;
+  blocks: DayBlock[];
+  reminders: {
+    consultations: { id: string; title: string; scheduledAt: string | null; durationMin: number }[];
+    actionItems: { id: string; text: string; dueAt: string | null }[];
+    drafts: { id: string; type: string; subject: string; content: string; status: string; workflowName: string }[];
+  };
 }
 export interface ClientMsg {
   id: string; clientId: string; body: string;

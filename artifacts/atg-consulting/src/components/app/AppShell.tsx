@@ -17,9 +17,9 @@ const navItems = [
   { label: "Account",       to: "/app/account",          icon: "◉" },
 ];
 
-interface Props { children: React.ReactNode }
+interface Props { children: React.ReactNode; wide?: boolean }
 
-export default function AppShell({ children }: Props) {
+export default function AppShell({ children, wide = false }: Props) {
   const { isLoaded, isSignedIn } = useUser();
   const { account } = useAccount();
   const [location] = useLocation();
@@ -119,7 +119,7 @@ export default function AppShell({ children }: Props) {
 
       {/* Main */}
       <main className="flex-1 min-w-0 overflow-auto pb-20 md:pb-0">
-        <div className="p-5 sm:p-8 max-w-content mx-auto">
+        <div className={wide ? "p-5 sm:p-8" : "p-5 sm:p-8 max-w-content mx-auto"}>
           {children}
         </div>
       </main>

@@ -10,6 +10,8 @@ import { useLocation } from "wouter";
 import type { Area, BizSize, PreferredHelp, Tool, TimeSink } from "@/types/intake";
 import { AREA_LABELS, AREA_DESCRIPTIONS, BIZ_SIZE_LABELS, PREFERRED_HELP_LABELS, AI_COMFORT_LABELS, TOOL_LABELS, TIME_SINK_LABELS, AREA_TIME_SINKS } from "@/types/intake";
 import { VERTICALS } from "@/content/verticals";
+import { DayFields } from "@/components/day/DayFields";
+import { dayAnswersError, defaultDayAnswers, type DayAnswers } from "@/lib/day";
 
 // ── Question definitions ──────────────────────────────────────────────────────
 type FieldKey =
@@ -17,13 +19,14 @@ type FieldKey =
   | "bizSize" | "areas" | "aiComfort"
   | "tools" | "timeSinks" | "automateFirst"
   | "hoursLost" | "preferredHelp" | "freeText"
-  | "toolBudget" | "currentSoftware" | "weeklyVolumes";
+  | "toolBudget" | "currentSoftware" | "weeklyVolumes"
+  | "day";
 
 interface QuestionDef {
   key: FieldKey;
   prompt: string;
   sub?: string;
-  type: "text" | "email" | "radio" | "multi" | "slider" | "textarea";
+  type: "text" | "email" | "radio" | "multi" | "slider" | "textarea" | "day";
   options?: { value: string; label: string; sub?: string }[];
   optional?: boolean;
   skip?: (data: Partial<FormData>) => boolean;
@@ -36,7 +39,7 @@ type FormData = {
   automateFirst: string; hoursLost: number;
   preferredHelp: PreferredHelp; freeText: string; honeypot: string;
   toolBudget: string; currentSoftware: string; weeklyVolumes: string;
-};
+} & DayAnswers;
 
 const TOOL_BUDGETS = [
   { value: "<$50/mo",      label: "Under $50 / month" },
@@ -59,6 +62,7 @@ const DEFAULT: FormData = {
   tools: [], timeSinks: [], automateFirst: "",
   hoursLost: 10, preferredHelp: "not_sure", freeText: "", honeypot: "",
   toolBudget: "", currentSoftware: "", weeklyVolumes: "",
+  ...defaultDayAnswers(),
 };
 
 const AREAS: Area[] = ["executive_assistant", "marketing", "sales", "customer_support"];
@@ -105,6 +109,12 @@ function buildQuestions(data: Partial<FormData>): QuestionDef[] {
     {
       key: "timeSinks", prompt: "What eats the most of your time?", sub: "Based on your selected areas.", type: "multi",
       options: relevantSinks.map((s) => ({ value: s, label: TIME_SINK_LABELS[s] })),
+    },
+    {
+      key: "day",
+      prompt: "When do you work, and what does a typical day look like?",
+      sub: "This is what your dashboard is built from. A small team can mark a shared day.",
+      type: "day",
     },
     { key: "automateFirst", prompt: "If someone could handle one task for you starting tomorrow, what would it be?", sub: "Don't overthink it — the first thing that came to mind is probably the right answer.", type: "text", optional: true },
     { key: "hoursLost", prompt: "Roughly how many hours per week do repetitive tasks take up?", sub: "Emails, follow-ups, writing, scheduling, admin — add it up.", type: "slider" },
@@ -221,18 +231,23 @@ export default function IntakeForm({ preselectedTier }: { preselectedTier?: "don
   const q = questions[qIdx];
   const isLast = qIdx === questions.length - 1;
 
-  // Focus input on question change
+  // Focus and restore this question's saved answer only when the step changes.
+  // `questions` is rebuilt every render, so `q` is a new object each time and
+  // must not be a dependency — otherwise every keystroke resets the field.
   useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 80);
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 80);
     setError(null);
-    // Pre-fill current value from data
-    if (!q) return;
-    if (q.type === "text" || q.type === "email" || q.type === "textarea") {
-      setCurrentValue((data[q.key] as string) ?? "");
-    } else if (q.type === "slider") {
-      setCurrentValue(String((data[q.key] as number) ?? 10));
+    if (q) {
+      if ((q.type === "text" || q.type === "email" || q.type === "textarea") && q.key !== "day") {
+        const saved = data[q.key];
+        setCurrentValue(typeof saved === "string" ? saved : "");
+      } else if (q.type === "slider") {
+        setCurrentValue(String(data.hoursLost ?? 10));
+      }
     }
-  }, [qIdx, q]);
+    return () => clearTimeout(focusTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on step change
+  }, [qIdx]);
 
   // Keyboard: number keys for radio/multi
   useEffect(() => {
@@ -310,6 +325,10 @@ export default function IntakeForm({ preselectedTier }: { preselectedTier?: "don
       if (q.key === "tools" && data.tools.length === 0) { setError("Please select at least one."); return false; }
       if (q.key === "timeSinks" && data.timeSinks.length === 0) { setError("Please select at least one."); return false; }
     }
+    if (q.type === "day") {
+      const problem = dayAnswersError(data, data.bizSize);
+      if (problem) { setError(problem); return false; }
+    }
     return true;
   }
 
@@ -329,7 +348,13 @@ export default function IntakeForm({ preselectedTier }: { preselectedTier?: "don
   }
 
   function back() {
-    if (qIdx > 0) { commitCurrent(); setQIdx((i) => i - 1); }
+    if (qIdx > 0) {
+      commitCurrent();
+      setQIdx((i) => i - 1);
+      return;
+    }
+    if (window.history.length > 1) window.history.back();
+    else setLocation("/");
   }
 
   async function submit() {
@@ -339,6 +364,9 @@ export default function IntakeForm({ preselectedTier }: { preselectedTier?: "don
       const payload = { ...data };
       if (payload.automateFirst === "") payload.automateFirst = undefined as unknown as string;
       if (payload.freeText === "") payload.freeText = undefined as unknown as string;
+      if (payload.typicalNote === "") payload.typicalNote = undefined as unknown as string;
+      if (payload.teamNote === "") payload.teamNote = undefined as unknown as string;
+      if (payload.bizSize !== "2-10") payload.dayScope = "individual";
       const res = await fetch("/api/intake", {
         method: "POST",
         credentials: "include",
@@ -478,6 +506,13 @@ export default function IntakeForm({ preselectedTier }: { preselectedTier?: "don
               })}
             </div>
           )}
+          {q.type === "day" && (
+            <DayFields
+              value={data}
+              bizSize={data.bizSize}
+              onChange={(next) => setData((d) => ({ ...d, ...next }))}
+            />
+          )}
           {q.type === "multi" && q.options && (
             <div className="flex flex-wrap gap-2">
               {q.options.map((opt) => {
@@ -508,8 +543,8 @@ export default function IntakeForm({ preselectedTier }: { preselectedTier?: "don
         {/* Navigation */}
         <div className="flex items-center justify-between gap-4">
           <button
-            type="button" onClick={back} disabled={qIdx === 0}
-            className="btn-ghost" style={{ visibility: qIdx === 0 ? "hidden" : "visible" }}
+            type="button" onClick={back}
+            className="btn-ghost"
           >
             ← Back
           </button>
