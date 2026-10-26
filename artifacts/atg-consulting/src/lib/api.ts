@@ -64,6 +64,13 @@ export const api = {
     draftFollowUp:   (body: { who: string; lastTouch: string; wantToSay: string }) => post<OutputItem>("/workbench/follow-up", body),
   },
 
+  knowledge: {
+    list:           () => get<KnowledgeArticle[]>("/knowledge"),
+    bySlug:         (slug: string) => get<KnowledgeArticle>(`/knowledge/${slug}`),
+    platformGuides: () => get<{ id: string; slug: string; title: string; body: string }[]>("/resources/platform-guides"),
+    resources:      () => get<ResourcesPayload>("/resources/tools"),
+  },
+
   tools: {
     list:   () => get<ATGTool[]>("/tools"),
     bySlug: (slug: string) => get<ATGTool>(`/tools/${slug}`),
@@ -439,6 +446,27 @@ export const portalApi = {
 
 
 // ── Client intake (for account page) ─────────────────────────────────────────
+export interface KnowledgeArticle {
+  id: string;
+  slug: string;
+  title: string;
+  body: string;
+  tags: { verticals: string[]; tiers: string[]; platforms: string[] };
+  sortOrder?: number;
+}
+
+export interface ResourceTool {
+  name: string; slug: string | null; why: string; costNote: string;
+  goUrl: string | null; officialUrl: string | null; description: string | null;
+  category: string | null; hasReferral: boolean;
+}
+
+export interface ResourcesPayload {
+  planTools: ResourceTool[];
+  featuredTools: ResourceTool[];
+  affiliateDisclosure: string;
+}
+
 export interface ATGTool {
   id: string;
   slug: string;
