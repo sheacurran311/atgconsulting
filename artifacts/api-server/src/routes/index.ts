@@ -23,8 +23,18 @@ import goRouter from "./go";
 import knowledgeRouter from "./knowledge";
 import aiAssistRouter from "./ai-assist";
 import installVerifyRouter from "./install-verify";
+import impersonateRouter from "./impersonate";
+import { blockIfImpersonating } from "../lib/impersonate";
 
 const router: IRouter = Router();
+
+// Global impersonation mutation guard — runs before all route handlers.
+// Admin routes are excluded (impersonation toggle itself must pass through).
+// GET/HEAD always pass through.
+router.use((req, res, next) => {
+  if (req.path.startsWith("/admin/impersonate")) { next(); return; }
+  blockIfImpersonating(req, res, next);
+});
 
 router.use(healthRouter);
 router.use(intakeRouter);
@@ -50,5 +60,6 @@ router.use(goRouter);
 router.use(knowledgeRouter);
 router.use(aiAssistRouter);
 router.use(installVerifyRouter);
+router.use(impersonateRouter);
 
 export default router;

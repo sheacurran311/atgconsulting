@@ -50,13 +50,18 @@ async function gateAccess(
 ): Promise<{ clientId: string; tier: string } | null> {
   if (!gateEnabled(res)) return null;
 
-  const clientId = req.atgUser?.clientId;
+  // When admin is impersonating: use effectiveClientId for context but never count quota
+  const isImp = req.atgUser?.isImpersonating ?? false;
+  const clientId = isImp
+    ? (req.atgUser?.effectiveClientId ?? null)
+    : (req.atgUser?.clientId ?? null);
+
   if (!clientId) {
     res.status(403).json({ error: "Complete the intake first to access AI Assist." });
     return null;
   }
 
-  if (!checkRateLimit(clientId)) {
+  if (!isImp && !checkRateLimit(clientId)) {
     res.status(429).json({ error: "Too many requests. Wait a minute before trying again." });
     return null;
   }
@@ -64,13 +69,16 @@ async function gateAccess(
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { tier: true } });
   const tier = client?.tier ?? "NONE";
 
-  const { allowed, used, cap } = await checkAndUpdateUsage(clientId, tier, feature, estimatedTokens);
-  if (!allowed) {
-    res.status(429).json({
-      error: `Monthly AI usage limit reached (${used.toLocaleString()} / ${cap.toLocaleString()} tokens). Limit resets next month.`,
-      used, cap,
-    });
-    return null;
+  if (!isImp) {
+    // Only count quota for real (non-impersonating) calls
+    const { allowed, used, cap } = await checkAndUpdateUsage(clientId, tier, feature, estimatedTokens);
+    if (!allowed) {
+      res.status(429).json({
+        error: `Monthly AI usage limit reached (${used.toLocaleString()} / ${cap.toLocaleString()} tokens). Limit resets next month.`,
+        used, cap,
+      });
+      return null;
+    }
   }
 
   return { clientId, tier };

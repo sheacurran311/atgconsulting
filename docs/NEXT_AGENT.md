@@ -94,6 +94,7 @@ Merge in this exact order. Each PR may depend on the previous.
 | **#28** | `cursor/verified-installs-c8a4` | Verified installs: ATG-XXXX codes, verify flow, explainer text | **YES** (WorkflowInstallCode + ClientWorkflowSettings.installStatus) | No |
 | **#29** | `cursor/skill-export-c8a4` | Skill export fixes: human-readable SKILL.md, static routine prompts, platform install docs, personalization, reset fix | **YES** (WorkflowTemplate.platformReadyMade) | No |
 | **#30** | `cursor/playbook-install-c8a4` | Install guides in admin playbook for GUIDED + DFY; per-workflow per-platform operator notes | No | No |
+| **#31** | `cursor/view-as-client-c8a4` | Admin 'View as client' impersonation: signed cookie, mutation block, AI quota bypass, audit log, test client | No | No |
 
 After merging all four, run `pnpm db:push` once to apply all pending schema changes.
 

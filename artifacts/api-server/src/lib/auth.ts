@@ -17,6 +17,7 @@
 import { getAuth, clerkClient } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
 import { prisma } from "./db";
+import { IMP_COOKIE } from "./impersonate";
 
 export interface ATGUser {
   id: string;          // our internal User.id (cuid)
@@ -26,6 +27,13 @@ export interface ATGUser {
   imageUrl: string | null;
   role: "CLIENT" | "ADMIN";
   clientId: string | null; // Client.id if exists
+
+  // Impersonation fields — set when admin uses "View as client"
+  isImpersonating: boolean;
+  /** When impersonating: the client's id the admin is viewing as */
+  effectiveClientId: string | null;
+  /** Whether edits are allowed during this impersonation session */
+  impersonateAllowEdits: boolean;
 }
 
 // ── Admin email list ──────────────────────────────────────────────────────────
@@ -89,7 +97,7 @@ export async function resolveUser(req: Request): Promise<ATGUser | null> {
   });
 
   const user = identity.user;
-  return {
+  const baseUser: ATGUser = {
     id: user.id,
     clerkId,
     email,
@@ -97,7 +105,31 @@ export async function resolveUser(req: Request): Promise<ATGUser | null> {
     imageUrl,
     role: role as "CLIENT" | "ADMIN",
     clientId: user.client?.id ?? null,
+    isImpersonating: false,
+    effectiveClientId: null,
+    impersonateAllowEdits: false,
   };
+
+  // ── Impersonation cookie check ──────────────────────────────────────────────
+  // Only honored when the real Clerk user is admin.
+  if (role === "ADMIN") {
+    const rawCookie = (req.cookies as Record<string, string> | undefined)?.[IMP_COOKIE];
+    if (rawCookie) {
+      const { verify: verifyImp } = await import("./impersonate");
+      const token = verifyImp(rawCookie);
+      if (token && token.adminId === user.id) {
+        return {
+          ...baseUser,
+          isImpersonating: true,
+          effectiveClientId: token.clientId,
+          impersonateAllowEdits: token.allowEdits,
+          // clientId stays the admin's own clientId for identity; routes use effectiveClientId
+        };
+      }
+    }
+  }
+
+  return baseUser;
 }
 
 // ── Express middleware helpers ────────────────────────────────────────────────
