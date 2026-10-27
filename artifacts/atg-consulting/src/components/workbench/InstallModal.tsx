@@ -17,42 +17,52 @@ const PLATFORM_LABELS: Record<Platform, string> = {
   chatgpt:  "ChatGPT",
 };
 
-const PLATFORM_SETUP: Record<Platform, { sub: string; steps: string[]; scheduleNote: string }> = {
+interface ReadyMadeAlternative { name: string; url: string; note: string }
+interface PlatformSetup {
+  sub: string;
+  readyMade?: ReadyMadeAlternative; // show above manual steps when present
+  steps: string[];
+  scheduleNote: string;
+  claudeZipNote?: string;
+}
+
+const PLATFORM_SETUP: Record<Platform, PlatformSetup> = {
   grok_bot: {
-    sub: "xAI's Grok Bot supports custom actions and scheduled routines. Recommended for ATG workflows.",
+    sub: "Grok Bot (x.com/grok) supports a skill library and routine creation via chat. Recommended for ATG workflows.",
+    // Note: Grok Bot's pre-built templates exist — admin can add per-workflow alternatives via platformReadyMade field
     steps: [
-      "Download the SKILL.md file below.",
-      "Open Grok Bot at x.com/grok and start a new conversation.",
-      "Paste the SKILL.md content into the system prompt of a custom action.",
-      "In 'Scheduled Tasks', create a new task, paste the trigger prompt, and set your schedule (daily, weekly, etc.).",
-      "Add the accounts it needs under 'Connections' in your Grok settings (e.g. Gmail, Google Calendar).",
-      "Run a test message to confirm output — approve or edit before anything is sent.",
+      "Open Grok Bot at grok.com and sign in with your X Premium account.",
+      "Go to the 'Skills' tab in the sidebar. Click 'Add skill' → 'Import from file' and upload your SKILL.md.",
+      "Your skill is now saved to your library. Trigger it anytime by typing '/' followed by the skill name in any Grok conversation.",
+      "To run it on a schedule: start a chat with Grok and say 'Create a routine that runs [skill name] every [day/week] at [time].' Grok will set up the routine for you.",
+      "For the first run, copy the output and verify it looks right before using it. Nothing is sent automatically.",
     ],
-    scheduleNote: "Grok Bot can run scheduled tasks daily or weekly and posts results to your chosen channel.",
+    scheduleNote: "Grok Bot routines can run daily or weekly. You create them by talking to Grok in chat — no code needed.",
   },
   claude: {
-    sub: "Claude Projects with custom instructions and scheduled prompts via the Claude API or zapier.com/claude.",
+    sub: "Claude (claude.ai) uses Projects and Skills for persistent instructions. Scheduling requires Zapier or Make.",
     steps: [
-      "Download the SKILL.md file below.",
-      "Open Claude (claude.ai) and create a new Project.",
-      "Paste the SKILL.md content into the Project Instructions field.",
-      "To schedule the workflow: connect Claude to your tools via a no-code platform (e.g. Zapier, Make.com) and set your trigger (time-based or event-based).",
-      "Connect your email/calendar in the integration platform — not in Claude directly.",
-      "Review every output before sending; never set auto-send.",
+      "Open claude.ai and click 'New Project' in the sidebar.",
+      "In the Project, click 'Project Settings' → 'Skills' tab → 'Upload ZIP'. Create a ZIP file named after this skill (e.g. lead-follow-up.zip) containing your SKILL.md (renamed to skill.md).",
+      "Alternatively: paste the SKILL.md contents into 'Project Instructions' if you don't want to use the Skills tab.",
+      "To run on a schedule: connect Claude to Zapier (zapier.com) with a 'Schedule' trigger, then a 'Claude: Send Message' action using the routine prompt from your SKILL.md.",
+      "Add your email or calendar as a subsequent step in Zapier — route the output to a draft for your review.",
+      "Always review Claude's output before using it. Never configure auto-send.",
     ],
-    scheduleNote: "Claude itself does not have built-in scheduling. Use Zapier or Make.com to trigger Claude on a schedule.",
+    scheduleNote: "Claude does not have built-in scheduling. Use Zapier or Make.com to trigger Claude on a time-based schedule.",
+    claudeZipNote: "Download a Claude-ready ZIP: your SKILL.md is packaged as skill.md inside a folder named after this workflow.",
   },
   chatgpt: {
-    sub: "ChatGPT GPT Actions and scheduled tasks via the ChatGPT API or Zapier.",
+    sub: "ChatGPT (chatgpt.com) uses custom GPTs and the GPT Store for persistent skills. Scheduled Tasks available for Plus/Team.",
     steps: [
-      "Download the SKILL.md file below.",
-      "Go to chatgpt.com, click 'Explore GPTs', and create a new GPT.",
-      "Paste the SKILL.md content into the System Prompt field.",
-      "Under 'Actions', connect your email or calendar tools (Gmail, Outlook, Google Calendar).",
-      "To schedule: use Zapier or Make.com to trigger this GPT on your preferred schedule.",
-      "Review every output before it leaves your system; set approvals at each step.",
+      "Go to chatgpt.com → 'Explore GPTs' → 'Create'. Give your GPT a name matching this workflow.",
+      "In the 'Instructions' field, paste the entire System Prompt section from your SKILL.md.",
+      "Under 'Actions', you can connect Gmail or Google Calendar using their official schemas (available from platform.openai.com/docs).",
+      "To schedule (ChatGPT Plus/Team): open a chat with ChatGPT and ask it to 'Set a scheduled task to run [workflow name] every [day] at [time].' ChatGPT's Tasks feature will handle the timing.",
+      "Note: Skills (within GPTs) are available on Business, Enterprise, and Education plans only — not Plus.",
+      "Always review the output before using it. Set the GPT to produce a draft, not to send directly.",
     ],
-    scheduleNote: "ChatGPT GPT Actions can connect to apps. Scheduling requires Zapier or Make.com.",
+    scheduleNote: "ChatGPT Scheduled Tasks work in the main chat (not inside a GPT). Available for Plus and above. GPT Actions can connect to apps via API.",
   },
 };
 
@@ -196,9 +206,31 @@ export default function InstallModal({
             </a>
           </div>
 
+          {/* Ready-made alternative — shown when available */}
+          {setup.readyMade && (
+            <div className="rounded-xl p-4" style={{ background: "rgba(34,197,94,0.05)", border: "1px solid rgba(34,197,94,0.2)" }}>
+              <p className="font-mono text-2xs mb-1" style={{ color: "#16A34A", letterSpacing: "0.08em" }}>READY-MADE ALTERNATIVE</p>
+              <p className="text-sm font-semibold mb-1" style={{ color: "var(--canvas-text)" }}>{setup.readyMade.name}</p>
+              <p className="text-xs mb-2" style={{ color: "var(--canvas-text-2)" }}>{setup.readyMade.note}</p>
+              <a
+                href={setup.readyMade.url}
+                target="_blank" rel="noopener noreferrer"
+                className="btn-secondary text-sm"
+                style={{ padding: "6px 12px" }}
+              >
+                Open ready-made version ↗
+              </a>
+            </div>
+          )}
+
           {/* Step-by-step */}
           <div>
-            <p className="font-mono text-2xs mb-3" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>STEP-BY-STEP SETUP IN {PLATFORM_LABELS[platform].toUpperCase()}</p>
+            <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>
+              {setup.readyMade ? "OR: MANUAL SETUP IN" : "SETUP IN"} {PLATFORM_LABELS[platform].toUpperCase()}
+            </p>
+            {setup.claudeZipNote && (
+              <p className="text-xs mb-2" style={{ color: "var(--blue)" }}>{setup.claudeZipNote}</p>
+            )}
             <ol className="space-y-2.5">
               {setup.steps.map((step, i) => (
                 <li key={i} className="flex gap-3 text-sm">
@@ -213,7 +245,7 @@ export default function InstallModal({
               ))}
             </ol>
             <p className="text-xs mt-3" style={{ color: "var(--canvas-text-3)" }}>
-              <strong>Approval rule:</strong> {setup.scheduleNote}
+              <strong>Schedule note:</strong> {setup.scheduleNote}
             </p>
           </div>
 

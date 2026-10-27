@@ -581,6 +581,12 @@ model WorkflowTemplate {
   /// Plain-English description of the expected JSON output shape
   outputFormat     String   @default("")
 
+  /// JSON: { grok_bot?: {name,url,note}, claude?: {name,url,note}, chatgpt?: {name,url,note} }
+  /// Admin-editable: pre-built alternatives shown above the manual install steps.
+  /// Leave blank or null for workflows with no ready-made alternative.
+  /// Only link real, verified items — never invent alternatives.
+  platformReadyMade String   @default("{}")
+
   enabled          Boolean  @default(true)
   version          Int      @default(1)
   createdAt        DateTime @default(now())

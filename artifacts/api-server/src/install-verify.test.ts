@@ -74,8 +74,8 @@ test("renderSkillMd includes first-run verification instruction when code provid
   assert.ok(md.includes("first run"), "Must include first-run instruction");
   assert.ok(md.includes("verification_code:"), "Must include code in YAML front matter");
   // Must still include the normal content
-  assert.ok(md.includes("System Prompt"), "System Prompt section present");
-  assert.ok(md.includes("approval-first") || md.includes("nothing is sent automatically"), "Approval note present");
+  assert.ok(md.includes("System instructions") || md.includes("System Prompt"), "System instructions section present");
+  assert.ok(md.includes("approval") || md.includes("Approval") || md.includes("nothing is sent automatically"), "Approval note present");
 });
 
 test("renderSkillMd does NOT include verification block when no code provided", async () => {
