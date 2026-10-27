@@ -40,7 +40,11 @@ const faqs = [
   },
   {
     q: "Can I upgrade between tiers?",
-    a: "Yes. [Upgrade and credit policy — to be set by Shea.] Done-for-you is also offered as an upgrade after completing Guided.",
+    a: "Yes. Contact Shea to discuss upgrading — any amount you've already paid toward a lower tier will be discussed at that time. Done-for-you is also offered as an upgrade after completing Guided.",
+  },
+  {
+    q: "What if I want a refund?",
+    a: "Self-serve: full refund within 30 days, even after your report is delivered. Guided sessions: full refund if no sessions have taken place; if some have, you're refunded for the unused ones. Done-for-you: full refund before work starts; your 30% deposit becomes non-refundable once work begins. See the full Refund Policy at atgconsulting.io/refunds.",
   },
   {
     q: "Is my data safe?",

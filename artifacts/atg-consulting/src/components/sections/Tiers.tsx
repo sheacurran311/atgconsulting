@@ -4,8 +4,6 @@ const BOOKING_URL = typeof window !== "undefined"
   ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book")
   : "#book";
 
-// Tier descriptions map to NONE/SELF_SERVE/GUIDED/WHITE_GLOVE enum.
-// Prices stay [$ placeholder] until Shea sets them.
 const TIERS = [
   {
     id: "self",
@@ -14,7 +12,9 @@ const TIERS = [
     tagline: "A personalised plan you run yourself.",
     sheaRole: "You get Shea's expertise as a deliverable.",
     sheaDetail: "Complete the intake and get your personalised report immediately — no waiting. The report includes a diagnosis of your situation, a recommended tool stack, setup guides for your AI platform (Grok Bot, Claude, or ChatGPT), and the workflows to install first. Email support within 2 business days.",
-    price: "[$ placeholder]",
+    price: "$197",
+    priceNote: "Founding price",
+    priceStrike: "$297",
     cta: "Get started",
     ctaHref: "/start?tier=self_serve",
     external: false,
@@ -35,7 +35,9 @@ const TIERS = [
     tagline: "A package of live 1:1 sessions with Shea.",
     sheaRole: "Shea builds with you, directly.",
     sheaDetail: "Same automated report as Self-serve, PLUS Shea joins you on live calls to guide the full install of your tools and workflows — screen-share, walk-through, and hands-on configuration. Sessions recorded with your consent so you get a recap. Ongoing check-ins and updated reports as your business changes.",
-    price: "[$ placeholder]",
+    price: "$997",
+    priceNote: "3 × 90-min sessions",
+    priceAlt: "$1,497 for 5 sessions",
     cta: "Book a session",
     ctaHref: BOOKING_URL,
     external: true,
@@ -43,7 +45,7 @@ const TIERS = [
     badge: "Most popular",
     includes: [
       "Everything in Self-serve (automated report included)",
-      "A package of 1:1 video sessions — Shea guides the full install",
+      "3 × 90-min 1:1 sessions with Shea (or 5 × for $1,497)",
       "Screen-share setup: your tools, your AI platform, your workflows",
       "Session recordings (with your consent) — recap available after each call",
       "Direct message thread with Shea between sessions",
@@ -57,8 +59,9 @@ const TIERS = [
     name: "Done-for-you",
     tagline: "Shea builds, runs, and tunes it. You approve output.",
     sheaRole: "Shea is your operator.",
-    sheaDetail: "Up to 3 custom workflows designed, built, and run by Shea. You approve the output; she handles everything else. By application — limited spots, waitlist when full.",
-    price: "[$ placeholder]",
+    sheaDetail: "Up to 3 custom workflows designed, built, and run by Shea. You approve the output; she handles everything else. By application — limited spots, waitlist when full. Optional $750/mo care plan for ongoing monitoring and tuning.",
+    price: "From $3,500",
+    priceNote: "By application only",
     cta: "Apply",
     ctaHref: "/start?tier=done_for_you",
     external: false,
@@ -66,8 +69,9 @@ const TIERS = [
     includes: [
       "Up to 3 custom workflows, designed for your business",
       "Shea builds, runs, and monitors them",
+      "You approve every output before it's used",
       "Monthly tuning and check-ins",
-      "Everything in Guided",
+      "Optional $750/mo care plan",
     ],
   },
 ];
@@ -87,7 +91,8 @@ export default function Tiers() {
             Your plan, your level of involvement.
           </h2>
           <p className="text-base" style={{ color: "var(--canvas-text-2)" }}>
-            All prices stay as [$ placeholder] until Shea sets them. Each tier includes the one below it.
+            Simple, flat pricing. 30-day refund on Self-serve and unused Guided sessions.{" "}
+            <Link to="/refunds"><span className="underline" style={{ color: "var(--blue-btn)" }}>See refund policy →</span></Link>
           </p>
         </div>
 
@@ -124,7 +129,29 @@ export default function Tiers() {
                   <p className="text-xs leading-relaxed" style={{ color: t.featured ? "var(--ink-text-2)" : "var(--canvas-text-2)" }}>{t.sheaDetail}</p>
                 </div>
 
-                <p className="font-extrabold text-2xl mb-5" style={{ color: t.featured ? "var(--blue)" : "var(--canvas-text)", letterSpacing: "-0.025em" }}>{t.price}</p>
+                {/* Price block */}
+                <div className="mb-5">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <p className="font-extrabold text-2xl" style={{ color: t.featured ? "var(--blue)" : "var(--canvas-text)", letterSpacing: "-0.025em" }}>
+                      {t.price}
+                    </p>
+                    {"priceStrike" in t && (
+                      <p className="text-sm line-through" style={{ color: t.featured ? "rgba(255,255,255,0.4)" : "var(--canvas-text-3)" }}>
+                        {(t as { priceStrike: string }).priceStrike}
+                      </p>
+                    )}
+                    {"priceNote" in t && (
+                      <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: t.featured ? "rgba(255,255,255,0.1)" : "var(--canvas-2)", color: t.featured ? "rgba(255,255,255,0.7)" : "var(--canvas-text-3)", letterSpacing: "0.05em" }}>
+                        {(t as { priceNote: string }).priceNote}
+                      </span>
+                    )}
+                  </div>
+                  {"priceAlt" in t && (
+                    <p className="text-xs mt-1" style={{ color: t.featured ? "rgba(255,255,255,0.6)" : "var(--canvas-text-3)" }}>
+                      or {(t as { priceAlt: string }).priceAlt}
+                    </p>
+                  )}
+                </div>
 
                 <ul className="space-y-2 flex-1 mb-6">
                   {t.includes.map((f) => (
@@ -166,7 +193,10 @@ export default function Tiers() {
 
         <p className="mt-8 text-xs text-center" style={{ color: "var(--canvas-text-3)" }}>
           Done-for-you is by application only. Limited spots — a waitlist opens when capacity is full.
-          Workflows are portable: any workflow Shea builds can be exported as a SKILL.md for your own AI tools.
+          Optional $750/mo care plan available after setup.
+          All prices are USD.{" "}
+          <Link to="/refunds"><span className="underline">30-day refund policy</span></Link>{" · "}
+          <Link to="/terms"><span className="underline">Terms</span></Link>
         </p>
       </div>
     </section>

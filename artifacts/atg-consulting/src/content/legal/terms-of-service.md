@@ -1,7 +1,7 @@
 <!-- DRAFT: not legal advice; have a Colorado attorney review before publishing. Delete this line to publish. -->
 # Terms of Service
 
-**Last updated:** [PLACEHOLDER DATE]
+**Last updated:** October 27, 2026
 
 These Terms of Service ("Terms") are an agreement between you and ATG Consulting LTD ("ATG," "we," "us"). They cover your use of atgconsulting.io, the client portal, and our consulting services. By creating an account or buying a service, you agree to these Terms. Questions: shea@atgconsulting.io.
 
@@ -13,7 +13,7 @@ ATG helps businesses adopt AI. We diagnose how your business works, recommend to
 - **Guided.** Everything in Self-serve, plus 1:1 video build sessions with ATG, session recordings and recaps (with your consent), ongoing support, and updated reports. Sold as session packages.
 - **Done-for-you.** By application only. ATG builds your setup in your own accounts using access you grant and can revoke. Optional monthly care is available. A separate written scope or statement of work may apply; if it conflicts with these Terms, the statement of work controls.
 
-Current prices are shown at checkout: [PLACEHOLDER: prices per tier].
+Current prices are shown on our website and at checkout.
 
 ## 3. Accounts
 You must be at least 18 and able to enter a contract for your business. Keep your login secure. Sign-in is handled by our authentication provider, Clerk. You are responsible for activity under your account.
@@ -54,7 +54,7 @@ We recommend third-party tools. Some links are referral or affiliate links, so A
 We don't guarantee specific business results, such as time saved, revenue, or leads. Results depend on your business, your tools, and how you use them. To the extent allowed by law, services are provided "as is."
 
 ## 13. Limitation of liability
-To the extent allowed by law, ATG is not liable for indirect, incidental, or consequential damages, or for the actions of third-party tools or AI assistants. Our total liability for any claim is limited to the amount you paid ATG in the [PLACEHOLDER: 12] months before the claim.
+To the extent allowed by law, ATG is not liable for indirect, incidental, or consequential damages, or for the actions of third-party tools or AI assistants. Our total liability for any claim is limited to the amount you paid ATG in the 12 months before the claim.
 
 ## 14. Third-party services
 Your AI assistants, connectors, and other tools are provided by third parties. We are not responsible for their outages, changes, pricing, or data practices.
@@ -66,7 +66,7 @@ You can stop using the service and close your account at any time. We may suspen
 We may update these Terms. We'll post the new date here and email you about material changes.
 
 ## 17. Governing law
-These Terms are governed by Colorado law. Disputes will be resolved in the state or federal courts in [PLACEHOLDER: county], Colorado. [PLACEHOLDER: informal resolution or arbitration clause, if desired.]
+These Terms are governed by Colorado law. Before filing any claim, you and ATG agree to try to resolve the dispute informally for 30 days, starting when one side emails the other a written description of the issue (ATG at shea@atgconsulting.io). If it isn't resolved, disputes will be heard in the state or federal courts located in Douglas County, Colorado.
 
 ## 18. Contact
 ATG Consulting LTD · Colorado, USA · shea@atgconsulting.io
