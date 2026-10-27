@@ -1,6 +1,7 @@
 import { Link, useLocation, Redirect } from "wouter";
 import { useAccount } from "@/lib/useAccount";
 import LogoLockup from "@/components/LogoLockup";
+import AdminSwitcher from "@/components/admin/AdminSwitcher";
 
 const navItems = [
   { label: "Clients",     to: "/admin/clients"  },
@@ -45,9 +46,12 @@ export default function AdminShell({ children }: Props) {
           <Link to="/">
             <LogoLockup variant="dark" height={28} aria-label="ATG Consulting — home" />
           </Link>
-          <span className="font-mono text-2xs mt-2 block" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
-            ADMIN CONSOLE
-          </span>
+          <div className="flex items-center justify-between mt-2">
+            <span className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
+              ADMIN CONSOLE
+            </span>
+            <AdminSwitcher />
+          </div>
         </div>
 
         <nav className="flex-1 p-2 space-y-0.5 mt-1" aria-label="Admin navigation">

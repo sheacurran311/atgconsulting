@@ -84,7 +84,10 @@ function ClientList() {
                     <td className="px-4 py-3 text-canvas-text">{c._count?.consultations ?? 0}</td>
                     <td className="px-4 py-3 text-canvas-text">{c._count?.documents ?? 0}</td>
                     <td className="px-4 py-3">
-                      <Link to={`/admin/clients/${c.id}`}><span className="text-blue text-xs font-semibold hover:underline cursor-pointer">View →</span></Link>
+                      <div className="flex items-center gap-3">
+                        <Link to={`/admin/clients/${c.id}`}><span className="text-blue text-xs font-semibold hover:underline cursor-pointer">View →</span></Link>
+                        <ViewAsClientButton clientId={c.id} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -593,6 +596,33 @@ function ClientWorkflowsTab({ clientId }: { clientId: string }) {
 }
 
 // ── Personalize button ────────────────────────────────────────────────────────
+function ViewAsClientButton({ clientId }: { clientId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [, setLocation] = (useState(null), [null, (v: string) => { window.location.href = v; }]);
+
+  async function viewAs() {
+    setLoading(true);
+    await fetch("/api/admin/impersonate", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId }),
+    }).catch(() => null);
+    window.location.href = "/app";
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={viewAs}
+      disabled={loading}
+      className="text-xs underline"
+      style={{ color: "var(--canvas-text-3)", background: "none", border: "none", cursor: "pointer" }}
+    >
+      {loading ? "…" : "👁 View as"}
+    </button>
+  );
+}
+
 function PersonalizeButton({ clientId }: { clientId: string }) {
   const [running, setRunning] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);

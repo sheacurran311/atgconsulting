@@ -3,6 +3,7 @@ import { Link, useLocation, Redirect } from "wouter";
 import LogoLockup from "@/components/LogoLockup";
 import OperatorPanel from "@/components/workbench/OperatorPanel";
 import IntakeGate from "@/components/app/IntakeGate";
+import ImpersonationBanner from "@/components/app/ImpersonationBanner";
 import { useAccount } from "@/lib/useAccount";
 import { hasOperator } from "@/lib/tiers";
 
@@ -38,6 +39,7 @@ export default function AppShell({ children, wide = false }: Props) {
 
   return (
     <IntakeGate>
+    <ImpersonationBanner />
     <div className="min-h-screen flex" style={{ background: "var(--canvas)" }}>
 
       {/* Desktop sidebar */}
