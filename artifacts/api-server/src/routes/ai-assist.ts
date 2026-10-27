@@ -126,20 +126,53 @@ router.post("/ai-assist/customize-skill", async (req, res) => {
   if (!gate) return;
   const { clientId } = gate;
 
-  const template = await prisma.workflowTemplate.findUnique({ where: { slug: parsed.data.slug } });
+  const [template, ctx] = await Promise.all([
+    prisma.workflowTemplate.findUnique({ where: { slug: parsed.data.slug } }),
+    buildClientContext(clientId),
+  ]);
   if (!template) { res.status(404).json({ error: "Workflow template not found." }); return; }
 
-  const ctx = await buildClientContext(clientId);
+  // Tier check: client must have access to this workflow (respects BILLING_ENABLED bypass)
+  const { checkWorkflowAccess } = await import("../lib/access");
+  const acc = await checkWorkflowAccess(clientId, parsed.data.slug);
+  if (!acc.allowed) { res.status(403).json({ error: acc.reason }); return; }
+
   const platformLabel = { grok_bot: "Grok Bot", claude: "Claude", chatgpt: "ChatGPT" }[parsed.data.platform];
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { user: { select: { name: true } }, industry: true },
+  });
 
   const userPrompt = [
-    `Workflow: ${template.name}`,
+    `Workflow name: ${template.name}`,
     `Platform: ${platformLabel}`,
-    `Description: ${template.description ?? ""}`,
+    `Description: ${template.description}`,
+    ``,
+    `Original system prompt:`,
+    template.systemPrompt.slice(0, 1500),
+    ``,
+    `Original user prompt template:`,
+    template.userPromptTemplate.slice(0, 800),
+    ``,
     ctx?.industry ? `Client industry: ${ctx.industry}` : "",
-    ctx?.toolPlanSummary ? `Their tools:\n${ctx.toolPlanSummary}` : "",
+    client?.user?.name ? `Client / business name: ${client.user.name}` : "",
+    ctx?.toolPlanSummary ? `Their tools:\n${ctx.toolPlanSummary.slice(0, 400)}` : "",
     parsed.data.context ? `Extra context: ${sanitiseText(parsed.data.context, 500)}` : "",
   ].filter(Boolean).join("\n");
+
+  // If AI is not available, return a static customization using the template's actual prompt
+  if (!isEnabled()) {
+    const { renderSkillMd, ROUTINE_PROMPTS } = await import("../lib/templates");
+    const skillMd = renderSkillMd(template, undefined, {
+      businessName: client?.user?.name ?? undefined,
+      senderName: client?.user?.name ?? undefined,
+      industry: ctx?.industry ?? undefined,
+    });
+    const routinePrompts = ROUTINE_PROMPTS[parsed.data.slug];
+    const routinePrompt = routinePrompts?.[parsed.data.platform as keyof typeof routinePrompts] ?? "";
+    res.json({ skillMd, routinePrompt, tokens: 0, fromCache: false, staticFallback: true });
+    return;
+  }
 
   const result = await callAssist({
     system: customizerSystemPrompt(),
@@ -153,10 +186,10 @@ router.post("/ai-assist/customize-skill", async (req, res) => {
   });
   if (!result) return;
 
-  // Split on the separator
-  const parts = result.content.split("---ROUTINE---");
-  const skillMd  = (parts[0] ?? result.content).trim();
-  const routinePrompt = (parts[1] ?? "").trim();
+  // Safe split: if the separator is missing, treat all content as SKILL.md
+  const separatorIdx = result.content.indexOf("---ROUTINE---");
+  const skillMd      = (separatorIdx >= 0 ? result.content.slice(0, separatorIdx) : result.content).trim();
+  const routinePrompt = (separatorIdx >= 0 ? result.content.slice(separatorIdx + "---ROUTINE---".length) : "").trim();
 
   if (!result.fromCache) {
     await logMessages(clientId, "customize", userPrompt, result.content, result.tokens, result.model);

@@ -20,39 +20,35 @@ export const ARTICLE_SEEDS: ArticleSeed[] = [
     title: "Getting started with Grok Bot",
     body: `# Getting started with Grok Bot
 
-Grok Bot (at [x.com/grok](/go/grok-bot?src=knowledge)) is xAI's AI assistant with support for custom actions, scheduled tasks, and direct connections to Gmail and Google Calendar.
+Grok Bot (at [grok.com](/go/grok-bot?src=knowledge)) is xAI's AI assistant. It has a skill library you can add ATG workflows to, and a routine builder you create by chatting with Grok.
 
 ## What you need
-- An X Premium subscription
-- A Gmail or Google Workspace account (optional but recommended)
+- An X Premium subscription (x.com)
+- Optionally: Gmail or Google Workspace to connect
 
-## Connect your email and calendar
-1. Open Grok Bot at x.com/grok
-2. Click your profile icon → **Settings → Connections**
-3. Click **Add connection** and choose **Gmail**
-4. Authorize with your Google account — Grok will request read and send access
-5. Repeat for **Google Calendar** if you want calendar-aware routines
+## Step 1 — Install a skill from ATG
+1. Download your SKILL.md from the ATG Workbench (My Workflows → ↓ Install).
+2. Open Grok at grok.com and go to the **Skills** tab in the left sidebar.
+3. Click **Add skill → Import from file** and upload your SKILL.md.
+4. Your skill is now saved. Trigger it anytime by typing **/** followed by the skill name in any Grok chat.
 
-## Install a workflow skill
-1. Download the SKILL.md file from your ATG Workbench (My Workflows → ↓ Install)
-2. In Grok, start a new conversation and paste the full SKILL.md content as the first message
-3. Grok will confirm it has loaded the skill
-4. To use it on demand: start a new chat and type the trigger phrase from the SKILL.md
+## Step 2 — Connect Gmail or Calendar (optional)
+1. In Grok, go to **Settings → Connections**.
+2. Click **Add connection** and choose Gmail or Google Calendar.
+3. Authorise with your Google account. Grok will only read or draft — it won't send anything automatically unless you configure it to.
 
-## Create a scheduled routine
-1. Go to **Scheduled Tasks** in Grok settings
-2. Click **New task**
-3. Paste the trigger prompt from your SKILL.md
-4. Set the schedule (daily at 8am, weekly on Monday, etc.)
-5. Enable **Approval before send** if the workflow sends emails
+## Step 3 — Create a routine (scheduled)
+1. Start a chat with Grok and say: *"Create a routine that runs [skill name] every [Monday at 8am / daily at 9am]."*
+2. Grok will set up the routine and confirm the schedule.
+3. You can view and edit routines in **Settings → Routines**.
 
 ## Approval-first rule
-Every ATG workflow has an approval step built in. Grok will show you the draft before sending anything. **Never configure auto-send for email or calendar actions without reviewing.**
+Every ATG skill is designed to produce a draft for your review — not to send automatically. If Grok asks whether to send something, always review the draft first.
 
 ## Common issues
-- **Grok can't find an email**: check your Gmail connection is authorized and the label/folder permissions are granted
-- **Scheduled task didn't run**: verify your X Premium subscription is active and the schedule is saved
-- **Skill not working as expected**: re-paste the SKILL.md and confirm the version matches what ATG generated
+- **Skill not appearing**: re-upload the SKILL.md file from the Skills tab.
+- **Routine didn't run**: check your X Premium subscription is active.
+- **Wrong output**: start a chat, trigger the skill with /, and paste a fresh example.
 `,
     tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: ["grok_bot"] },
     sortOrder: 10,
@@ -62,37 +58,36 @@ Every ATG workflow has an approval step built in. Grok will show you the draft b
     title: "Getting started with Claude",
     body: `# Getting started with Claude
 
-Claude (at [claude.ai](/go/claude?src=knowledge)) is Anthropic's AI assistant. Claude Projects let you give Claude a persistent set of instructions — perfect for installing ATG workflow skills.
+Claude (at [claude.ai](/go/claude?src=knowledge)) uses **Projects** and **Skills** to store persistent instructions. Scheduling requires a free [Zapier](/go/zapier?src=knowledge) or Make account.
 
 ## What you need
 - A Claude.ai account (free or Pro)
-- For scheduled routines: a Zapier or Make account (Claude does not have native scheduling)
+- For scheduling: a Zapier account (free tier works for one Zap)
 
-## Create a Project for your workflows
-1. Open claude.ai and click **Projects** in the sidebar
-2. Click **New Project** and name it "My ATG Workflows"
-3. In **Project Instructions**, paste the SKILL.md content you downloaded from ATG Workbench
-4. Save the project
+## Step 1 — Install a skill
+**Option A — ZIP upload (recommended):**
+1. Download your SKILL.md from ATG Workbench (My Workflows → ↓ Install).
+2. Create a ZIP file named after the skill (e.g. *lead-follow-up.zip*) containing your SKILL.md renamed to *skill.md*.
+3. In Claude, open or create a **Project**. Go to **Project Settings → Skills → Upload ZIP**.
+4. Upload the ZIP. Claude will confirm the skill is installed.
 
-## Use a skill on demand
-1. Open your Project in Claude
-2. Type the trigger phrase from the SKILL.md (e.g. "Run lead follow-up for [contact name]")
-3. Review the draft Claude produces before copying or sending anything
+**Option B — Project Instructions:**
+1. Open a Claude Project and click **Project Settings**.
+2. Paste the content of your SKILL.md into the **Instructions** field.
+3. Save. The instructions apply to every conversation in that Project.
 
-## Schedule a routine via Zapier
-1. Sign in to [Zapier](/go/zapier?src=knowledge)
-2. Create a new Zap: Trigger = **Schedule by Zapier** (set your frequency)
-3. Action = **Claude** (send a message to your Project with the trigger prompt)
-4. Add a second step to email yourself the output for review
-5. Never use auto-send — always review before sending
+## Step 2 — Run a skill on demand
+In your Project, type the trigger phrase from the SKILL.md (e.g. *"Run lead follow-up"*). Review Claude's draft before using it.
 
-## Connect Gmail or Calendar in Zapier
-1. In your Zap, add a **Gmail** or **Google Calendar** action step
-2. Authenticate with your Google account
-3. Configure the step to send the Claude output as a draft (not auto-send)
+## Step 3 — Schedule via Zapier
+1. Sign in to [Zapier](/go/zapier?src=knowledge). Create a new Zap.
+2. Trigger: **Schedule by Zapier** → set your frequency (daily, weekly, etc.).
+3. Action: **Claude → Send message** → select your Project → paste the routine prompt from your SKILL.md.
+4. Add a second action: **Gmail → Create draft** (so the output lands as a draft for your review, not auto-sent).
+5. Test and turn on.
 
 ## Approval-first rule
-Every ATG workflow produces a draft for your review. In Zapier, always route Claude output to a draft email or a review step — never directly to a send action.
+Route Claude's output to a draft email or a Slack message for review. Never connect Claude directly to a send action.
 `,
     tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: ["claude"] },
     sortOrder: 11,
@@ -102,33 +97,37 @@ Every ATG workflow produces a draft for your review. In Zapier, always route Cla
     title: "Getting started with ChatGPT",
     body: `# Getting started with ChatGPT
 
-ChatGPT (at [chatgpt.com](/go/chatgpt?src=knowledge)) lets you create custom GPTs with system instructions and Actions (API connections to external apps).
+ChatGPT (at [chatgpt.com](/go/chatgpt?src=knowledge)) uses **custom GPTs** for persistent skills and **Scheduled Tasks** for automated routines.
 
 ## What you need
-- A ChatGPT account (free or Plus)
-- For GPT Actions: a ChatGPT Plus or Team subscription
-- For scheduled routines: a Zapier or Make account
+- ChatGPT Plus, Team, Business, or Enterprise account
+- For GPT Actions (connecting to apps): Plus or above
+- For Skills within GPTs: Business, Enterprise, or Education only (not Plus)
 
-## Create a custom GPT for your workflows
-1. Open chatgpt.com and click **Explore GPTs → Create**
-2. Name it "My ATG Workflow"
-3. Under **Instructions**, paste the SKILL.md content from ATG Workbench
-4. Click **Save** and set visibility to **Only me**
+## Step 1 — Create a custom GPT
+1. Go to chatgpt.com → click your name → **My GPTs → Create a GPT**.
+2. Give it a name matching the workflow (e.g. *Lead Follow-up*).
+3. In the **Instructions** field, paste the System Prompt section from your SKILL.md.
+4. Set visibility to **Only me**.
+5. Click **Save**.
 
-## Connect Gmail or Calendar via Actions
-1. In your GPT editor, click **Add actions**
-2. Search for Gmail or Google Calendar schemas (available from the OpenAI community or generate via ATG)
-3. Authenticate your Google account
-4. Test the connection with a sample read request first
+## Step 2 — Connect apps via Actions (Plus and above)
+1. In the GPT editor, click **Add actions**.
+2. Use official API schemas (available at platform.openai.com/docs/actions) for Gmail, Google Calendar, or other services.
+3. Test with a sample request before enabling the GPT.
 
-## Schedule a routine via Zapier
-1. Sign in to [Zapier](/go/zapier?src=knowledge)
-2. Trigger = **Schedule by Zapier**
-3. Action = **ChatGPT** → send a message to your custom GPT
-4. Add a review step before any send action
+## Step 3 — Schedule a task (Scheduled Tasks — Plus and above)
+1. Open a regular ChatGPT chat (not inside a GPT).
+2. Type: *"Create a scheduled task: every [Monday at 8am], run [workflow name] for me."*
+3. ChatGPT will set up the recurring task. You'll receive the output in chat at the scheduled time.
+4. Note: Scheduled Tasks run in your main chat, not inside custom GPTs.
 
 ## Approval-first rule
-Configure ChatGPT GPT Actions to **draft** — not auto-send. Always review output before it goes anywhere.
+Configure your GPT or scheduled task to produce a **draft** output. Always review before acting on any output — never set auto-send.
+
+## Common issues
+- **Actions not working**: confirm your Plus subscription is active and the API schema is valid.
+- **Scheduled task missed**: check your ChatGPT notification settings and time zone.
 `,
     tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: ["chatgpt"] },
     sortOrder: 12,

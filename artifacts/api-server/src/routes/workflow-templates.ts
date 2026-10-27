@@ -30,7 +30,7 @@ router.get("/workflow-templates", withUser, requireAuth, async (_req, res) => {
     select: {
       slug: true, name: true, description: true,
       verticalTags: true, minTier: true, inputSchema: true,
-      outputFormat: true, version: true,
+      outputFormat: true, version: true, platformReadyMade: true,
     },
   });
   res.json(templates);
@@ -63,6 +63,8 @@ const TemplatePatchSchema = z.object({
   inputSchema:        z.string().optional(),
   outputFormat:       z.string().max(2000).optional(),
   enabled:            z.boolean().optional(),
+  /** JSON: { grok_bot?: {name,url,note}, claude?: ..., chatgpt?: ... } */
+  platformReadyMade:  z.string().max(5000).optional(),
 });
 
 router.patch("/admin/workflow-templates/:slug", withUser, requireAdmin, async (req, res) => {
@@ -82,9 +84,13 @@ router.patch("/admin/workflow-templates/:slug", withUser, requireAdmin, async (r
 
 // ── Admin: reset to code default ─────────────────────────────────────────────
 
+// Include all 11 seed arrays in reset search
+import { PHASE2_SEEDS as P2, PHASE3_SEEDS as P3 } from "../lib/templates";
+
 router.post("/admin/workflow-templates/:slug/reset", withUser, requireAdmin, async (req, res) => {
   const slug = req.params.slug as string;
-  const seed = TEMPLATE_SEEDS.find((s) => s.slug === slug);
+  const allSeeds = [...TEMPLATE_SEEDS, ...P2, ...P3];
+  const seed = allSeeds.find((s) => s.slug === slug);
   if (!seed) { res.status(404).json({ error: "No code default found for this slug." }); return; }
 
   const existing = await prisma.workflowTemplate.findUnique({ where: { slug } });

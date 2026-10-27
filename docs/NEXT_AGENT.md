@@ -92,6 +92,7 @@ Merge in this exact order. Each PR may depend on the previous.
 | **#26** | `cursor/ai-assist-c8a4` | AI Assist: Setup Coach, Skill Customizer, Troubleshooter, Report Refresh | **YES** (AIAssistMessage, AIAssistUsage; Plan.refreshDiff) | No |
 | **#27** | `cursor/dfy-access-c8a4` | DFY access log + playbook access section | **YES** (ClientAccessLog) | No |
 | **#28** | `cursor/verified-installs-c8a4` | Verified installs: ATG-XXXX codes, verify flow, explainer text | **YES** (WorkflowInstallCode + ClientWorkflowSettings.installStatus) | No |
+| **#29** | `cursor/skill-export-c8a4` | Skill export fixes: human-readable SKILL.md, static routine prompts, platform install docs, personalization, reset fix | **YES** (WorkflowTemplate.platformReadyMade) | No |
 
 After merging all four, run `pnpm db:push` once to apply all pending schema changes.
 
