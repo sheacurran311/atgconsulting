@@ -79,6 +79,17 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
     vertical:   client.industry ?? "unknown",
     adminNotes: client.notes ? sanitiseText(client.notes) : undefined,
     sessionSummaries: sessionSummaries.length > 0 ? sessionSummaries : undefined,
+    // Pass raw JSON strings so buildTemplateAccountAccess can parse them
+    toolPlanJson: await (async () => {
+      if (client.tier !== "WHITE_GLOVE") return undefined;
+      const tp = await prisma.toolPlan.findFirst({
+        where: { clientId, status: { in: ["approved", "draft"] } },
+        orderBy: { createdAt: "desc" },
+        select: { toolsJson: true },
+      });
+      return tp?.toolsJson ?? undefined;
+    })(),
+    answersJson: intake?.answers ?? undefined,
   };
 }
 
@@ -204,6 +215,73 @@ router.post("/admin/clients/:id/playbook/:pbId/final", async (req, res) => {
   if (!pb) { res.status(404).json({ error: "Playbook not found." }); return; }
   const updated = await prisma.clientPlaybook.update({ where: { id: pb.id }, data: { status: "final" } });
   res.json(updated);
+});
+
+// ── Access log (DFY admin tool) ───────────────────────────────────────────────
+
+const AccessLogBody = z.object({
+  accountSystem: z.string().trim().min(1).max(200),
+  accessType:    z.string().trim().min(1).max(200),
+  grantedDate:   z.string().min(1), // ISO date string
+  revokedDate:   z.string().optional().nullable(),
+  notes:         z.string().max(1000).optional(),
+});
+
+router.get("/admin/clients/:id/access-log", async (req, res) => {
+  const clientId = req.params.id as string;
+  const entries = await prisma.clientAccessLog.findMany({
+    where: { clientId },
+    orderBy: { grantedDate: "desc" },
+  });
+  res.json(entries);
+});
+
+router.post("/admin/clients/:id/access-log", async (req, res) => {
+  const clientId = req.params.id as string;
+  const client = await prisma.client.findUnique({ where: { id: clientId } });
+  if (!client) { res.status(404).json({ error: "Client not found." }); return; }
+  const parsed = AccessLogBody.safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
+  const entry = await prisma.clientAccessLog.create({
+    data: {
+      clientId,
+      accountSystem: parsed.data.accountSystem,
+      accessType:    parsed.data.accessType,
+      grantedDate:   new Date(parsed.data.grantedDate),
+      revokedDate:   parsed.data.revokedDate ? new Date(parsed.data.revokedDate) : null,
+      notes:         parsed.data.notes?.trim() ?? "",
+    },
+  });
+  res.status(201).json(entry);
+});
+
+router.patch("/admin/clients/:id/access-log/:entryId", async (req, res) => {
+  const entry = await prisma.clientAccessLog.findFirst({
+    where: { id: req.params.entryId as string, clientId: req.params.id as string },
+  });
+  if (!entry) { res.status(404).json({ error: "Access log entry not found." }); return; }
+  const parsed = AccessLogBody.partial().safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
+  const updated = await prisma.clientAccessLog.update({
+    where: { id: entry.id },
+    data: {
+      ...(parsed.data.accountSystem ? { accountSystem: parsed.data.accountSystem } : {}),
+      ...(parsed.data.accessType    ? { accessType: parsed.data.accessType }        : {}),
+      ...(parsed.data.grantedDate   ? { grantedDate: new Date(parsed.data.grantedDate) } : {}),
+      ...(parsed.data.revokedDate !== undefined ? { revokedDate: parsed.data.revokedDate ? new Date(parsed.data.revokedDate) : null } : {}),
+      ...(parsed.data.notes !== undefined ? { notes: parsed.data.notes?.trim() ?? "" } : {}),
+    },
+  });
+  res.json(updated);
+});
+
+router.delete("/admin/clients/:id/access-log/:entryId", async (req, res) => {
+  const entry = await prisma.clientAccessLog.findFirst({
+    where: { id: req.params.entryId as string, clientId: req.params.id as string },
+  });
+  if (!entry) { res.status(404).json({ error: "Access log entry not found." }); return; }
+  await prisma.clientAccessLog.delete({ where: { id: entry.id } });
+  res.json({ ok: true });
 });
 
 export default router;

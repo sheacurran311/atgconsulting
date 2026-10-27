@@ -90,6 +90,7 @@ model Client {
   clientWorkflowSettings ClientWorkflowSettings[]
   aiAssistMessages       AIAssistMessage[]
   aiAssistUsage          AIAssistUsage[]
+  accessLog              ClientAccessLog[]
   agentChains         AgentChain[]
   dayProfile          DayProfile?
   declaredAccounts    DeclaredAccount[]
@@ -803,4 +804,26 @@ model AIAssistUsage {
 
   @@unique([clientId, month, feature])
   @@index([clientId, month])
+}
+
+// ── Done-for-you: access log ──────────────────────────────────────────────────
+
+/// Admin-maintained log of account accesses Shea holds for DFY clients.
+/// Stores NO secrets or credentials — only metadata about access grants.
+model ClientAccessLog {
+  id            String    @id @default(cuid())
+  clientId      String
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  /// e.g. "Google Workspace", "Grok Bot workspace", "HubSpot"
+  accountSystem String
+  /// e.g. "Admin seat", "Invited user", "Delegated access", "Collaborator"
+  accessType    String
+  grantedDate   DateTime
+  revokedDate   DateTime?
+  /// Plain notes — no credentials, no passwords, no tokens
+  notes         String    @default("")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([clientId])
 }
