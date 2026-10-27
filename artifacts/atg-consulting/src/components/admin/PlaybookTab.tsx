@@ -13,6 +13,15 @@ interface ToolEntry  { category: string; tool: string; why: string; costNote: st
 interface Workflow   { name: string; area: string; whyFirst: string; steps: string[] }
 interface AgendaItem { duration: string; topic: string; questions: string[] }
 
+interface AccessItem { accountSystem: string; accessType: string; reason: string }
+interface AccountAccess {
+  isDFY: true;
+  accessChecklist: AccessItem[];
+  accessAgreement: string[];
+  buildWorkflow: string[];
+  offboarding: string[];
+}
+
 interface PlaybookContent {
   clientSummary: string;
   risksAndClarifications: string[];
@@ -23,6 +32,7 @@ interface PlaybookContent {
   tierPlan: { selfServeNotes?: string; guidedSessionPlan?: string[]; dfyBuildPlan?: string[] };
   milestones: { day30: string; day60: string; day90: string; ongoingCadence: string };
   kpisAndUpsell: { kpis: string[]; upgradesTriggers: string[]; scopeCreepWatchOuts: string[] };
+  accountAccess?: AccountAccess;
 }
 
 function parseContent(raw: string): PlaybookContent | null {
@@ -32,9 +42,12 @@ function parseContent(raw: string): PlaybookContent | null {
 // ── Rendered playbook view ────────────────────────────────────────────────────
 
 function PlaybookView({ content, pb }: { content: PlaybookContent; pb: ClientPlaybook }) {
-  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  const Section = ({ title, badge, children }: { title: string; badge?: string; children: React.ReactNode }) => (
     <div className="mb-6">
-      <p className="font-mono text-2xs font-bold mb-2" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>{title.toUpperCase()}</p>
+      <div className="flex items-center gap-2 mb-2">
+        <p className="font-mono text-2xs font-bold" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>{title.toUpperCase()}</p>
+        {badge && <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: "rgba(59,107,255,0.08)", color: "var(--blue)", letterSpacing: "0.05em" }}>{badge}</span>}
+      </div>
       {children}
     </div>
   );
@@ -149,6 +162,57 @@ function PlaybookView({ content, pb }: { content: PlaybookContent; pb: ClientPla
           ))}
         </div>
       </Section>
+
+      {/* Account access & build workflow — DFY only */}
+      {content.accountAccess && (
+        <Section title="Account access & build workflow" badge="DONE-FOR-YOU · ADMIN ONLY">
+          <div className="mb-4 rounded-xl p-3" style={{ background: "rgba(59,107,255,0.06)", border: "1px solid rgba(59,107,255,0.18)" }}>
+            <p className="text-xs" style={{ color: "var(--canvas-text-2)" }}>
+              ATG app stores <strong>no credentials or tokens</strong>. This section guides Shea through access requests, agreement confirmation, build steps, and offboarding. All actual access is granted through the client's own admin console.
+            </p>
+          </div>
+
+          <div className="space-y-5">
+            <div>
+              <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>ACCESS CHECKLIST</p>
+              <div className="space-y-2">
+                {content.accountAccess.accessChecklist.map((item, i) => (
+                  <div key={i} className="rounded-lg p-3" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)" }}>{item.accountSystem}</p>
+                      <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: "rgba(59,107,255,0.08)", color: "var(--blue)", letterSpacing: "0.04em" }}>{item.accessType}</span>
+                    </div>
+                    <p className="text-xs" style={{ color: "var(--canvas-text-2)" }}>{item.reason}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>ACCESS AGREEMENT CHECKPOINT</p>
+              <p className="text-xs mb-2" style={{ color: "var(--canvas-text-3)" }}>Confirm these points in writing before any build work begins:</p>
+              <BulletList items={content.accountAccess.accessAgreement} />
+            </div>
+
+            <div>
+              <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>BUILD WORKFLOW</p>
+              <ol className="space-y-2">
+                {content.accountAccess.buildWorkflow.map((step, i) => (
+                  <li key={i} className="flex gap-3 text-sm">
+                    <span className="flex-shrink-0 font-mono text-2xs w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "rgba(59,107,255,0.1)", color: "var(--blue)", marginTop: "1px" }}>{i + 1}</span>
+                    <span style={{ color: "var(--canvas-text-2)" }}>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div>
+              <p className="font-mono text-2xs mb-2" style={{ color: "#D97706", letterSpacing: "0.08em" }}>OFFBOARDING</p>
+              <BulletList items={content.accountAccess.offboarding} />
+            </div>
+          </div>
+        </Section>
+      )}
     </div>
   );
 }

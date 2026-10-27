@@ -693,6 +693,44 @@ export interface PlaybookInput {
   adminNotes?: string; // Shea's own prior notes
   /** Recent approved session summaries — inform playbook with what was decided */
   sessionSummaries?: SessionSummarySnippet[];
+  /** JSON string of approved ToolPlan.toolsJson — used to derive DFY access checklist */
+  toolPlanJson?: string;
+  /** JSON string of Intake.answers — used to derive DFY access checklist (aiPlatforms, etc.) */
+  answersJson?: string;
+}
+
+// ── DFY account access section ────────────────────────────────────────────────
+
+export interface AccountAccessItem {
+  /** e.g. "Google Workspace / Gmail", "Grok Bot workspace", "HubSpot" */
+  accountSystem: string;
+  /** e.g. "Admin seat", "Invited user (collaborator)", "Delegated access" */
+  accessType: string;
+  /** Why Shea needs this access for the builds */
+  reason: string;
+}
+
+export interface AccountAccessSection {
+  /** Only included when tier is WHITE_GLOVE (Done-for-you) */
+  isDFY: true;
+  /**
+   * Checklist of accounts Shea needs access to, derived from tool plan and intake.
+   * Each entry explains the access method (delegated seat / invited user / never shared passwords).
+   */
+  accessChecklist: AccountAccessItem[];
+  /**
+   * Access agreement checkpoint — these points must be confirmed in writing
+   * before any build work begins.
+   */
+  accessAgreement: string[];
+  /**
+   * Step-by-step build workflow from kickoff to handoff.
+   */
+  buildWorkflow: string[];
+  /**
+   * Offboarding procedure — remove access, rotate credentials, confirm in writing.
+   */
+  offboarding: string[];
 }
 
 export interface PlaybookContent {
@@ -742,7 +780,27 @@ export interface PlaybookContent {
     upgradesTriggers: string[]; // signals client is ready for next tier
     scopeCreepWatchOuts: string[];
   };
+  /**
+   * Account access & build workflow — only present when tier is WHITE_GLOVE.
+   * Guides Shea through access request, agreement, build, and offboarding.
+   * ATG app never stores client credentials; this section stores no secrets.
+   */
+  accountAccess?: AccountAccessSection;
 }
+
+const AccountAccessItemZod = z.object({
+  accountSystem: z.string().min(1).max(120),
+  accessType:    z.string().min(1).max(120),
+  reason:        z.string().min(1).max(400),
+});
+
+const AccountAccessSectionZod = z.object({
+  isDFY:           z.literal(true),
+  accessChecklist: z.array(AccountAccessItemZod).min(1).max(15),
+  accessAgreement: z.array(z.string().min(1)).min(1).max(10),
+  buildWorkflow:   z.array(z.string().min(1)).min(1).max(15),
+  offboarding:     z.array(z.string().min(1)).min(1).max(10),
+});
 
 const PlaybookZod = z.object({
   clientSummary: z.string().min(1),
@@ -785,6 +843,7 @@ const PlaybookZod = z.object({
     upgradesTriggers: z.array(z.string()),
     scopeCreepWatchOuts: z.array(z.string()),
   }),
+  accountAccess: AccountAccessSectionZod.optional(),
 });
 
 const PLAYBOOK_SYSTEM = `You are writing a confidential operator playbook for Shea Curran (ATG Consulting) to use internally when running a client engagement. This document is never shown to clients.
@@ -797,6 +856,14 @@ ATG positioning:
 - Never invent prices, testimonials, client names, or hour-saved statistics. Say "check current pricing" for tools.
 - No jargon: no "agentic", "RAG", "LLM", "vector DB".
 - KPIs to track: workflow runs, output approvals, output edits (not invented hours-saved figures).
+
+When tier is WHITE_GLOVE (Done-for-you), include an "accountAccess" section with:
+1. accessChecklist: list every account Shea needs. Always request delegated/admin seats or invited-user roles (e.g., Google Workspace admin seat, Grok Bot workspace collaborator). Never shared passwords. If credential sharing is unavoidable, use the client's password manager sharing feature, enable 2FA, and note it.
+2. accessAgreement: 4–6 bullet points the client must confirm in writing before work begins. Include: exact scope of access, duration (engagement period only), client can revoke at any time, no credentials stored by ATG, Shea will not use access beyond the agreed workflows.
+3. buildWorkflow: step-by-step from kickoff to handoff. Include: kickoff call, access granted and verified, install skills/routines in client's own platform (never in ATG), connect their connectors, test each output with client approval before anything sends, handoff walkthrough + recording, sign-off.
+4. offboarding: step-by-step. Include: remove Shea's access from each account, rotate any shared credentials, client confirms removal in writing, log the date. Add a note that ATG app stores no secrets — only the access log metadata.
+
+For Guided and Self-serve tiers, omit the accountAccess field entirely.
 
 Return ONLY valid JSON matching the output schema. No prose outside JSON.`;
 
@@ -997,6 +1064,151 @@ function buildTemplatePlaybook(input: PlaybookInput): PlaybookContent {
         "Expecting Shea to respond to client messages outside agreed hours/SLA",
       ],
     },
+
+    // ── Account access & build workflow (DFY / WHITE_GLOVE only) ─────────────
+    accountAccess: input.tier === "WHITE_GLOVE"
+      ? buildTemplateAccountAccess(input)
+      : undefined,
+  };
+}
+
+/** Derives the DFY access section from tool plan / intake data. */
+function buildTemplateAccountAccess(input: PlaybookInput): AccountAccessSection {
+  const tools: { name: string; category?: string }[] = (() => {
+    try { return JSON.parse(input.toolPlanJson ?? "[]") as { name: string; category?: string }[]; } catch { return []; }
+  })();
+
+  // Derive which AI platforms the client uses from intake answers
+  const answers: Record<string, unknown> = (() => {
+    try { return JSON.parse(input.answersJson ?? "{}") as Record<string, unknown>; } catch { return {}; }
+  })();
+  const aiPlatforms: string[] = Array.isArray(answers.aiPlatforms)
+    ? (answers.aiPlatforms as string[]).filter((p) => p !== "none" && p !== "not_sure")
+    : [];
+
+  // Build the access checklist from known tool categories + AI platform
+  const checklist: AccountAccessItem[] = [];
+
+  // AI platform access (always needed for DFY)
+  if (aiPlatforms.includes("grok_bot") || aiPlatforms.length === 0) {
+    checklist.push({
+      accountSystem: "Grok Bot (xAI)",
+      accessType: "Invited collaborator in their workspace (not a new account)",
+      reason: "Install and tune workflow skills and scheduled routines in the client's own platform.",
+    });
+  }
+  if (aiPlatforms.includes("claude")) {
+    checklist.push({
+      accountSystem: "Claude (Anthropic)",
+      accessType: "Invited to their Claude Project as a collaborator",
+      reason: "Install SKILL.md instructions and scheduled routine configurations.",
+    });
+  }
+  if (aiPlatforms.includes("chatgpt")) {
+    checklist.push({
+      accountSystem: "ChatGPT (OpenAI)",
+      accessType: "Shared GPT collaborator access (not the account password)",
+      reason: "Set up and test custom GPT actions and scheduled tasks.",
+    });
+  }
+
+  // Email / calendar (needed for any workflow that references email or scheduling)
+  const needsEmail = input.areas.includes("executive_assistant") || input.areas.includes("sales") || input.areas.includes("customer_support");
+  const currentSoftware = (input.currentSoftware ?? "").toLowerCase();
+  if (needsEmail || currentSoftware.includes("gmail") || currentSoftware.includes("google workspace")) {
+    checklist.push({
+      accountSystem: "Google Workspace / Gmail",
+      accessType: "Admin console delegated access or invited admin seat (not the account password)",
+      reason: "Connect Gmail to workflow routines so drafts appear for approval. Access limited to connector configuration — no reading of email content by ATG.",
+    });
+  }
+  if (currentSoftware.includes("outlook") || currentSoftware.includes("microsoft 365") || currentSoftware.includes("m365")) {
+    checklist.push({
+      accountSystem: "Microsoft 365 / Outlook",
+      accessType: "Delegated admin access via Azure AD or invited admin seat",
+      reason: "Connect Outlook to workflow routines. ATG does not read or store email content.",
+    });
+  }
+
+  // CRM
+  const hasCrm = tools.some((t) => t.category === "crm") ||
+    currentSoftware.includes("hubspot") || currentSoftware.includes("pipedrive") || currentSoftware.includes("salesforce");
+  if (hasCrm || input.areas.includes("sales")) {
+    const crmName = currentSoftware.includes("hubspot") ? "HubSpot CRM"
+      : currentSoftware.includes("salesforce") ? "Salesforce"
+      : currentSoftware.includes("pipedrive") ? "Pipedrive"
+      : "CRM (name TBC)";
+    checklist.push({
+      accountSystem: crmName,
+      accessType: "Super-admin or invited admin user (not the account password)",
+      reason: "Set up workflow triggers and read contact data for follow-up drafts. No data is exported to ATG servers.",
+    });
+  }
+
+  // Scheduling tool
+  const hasScheduler = currentSoftware.includes("calendly") || input.areas.includes("executive_assistant");
+  if (hasScheduler) {
+    checklist.push({
+      accountSystem: "Calendly (or equivalent scheduler)",
+      accessType: "Invited admin team member",
+      reason: "Configure reminder and follow-up workflow triggers from booking events.",
+    });
+  }
+
+  // Automation platform
+  const hasAutomation = tools.some((t) => t.category === "automation") ||
+    currentSoftware.includes("zapier") || currentSoftware.includes("make");
+  if (hasAutomation) {
+    const automationName = currentSoftware.includes("zapier") ? "Zapier" : currentSoftware.includes("make") ? "Make (Integromat)" : "Zapier or Make";
+    checklist.push({
+      accountSystem: automationName,
+      accessType: "Invited team member (not the account password)",
+      reason: "Build and configure Zap/scenario triggers for scheduled workflow routines.",
+    });
+  }
+
+  // Fallback — always add a generic note if nothing detected
+  if (checklist.length === 0) {
+    checklist.push({
+      accountSystem: "AI platform (TBC at kickoff)",
+      accessType: "Invited collaborator / delegated admin seat",
+      reason: "Install skills and routines in the client's chosen AI platform.",
+    });
+  }
+
+  return {
+    isDFY: true,
+    accessChecklist: checklist,
+
+    accessAgreement: [
+      "Scope: Shea's access is limited to the accounts and workflows listed above. No other systems will be accessed.",
+      "Duration: access is granted for the engagement period only and will be removed at offboarding.",
+      "Revocation: the client can revoke any access at any time without notice and without affecting the engagement outcome.",
+      "No credentials stored: ATG's app stores no passwords, tokens, or API keys. Only metadata (account name, access type, grant/revoke date) is logged.",
+      "No automatic sending: Shea will not configure any system to send, post, or book on the client's behalf without a test-and-approval step the client can observe.",
+      "Password sharing (if unavoidable): use the client's existing password manager sharing feature (1Password, Bitwarden, etc.), enable 2FA on the account, and note the date. Rotate credentials at offboarding.",
+    ],
+
+    buildWorkflow: [
+      "Kickoff call (30–60 min): confirm scope, review access list, answer questions. Client agrees to the access agreement in writing (email is sufficient).",
+      "Access granted: client invites Shea to each account using their admin console or team invite (no shared passwords). Shea confirms access in the client's Workbench chat.",
+      "Environment review: Shea audits the current tool state, notes existing automations or workflows that could conflict.",
+      "Skill installation: Shea installs the customised SKILL.md files in the client's AI platform (Grok Bot / Claude / ChatGPT). Nothing runs until the test step.",
+      "Connector configuration: Shea connects the client's email, calendar, and CRM connectors inside their chosen AI platform. ATG app is not used for this — all connections are in the client's own platform.",
+      "Dry run (first 3 outputs): each workflow generates output for client review. Client approves, edits, or requests changes before Shea marks the workflow as live.",
+      "Schedule setup: Shea configures the scheduled task / routine in the client's platform. Client confirms the schedule is correct.",
+      "Handoff walkthrough: Shea records a short screen share showing the client exactly where to find outputs, how to approve or edit, and how to pause or disable a workflow.",
+      "Sign-off: client confirms in writing that workflows are running as expected and they can manage approvals independently.",
+    ],
+
+    offboarding: [
+      "Shea removes herself from each account in the access log (admin console, team settings, or contact support for platforms with no self-serve removal).",
+      "If any credentials were shared via a password manager, revoke Shea's access in the sharing settings and rotate the credentials.",
+      "Client confirms in writing (email or Workbench message) that Shea's access has been removed from each account.",
+      "Shea logs the revocation date in the client's Access Log in ATG admin.",
+      "Final check: run a test output on each live workflow to confirm it still runs correctly without Shea's access.",
+      "Archive note: retain the access log for 1 year per ATG records policy, then delete.",
+    ],
   };
 }
 

@@ -511,3 +511,26 @@ export const clientIntakeApi = {
   latest: () => get<IntakeSummary | null>("/client/intake/latest"),
   history: () => get<{ id: string; createdAt: string; helpStyle: string }[]>("/client/intake/history"),
 };
+
+// ── Client access log ─────────────────────────────────────────────────────────
+export interface ClientAccessLogEntry {
+  id: string;
+  clientId: string;
+  accountSystem: string;
+  accessType: string;
+  grantedDate: string;
+  revokedDate: string | null;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const accessLogApi = {
+  list:   (clientId: string) => get<ClientAccessLogEntry[]>(`/admin/clients/${clientId}/access-log`),
+  create: (clientId: string, data: Omit<ClientAccessLogEntry, "id"|"clientId"|"createdAt"|"updatedAt">) =>
+            post<ClientAccessLogEntry>(`/admin/clients/${clientId}/access-log`, data),
+  update: (clientId: string, entryId: string, data: Partial<Omit<ClientAccessLogEntry, "id"|"clientId"|"createdAt"|"updatedAt">>) =>
+            patch<ClientAccessLogEntry>(`/admin/clients/${clientId}/access-log/${entryId}`, data),
+  remove: (clientId: string, entryId: string) =>
+            del<{ ok: boolean }>(`/admin/clients/${clientId}/access-log/${entryId}`),
+};

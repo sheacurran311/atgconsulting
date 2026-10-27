@@ -4,6 +4,7 @@ import AdminShell from "@/components/admin/AdminShell";
 import { api, type ClientAdmin, type ClientDetail, type PrepView, type PlanAdmin } from "@/lib/api";
 import PlaybookTab from "@/components/admin/PlaybookTab";
 import SessionsTab from "@/components/admin/SessionsTab";
+import AccessLogPanel from "@/components/admin/AccessLogPanel";
 
 // ── Clients list ─────────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ function ClientList() {
 
 // ── Client detail ─────────────────────────────────────────────────────────────
 
-const TABS = ["overview", "prep", "playbook", "sessions", "plan", "consultations", "documents", "reports", "outputs", "workflows"];
+const TABS = ["overview", "prep", "playbook", "sessions", "access", "plan", "consultations", "documents", "reports", "outputs", "workflows"];
 
 function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
   const [client, setClient] = useState<ClientDetail | null>(null);
@@ -168,6 +169,7 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
         {tab === "prep" && <PrepTab prep={prep} />}
         {tab === "playbook" && <PlaybookTabWrapper clientId={id} intakeId={client.intakes[0]?.id} />}
         {tab === "sessions" && <SessionsTab clientId={id} />}
+        {tab === "access" && <AccessLogTabWrapper clientId={id} tier={client.tier} />}
         {tab === "plan" && <PlanTab plan={client.plans[0] ?? null} />}
         {tab === "consultations" && <ConsultationsTab client={client} onRefresh={() => api.admin.client(id).then(setClient)} />}
         {tab === "documents" && <DocumentsTab client={client} />}
@@ -507,6 +509,21 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 // ── Playbook wrapper ──────────────────────────────────────────────────────────
 function PlaybookTabWrapper({ clientId, intakeId }: { clientId: string; intakeId?: string }) {
   return <PlaybookTab clientId={clientId} intakeId={intakeId} />;
+}
+
+function AccessLogTabWrapper({ clientId, tier }: { clientId: string; tier: string }) {
+  return (
+    <div className="max-w-content">
+      <div className="mb-5">
+        <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>DONE-FOR-YOU · ADMIN ONLY</p>
+        <h2 className="font-extrabold text-xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.02em" }}>Account access log</h2>
+        <p className="text-sm mt-1" style={{ color: "var(--canvas-text-2)" }}>
+          Track which accounts Shea has been granted access to for this client, when, and when revoked.
+        </p>
+      </div>
+      <AccessLogPanel clientId={clientId} tier={tier} />
+    </div>
+  );
 }
 
 // ── Client workflow settings tab ──────────────────────────────────────────────

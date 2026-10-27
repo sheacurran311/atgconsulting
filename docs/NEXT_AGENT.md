@@ -90,6 +90,7 @@ Merge in this exact order. Each PR may depend on the previous.
 | **#24** | `cursor/tools-db-c8a4` | Tool DB, /go/:slug, admin CRUD + CSV, affiliate disclosure, LLM integration | **YES** (Tool, ToolClick, KnowledgeArticle) | No |
 | **#25** | `cursor/knowledge-c8a4` | Client Resources + Guides tabs, platform guides, personalised tool links | No | No |
 | **#26** | `cursor/ai-assist-c8a4` | AI Assist: Setup Coach, Skill Customizer, Troubleshooter, Report Refresh | **YES** (AIAssistMessage, AIAssistUsage; Plan.refreshDiff) | No |
+| **#27** | `cursor/dfy-access-c8a4` | DFY access log + playbook access section | **YES** (ClientAccessLog) | No |
 
 After merging all four, run `pnpm db:push` once to apply all pending schema changes.
 
