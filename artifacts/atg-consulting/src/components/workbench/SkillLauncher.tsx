@@ -91,6 +91,12 @@ export default function SkillLauncher({
         </div>
       )}
 
+      {/* Explainer */}
+      <p className="text-xs mb-3" style={{ color: "var(--canvas-text-3)" }}>
+        <strong style={{ color: "var(--canvas-text-2)" }}>Try it here with a sample.</strong>{" "}
+        Run it for real in your own agent (Grok Bot, Claude, ChatGPT) — click ↓ Install.
+      </p>
+
       {/* Unlocked workflows */}
       {unlocked.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
@@ -120,7 +126,8 @@ export default function SkillLauncher({
                 >
                   <span aria-hidden="true">{btn.icon}</span>
                   {btn.label}
-                  {installStatus[btn.slug] && <span style={{ fontSize: "10px", color: "#16A34A" }}>✓</span>}
+                  {installStatus[btn.slug] === "verified" && <span style={{ fontSize: "10px", color: "#16A34A" }}>✓✓</span>}
+                  {installStatus[btn.slug] === "marked" && <span style={{ fontSize: "10px", color: "#D97706" }}>✓</span>}
                   {isFeatured && !isActive && !installStatus[btn.slug] && (
                     <span className="font-mono" style={{ fontSize: "10px", letterSpacing: "0.06em", color: "var(--blue)", opacity: 0.7 }}>★</span>
                   )}

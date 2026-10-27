@@ -22,6 +22,7 @@ import toolsRouter from "./tools";
 import goRouter from "./go";
 import knowledgeRouter from "./knowledge";
 import aiAssistRouter from "./ai-assist";
+import installVerifyRouter from "./install-verify";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(toolsRouter);
 router.use(goRouter);
 router.use(knowledgeRouter);
 router.use(aiAssistRouter);
+router.use(installVerifyRouter);
 
 export default router;

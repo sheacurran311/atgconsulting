@@ -529,10 +529,14 @@ function AccessLogTabWrapper({ clientId, tier }: { clientId: string; tier: strin
 // ── Client workflow settings tab ──────────────────────────────────────────────
 function ClientWorkflowsTab({ clientId }: { clientId: string }) {
   const [settings, setSettings] = useState<{ slug: string; name: string; minTier: string; enabled: boolean; clientEnabled: boolean | null }[]>([]);
+  const [installInfo, setInstallInfo] = useState<{ slug: string; installStatus: string; installedPlatform: string | null; codeVerified: boolean; codeVerifiedAt: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api.admin.workflowSettings?.(clientId).then((d) => setSettings(d as typeof settings)).catch(() => null).finally(() => setLoading(false));
+    fetch(`/api/admin/clients/${clientId}/install-status`, { credentials: "include" })
+      .then((r) => r.json() as Promise<typeof installInfo>)
+      .then(setInstallInfo).catch(() => null);
   }, [clientId]);
 
   async function toggle(slug: string, current: boolean | null) {
@@ -555,7 +559,16 @@ function ClientWorkflowsTab({ clientId }: { clientId: string }) {
           <div key={s.slug} className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg mb-2" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
             <div>
               <p className="text-sm font-medium" style={{ color: "var(--canvas-text)" }}>{s.name}</p>
-              <p className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)" }}>{s.slug} · {TIER_LABELS[s.minTier] ?? s.minTier} · global: {s.enabled ? "on" : "off"} · client: {s.clientEnabled === null ? "default" : s.clientEnabled ? "on" : "off"}</p>
+              <p className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)" }}>
+              {s.slug} · {TIER_LABELS[s.minTier] ?? s.minTier} · global: {s.enabled ? "on" : "off"} · client: {s.clientEnabled === null ? "default" : s.clientEnabled ? "on" : "off"}
+              {(() => {
+                const info = installInfo.find((i) => i.slug === s.slug);
+                if (!info) return null;
+                const label = info.codeVerified ? " · ✓ VERIFIED" : info.installStatus === "marked" ? " · ✓ marked" : "";
+                const color = info.codeVerified ? "#16A34A" : "#D97706";
+                return label ? <span style={{ color }}>{label}{info.codeVerifiedAt ? ` ${new Date(info.codeVerifiedAt).toLocaleDateString()}` : ""}</span> : null;
+              })()}
+            </p>
             </div>
             <div className="flex gap-2 items-center">
               <span className="font-mono text-2xs" style={{ color: effective ? "#16A34A" : "#DC2626" }}>{effective ? "ENABLED" : "DISABLED"}</span>

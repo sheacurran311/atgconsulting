@@ -91,6 +91,7 @@ model Client {
   aiAssistMessages       AIAssistMessage[]
   aiAssistUsage          AIAssistUsage[]
   accessLog              ClientAccessLog[]
+  installCodes           WorkflowInstallCode[]
   agentChains         AgentChain[]
   dayProfile          DayProfile?
   declaredAccounts    DeclaredAccount[]
@@ -599,6 +600,8 @@ model ClientWorkflowSettings {
   /// grok_bot | claude | chatgpt | other | null = not yet installed
   installedPlatform       String?
   installedAt             DateTime?
+  /// none = not installed, marked = client self-reported, verified = code confirmed
+  installStatus           String    @default("none")
   /// Self-reported hours saved per month on this workflow
   selfReportedHoursSaved  Float?
   createdAt               DateTime  @default(now())
@@ -825,5 +828,30 @@ model ClientAccessLog {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  @@index([clientId])
+}
+
+// ── Verified installs ─────────────────────────────────────────────────────────
+
+/// A server-generated confirmation code included in every SKILL.md export.
+/// When the agent prints the code on first run, the client pastes it in the portal
+/// to verify the skill is genuinely running in their own AI platform.
+/// codeHash stores SHA-256(code); the plain code is never persisted.
+model WorkflowInstallCode {
+  id            String    @id @default(cuid())
+  clientId      String
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  slug          String    // WorkflowTemplate slug
+  /// SHA-256 of the ATG-XXXX code — plain code never stored
+  codeHash      String
+  verified      Boolean   @default(false)
+  verifiedAt    DateTime?
+  /// Total submission attempts (for rate limiting)
+  attempts      Int       @default(0)
+  lastAttemptAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([clientId, slug])
   @@index([clientId])
 }

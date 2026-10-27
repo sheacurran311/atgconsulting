@@ -112,7 +112,58 @@ router.post("/admin/workflow-templates/:slug/reset", withUser, requireAdmin, asy
 router.get("/admin/workflow-templates/:slug/skill", withUser, requireAdmin, async (req, res) => {
   const t = await prisma.workflowTemplate.findUnique({ where: { slug: req.params.slug as string } });
   if (!t) { res.status(404).json({ error: "Template not found." }); return; }
-  const md = renderSkillMd(t);
+  const md = renderSkillMd(t); // admin export: no verification code
+  res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${t.slug}.skill.md"`);
+  res.send(md);
+});
+
+// ── Client: personalised SKILL.md with embedded verification code ─────────────
+
+import { createHash, randomBytes } from "crypto";
+
+const CODE_CHARS_WT = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function generateInstallCode(): string {
+  const buf = randomBytes(4);
+  return "ATG-" + Array.from(buf).map((b) => CODE_CHARS_WT[b % CODE_CHARS_WT.length]).join("");
+}
+function hashInstallCode(code: string): string {
+  return createHash("sha256").update(code.toUpperCase().trim()).digest("hex");
+}
+
+router.get("/workbench/skill/:slug/download", withUser, requireAuth, async (req, res) => {
+  const user = (req as import("../lib/auth").AuthedRequest).atgUser!;
+  if (!user.clientId) { res.status(403).json({ error: "No client profile." }); return; }
+
+  const slug = req.params.slug as string;
+  const t = await prisma.workflowTemplate.findUnique({ where: { slug } });
+  if (!t || !t.enabled) { res.status(404).json({ error: "Template not found." }); return; }
+
+  // Get or create the verification code for this client+slug
+  let record = await prisma.workflowInstallCode.findUnique({
+    where: { clientId_slug: { clientId: user.clientId, slug } },
+  });
+
+  let plainCode: string;
+  if (record && !record.verified) {
+    // Regenerate: produce a new code so every download has the latest
+    plainCode = generateInstallCode();
+    await prisma.workflowInstallCode.update({
+      where: { id: record.id },
+      data: { codeHash: hashInstallCode(plainCode), attempts: 0, lastAttemptAt: null },
+    });
+  } else if (!record) {
+    plainCode = generateInstallCode();
+    await prisma.workflowInstallCode.create({
+      data: { clientId: user.clientId, slug, codeHash: hashInstallCode(plainCode) },
+    });
+  } else {
+    // Already verified — include a note instead of a code
+    plainCode = "(already verified)";
+  }
+
+  const md = renderSkillMd(t, record?.verified ? undefined : plainCode);
   res.setHeader("Content-Type", "text/markdown; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${t.slug}.skill.md"`);
   res.send(md);
