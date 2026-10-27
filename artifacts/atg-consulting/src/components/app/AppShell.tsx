@@ -124,6 +124,14 @@ export default function AppShell({ children, wide = false }: Props) {
         <div className={wide ? "p-5 sm:p-8" : "p-5 sm:p-8 max-w-content mx-auto"}>
           {children}
         </div>
+        {/* Legal footer links */}
+        <div className="hidden md:flex gap-4 px-6 pb-5 mt-2" style={{ borderTop: "1px solid var(--canvas-border)", paddingTop: "12px" }}>
+          {[["Terms", "/terms"], ["Privacy", "/privacy"], ["Refunds", "/refunds"]].map(([label, to]) => (
+            <Link key={to} to={to!}>
+              <span className="text-xs hover:underline" style={{ color: "var(--canvas-text-3)" }}>{label}</span>
+            </Link>
+          ))}
+        </div>
       </main>
     </div>
     </IntakeGate>

@@ -36,6 +36,7 @@ export default function Footer() {
               { href: "/brand/ATG_Consulting_OnePager.pdf", label: "One-pager", download: true },
               { href: "/privacy", label: "Privacy", external: false },
               { href: "/terms", label: "Terms", external: false },
+              { href: "/refunds", label: "Refunds", external: false },
             ].map((l) => {
               const style = { color: "var(--ink-text-3)" };
               const onEnter = (e: MouseEvent<HTMLElement>) => { e.currentTarget.style.color = "var(--ink-text-2)"; };
