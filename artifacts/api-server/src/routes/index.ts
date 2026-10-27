@@ -21,6 +21,7 @@ import dayRouter from "./day";
 import toolsRouter from "./tools";
 import goRouter from "./go";
 import knowledgeRouter from "./knowledge";
+import aiAssistRouter from "./ai-assist";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(dayRouter);
 router.use(toolsRouter);
 router.use(goRouter);
 router.use(knowledgeRouter);
+router.use(aiAssistRouter);
 
 export default router;

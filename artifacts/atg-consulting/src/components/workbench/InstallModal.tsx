@@ -7,6 +7,7 @@
  */
 import { useState } from "react";
 import { api } from "@/lib/api";
+import SkillCustomizerModal from "@/components/app/SkillCustomizerModal";
 
 type Platform = "grok_bot" | "claude" | "chatgpt";
 
@@ -54,6 +55,18 @@ const PLATFORM_SETUP: Record<Platform, { sub: string; steps: string[]; scheduleN
     scheduleNote: "ChatGPT GPT Actions can connect to apps. Scheduling requires Zapier or Make.com.",
   },
 };
+
+function CustomizerTrigger({ slug, name, platform }: { slug: string; name: string; platform: Platform }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="btn-secondary text-sm" style={{ padding: "7px 12px" }}>
+        ✦ Customise for my business
+      </button>
+      {open && <SkillCustomizerModal slug={slug} name={name} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
 
 export default function InstallModal({
   slug,
@@ -206,16 +219,10 @@ export default function InstallModal({
             )}
           </div>
 
-          {/* Try with a sample */}
-          <div>
-            <p className="text-xs mb-2" style={{ color: "var(--canvas-text-3)" }}>
-              Want to preview the output first?
-            </p>
-            <button
-              type="button"
-              onClick={onTrySample}
-              className="btn-ghost text-sm"
-            >
+          {/* Customizer + Try with sample */}
+          <div className="flex flex-wrap gap-3">
+            <CustomizerTrigger slug={slug} name={name} platform={platform} />
+            <button type="button" onClick={onTrySample} className="btn-ghost text-sm">
               Try with a sample →
             </button>
           </div>

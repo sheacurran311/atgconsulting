@@ -64,6 +64,16 @@ export const api = {
     draftFollowUp:   (body: { who: string; lastTouch: string; wantToSay: string }) => post<OutputItem>("/workbench/follow-up", body),
   },
 
+  aiAssist: {
+    coach:         (message: string) => post<{ reply: string; tokens: number; fromCache: boolean }>("/ai-assist/coach", { message }),
+    customizeSkill:(slug: string, platform: "grok_bot"|"claude"|"chatgpt", context?: string) =>
+                     post<{ skillMd: string; routinePrompt: string; tokens: number; fromCache: boolean }>("/ai-assist/customize-skill", { slug, platform, context }),
+    troubleshoot:  (errorText: string, imageBase64?: string, imageMime?: string) =>
+                     post<{ reply: string; tokens: number; fromCache: boolean }>("/ai-assist/troubleshoot", { errorText, imageBase64, imageMime }),
+    reportRefresh: () => post<{ ok: boolean; planId: string; recommendedTier: string; refreshDiff: string | null; message: string }>("/ai-assist/report-refresh", {}),
+    usage:         () => get<{ used: number; cap: number; month: string; byFeature: { feature: string; tokenCount: number; messageCount: number }[]; enabled: boolean }>("/ai-assist/usage"),
+  },
+
   knowledge: {
     list:           () => get<KnowledgeArticle[]>("/knowledge"),
     bySlug:         (slug: string) => get<KnowledgeArticle>(`/knowledge/${slug}`),
@@ -216,7 +226,7 @@ export interface ClientAdmin { id: string; userId: string; company: string | nul
 export interface ClientWorkflowOption { id: string; name: string; area: string; description: string }
 export interface ClientDetail extends ClientAdmin { intakes: IntakeRecord[]; plans: PlanAdmin[]; workflowItems: WorkflowItem[]; consultations: Consultation[]; documents: Document[]; reports: Report[]; workflows?: ClientWorkflowOption[] }
 export interface IntakeRecord { id: string; email: string; name: string; areas: string; aiComfort: number; hoursLost: number; status: string; createdAt: string; plans: PlanAdmin[]; client: ClientAdmin | null }
-export interface PlanAdmin { id: string; aiReadinessLabel: string; aiReadinessSummary: string; focusAreas: string; recommendedTier: string; tierRationale: string; adminReport: string | null; source: string; createdAt: string }
+export interface PlanAdmin { id: string; aiReadinessLabel: string; aiReadinessSummary: string; focusAreas: string; recommendedTier: string; tierRationale: string; adminReport: string | null; source: string; createdAt: string; refreshDiff?: string | null }
 export interface PrepView { client: ClientDetail; intake: IntakeRecord | null; answers: Record<string, unknown> | null; plan: PlanAdmin | null; talkingPoints: string[] }
 export interface AuditEntry { id: string; action: string; entity: string; entityId: string | null; meta: string; createdAt: string; actor: { name: string | null; email: string | null } | null }
 
