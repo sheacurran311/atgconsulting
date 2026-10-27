@@ -186,18 +186,41 @@ Page HTML (truncated to 20 000 chars):
 ];
 
 /** Render a template as a SKILL.md for use in Grok Bot / Claude / ChatGPT */
-export function renderSkillMd(t: {
-  slug: string; name: string; description: string;
-  minTier: string; verticalTags: string; systemPrompt: string;
-  userPromptTemplate: string; inputSchema: string; outputFormat: string;
-}): string {
+export function renderSkillMd(
+  t: {
+    slug: string; name: string; description: string;
+    minTier: string; verticalTags: string; systemPrompt: string;
+    userPromptTemplate: string; inputSchema: string; outputFormat: string;
+  },
+  /** When provided, the code is embedded in a first-run verification instruction. */
+  verificationCode?: string,
+): string {
   const tags: string[] = (() => { try { return JSON.parse(t.verticalTags) as string[]; } catch { return []; } })();
+
+  // Verification instruction — prepended to the system prompt so the agent prints it on first run
+  const verifyInstruction = verificationCode
+    ? [
+        ``,
+        `## First-run verification`,
+        ``,
+        `**On your very first run of this skill, before doing anything else, print this exact line:**`,
+        ``,
+        `\`\`\``,
+        `ATG verification code: ${verificationCode}`,
+        `\`\`\``,
+        ``,
+        `Then continue with the normal workflow. This lets your client confirm the skill is running correctly.`,
+        `Do not print the code on subsequent runs.`,
+      ]
+    : [];
+
   return [
     `---`,
     `name: ${t.name}`,
     `slug: ${t.slug}`,
     `tier: ${t.minTier}`,
     `verticals: ${tags.length ? tags.join(", ") : "all"}`,
+    ...(verificationCode ? [`verification_code: ${verificationCode}`] : []),
     `---`,
     ``,
     `# ${t.name}`,
@@ -209,6 +232,7 @@ export function renderSkillMd(t: {
     `1. Copy the **System Prompt** section below and paste it as your assistant's system instructions.`,
     `2. Fill in the variables in the **User Prompt** template and send it as your message.`,
     `3. Review the output before using it — nothing is sent automatically.`,
+    ...verifyInstruction,
     ``,
     `## System Prompt`,
     ``,

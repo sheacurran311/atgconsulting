@@ -243,12 +243,18 @@ router.post("/workbench/install/mark", async (req, res) => {
   const parsed = MarkInstalledSchema.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "slug and platform are required." }); return; }
   const { slug, platform } = parsed.data;
+  const existing = await prisma.clientWorkflowSettings.findUnique({
+    where: { clientId_slug: { clientId: user.clientId, slug } },
+    select: { installStatus: true },
+  });
+  // Only set to "marked" if not already "verified" (verified is stronger)
+  const newStatus = existing?.installStatus === "verified" ? "verified" : "marked";
   const updated = await prisma.clientWorkflowSettings.upsert({
     where: { clientId_slug: { clientId: user.clientId, slug } },
-    create: { clientId: user.clientId, slug, enabled: true, installedPlatform: platform, installedAt: new Date() },
-    update: { installedPlatform: platform, installedAt: new Date() },
+    create: { clientId: user.clientId, slug, enabled: true, installedPlatform: platform, installedAt: new Date(), installStatus: newStatus },
+    update: { installedPlatform: platform, installedAt: new Date(), installStatus: newStatus },
   });
-  res.json({ ok: true, installedPlatform: updated.installedPlatform, installedAt: updated.installedAt });
+  res.json({ ok: true, installedPlatform: updated.installedPlatform, installedAt: updated.installedAt, installStatus: updated.installStatus });
 });
 
 router.post("/workbench/install/hours", async (req, res) => {
@@ -269,8 +275,8 @@ router.get("/workbench/install/status", async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   if (!user.clientId) { res.json([]); return; }
   const settings = await prisma.clientWorkflowSettings.findMany({
-    where: { clientId: user.clientId, installedPlatform: { not: null } },
-    select: { slug: true, installedPlatform: true, installedAt: true, selfReportedHoursSaved: true },
+    where: { clientId: user.clientId },
+    select: { slug: true, installedPlatform: true, installedAt: true, selfReportedHoursSaved: true, installStatus: true },
   });
   res.json(settings);
 });

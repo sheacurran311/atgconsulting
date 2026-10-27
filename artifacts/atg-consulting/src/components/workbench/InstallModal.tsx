@@ -84,9 +84,16 @@ export default function InstallModal({
   const [platform, setPlatform] = useState<Platform>("grok_bot");
   const [marking, setMarking] = useState(false);
   const [markedPlatform, setMarkedPlatform] = useState<Platform | null>(null);
+  // Verification code flow
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyMsg, setVerifyMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
+
   const setup = PLATFORM_SETUP[platform];
 
-  const skillUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/admin/workflow-templates/${slug}/skill`;
+  // Use client-specific download (embeds verification code in SKILL.md)
+  const skillUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/workbench/skill/${slug}/download`;
 
   async function markInstalled() {
     setMarking(true);
@@ -96,6 +103,22 @@ export default function InstallModal({
       onMarkInstalled(platform);
     } catch { /* keep going */ }
     setMarking(false);
+  }
+
+  async function submitVerifyCode() {
+    if (!verifyCode.trim()) return;
+    setVerifying(true);
+    setVerifyMsg(null);
+    const r = await api.install.verify(slug, verifyCode.trim()).catch((e: Error) => ({ verified: false, error: e.message } as const));
+    if ("verified" in r && r.verified) {
+      setIsVerified(true);
+      setVerifyMsg({ ok: true, text: r.message ?? "✓ Verified installed!" });
+      setMarkedPlatform(platform);
+      onMarkInstalled(platform);
+    } else {
+      setVerifyMsg({ ok: false, text: (r as { error?: string }).error ?? "Incorrect code. Try again." });
+    }
+    setVerifying(false);
   }
 
   return (
@@ -157,13 +180,15 @@ export default function InstallModal({
 
           {/* Download SKILL.md */}
           <div className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
-            <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>STEP 1 — GET THE SKILL FILE</p>
-            <p className="text-sm mb-3" style={{ color: "var(--canvas-text-2)" }}>
-              Download the <code style={{ fontFamily: "var(--font-mono)", color: "var(--blue)", fontSize: "12px" }}>SKILL.md</code> file and paste its contents into {PLATFORM_LABELS[platform]}.
+            <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>STEP 1 — GET YOUR PERSONALISED SKILL FILE</p>
+            <p className="text-sm mb-1" style={{ color: "var(--canvas-text-2)" }}>
+              Download your personalised <code style={{ fontFamily: "var(--font-mono)", color: "var(--blue)", fontSize: "12px" }}>SKILL.md</code> and paste its contents into {PLATFORM_LABELS[platform]}.
+            </p>
+            <p className="text-xs mb-3" style={{ color: "var(--canvas-text-3)" }}>
+              Your file includes a unique verification code. On its first run, the AI agent will print the code — paste it below to confirm the skill is running.
             </p>
             <a
               href={skillUrl}
-              download={`${slug}.skill.md`}
               className="btn-primary text-sm"
               style={{ padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: "6px" }}
             >
@@ -192,30 +217,71 @@ export default function InstallModal({
             </p>
           </div>
 
-          {/* Mark installed */}
-          <div className="rounded-xl p-4" style={{ background: markedPlatform ? "rgba(34,197,94,0.06)" : "var(--canvas-2)", border: `1px solid ${markedPlatform ? "rgba(34,197,94,0.2)" : "var(--canvas-border)"}` }}>
-            {markedPlatform ? (
+          {/* Verification code + mark installed */}
+          <div className="rounded-xl p-4 space-y-4" style={{ background: isVerified ? "rgba(34,197,94,0.06)" : "var(--canvas-2)", border: `1px solid ${isVerified ? "rgba(34,197,94,0.2)" : "var(--canvas-border)"}` }}>
+            {isVerified ? (
               <p className="text-sm font-semibold" style={{ color: "#16A34A" }}>
-                ✓ Marked as installed in {PLATFORM_LABELS[markedPlatform]}
+                ✓ Verified installed — your code matched. This workflow is confirmed running in {PLATFORM_LABELS[platform]}.
               </p>
             ) : (
-              <div>
-                <p className="text-sm font-semibold mb-1" style={{ color: "var(--canvas-text)" }}>
-                  Installed and running?
-                </p>
-                <p className="text-xs mb-3" style={{ color: "var(--canvas-text-3)" }}>
-                  Mark this workflow as installed so your progress is tracked.
-                </p>
-                <button
-                  type="button"
-                  onClick={markInstalled}
-                  disabled={marking}
-                  className="btn-secondary text-sm"
-                  style={{ padding: "8px 14px" }}
-                >
-                  {marking ? "Saving…" : `Mark as installed in ${PLATFORM_LABELS[platform]}`}
-                </button>
-              </div>
+              <>
+                {/* Verification code input */}
+                <div>
+                  <p className="text-sm font-semibold mb-1" style={{ color: "var(--canvas-text)" }}>Paste verification code</p>
+                  <p className="text-xs mb-2" style={{ color: "var(--canvas-text-3)" }}>
+                    Run the skill once in {PLATFORM_LABELS[platform]}. The AI agent will print a code like <code style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>ATG-XXXX</code>. Paste it here to verify.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      className="field-input text-sm font-mono flex-1"
+                      placeholder="ATG-XXXX"
+                      value={verifyCode}
+                      onChange={(e) => setVerifyCode(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => { if (e.key === "Enter") void submitVerifyCode(); }}
+                      maxLength={10}
+                      style={{ letterSpacing: "0.05em" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void submitVerifyCode()}
+                      disabled={verifying || !verifyCode.trim()}
+                      className="btn-primary text-sm flex-shrink-0"
+                      style={{ padding: "8px 14px" }}
+                    >
+                      {verifying ? "Checking…" : "Verify"}
+                    </button>
+                  </div>
+                  {verifyMsg && (
+                    <p className="text-xs mt-1.5 font-medium" style={{ color: verifyMsg.ok ? "#16A34A" : "#DC2626" }}>
+                      {verifyMsg.text}
+                    </p>
+                  )}
+                </div>
+
+                {/* Manual mark as fallback */}
+                <div style={{ borderTop: "1px solid var(--canvas-border)", paddingTop: "12px" }}>
+                  {markedPlatform ? (
+                    <p className="text-xs" style={{ color: "#16A34A" }}>
+                      ✓ Manually marked as installed in {PLATFORM_LABELS[markedPlatform]}. Use the verification code for confirmed status.
+                    </p>
+                  ) : (
+                    <div>
+                      <p className="text-xs mb-2" style={{ color: "var(--canvas-text-3)" }}>
+                        Haven't run it yet? Mark as installed manually and come back to verify later.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={markInstalled}
+                        disabled={marking}
+                        className="btn-secondary text-sm"
+                        style={{ padding: "6px 12px" }}
+                      >
+                        {marking ? "Saving…" : `Mark as installed (unverified)`}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
 

@@ -32,13 +32,19 @@ export default function MyWorkflows({
   const [activeSkill, setActiveSkill] = useState<string | null>(null);
   const [installSlug, setInstallSlug] = useState<string | null>(null);
   const [installStatus, setInstallStatus] = useState<Record<string, string>>({});
+  const [verifyStatus, setVerifyStatus] = useState<Record<string, string>>({}); // slug → "marked"|"verified"
 
   useEffect(() => {
     api.workbench.workflows().then(setWorkflows).catch(() => null).finally(() => setLoading(false));
     api.install.status().then((items) => {
-      const map: Record<string, string> = {};
-      items.forEach((i) => { if (i.installedPlatform) map[i.slug] = i.installedPlatform; });
-      setInstallStatus(map);
+      const platformMap: Record<string, string> = {};
+      const statusMap: Record<string, string> = {};
+      items.forEach((i) => {
+        if (i.installedPlatform) platformMap[i.slug] = i.installedPlatform;
+        if (i.installStatus && i.installStatus !== "none") statusMap[i.slug] = i.installStatus;
+      });
+      setInstallStatus(platformMap);
+      setVerifyStatus(statusMap);
     }).catch(() => null);
   }, []);
 
@@ -93,11 +99,23 @@ export default function MyWorkflows({
                       Last run {new Date(wf.lastRun || wf.runs[0]!.runAt).toLocaleDateString()}
                     </span>
                   )}
-                  {installStatus[wf.name.toLowerCase().replace(/\s+/g, "-")] ? (
-                    <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.08)", color: "#16A34A", letterSpacing: "0.06em" }}>
-                      ✓ Running in {PLATFORM_LABELS[installStatus[wf.name.toLowerCase().replace(/\s+/g, "-")]!] ?? "your platform"}
-                    </span>
-                  ) : null}
+                  {(() => {
+                    const slug = wf.name.toLowerCase().replace(/\s+/g, "-");
+                    const platform = installStatus[slug];
+                    const status = verifyStatus[slug];
+                    if (!platform && !status) return null;
+                    const isVerified = status === "verified";
+                    return (
+                      <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{
+                        background: isVerified ? "rgba(34,197,94,0.08)" : "rgba(234,179,8,0.08)",
+                        color: isVerified ? "#16A34A" : "#D97706",
+                        letterSpacing: "0.06em",
+                        border: `1px solid ${isVerified ? "rgba(34,197,94,0.2)" : "rgba(234,179,8,0.2)"}`,
+                      }}>
+                        {isVerified ? "✓ VERIFIED" : "✓ MARKED"}{platform ? ` · ${PLATFORM_LABELS[platform] ?? platform}` : ""}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -115,7 +133,7 @@ export default function MyWorkflows({
           activeSkill={activeSkill}
           onSelectSkill={setActiveSkill}
           onInstall={(slug, name) => setInstallSlug(slug + "|" + name)}
-          installStatus={installStatus}
+          installStatus={verifyStatus}
         />
         {activeSkill && (
           <div className="mt-3">

@@ -93,9 +93,13 @@ export const api = {
   },
 
   install: {
-    status: () => get<{ slug: string; installedPlatform: string | null; installedAt: string | null; selfReportedHoursSaved: number | null }[]>("/workbench/install/status"),
-    mark: (slug: string, platform: "grok_bot" | "claude" | "chatgpt" | "other") => post<{ ok: boolean; installedPlatform: string | null; installedAt: string | null }>("/workbench/install/mark", { slug, platform }),
+    status: () => get<{ slug: string; installedPlatform: string | null; installedAt: string | null; selfReportedHoursSaved: number | null; installStatus: string }[]>("/workbench/install/status"),
+    mark: (slug: string, platform: "grok_bot" | "claude" | "chatgpt" | "other") => post<{ ok: boolean; installedPlatform: string | null; installedAt: string | null; installStatus: string }>("/workbench/install/mark", { slug, platform }),
     reportHours: (slug: string, hoursSaved: number) => post<{ ok: boolean; selfReportedHoursSaved: number | null }>("/workbench/install/hours", { slug, hoursSaved }),
+    downloadSkill: (slug: string) => `${typeof window !== "undefined" ? window.location.origin : ""}/api/workbench/skill/${slug}/download`,
+    getCode: (slug: string) => get<{ slug: string; alreadyVerified: boolean; code: string | null; note?: string }>(`/workbench/install-code/${slug}`),
+    verify: (slug: string, code: string) => post<{ verified: boolean; installStatus?: string; message?: string; error?: string; remaining?: number }>("/workbench/install-verify", { slug, code }),
+    regenerateCode: (slug: string) => post<{ slug: string; code: string; note: string }>(`/workbench/install-code/${slug}/regenerate`, {}),
   },
 
   day: {
