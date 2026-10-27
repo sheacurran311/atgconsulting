@@ -80,15 +80,15 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
     adminNotes: client.notes ? sanitiseText(client.notes) : undefined,
     sessionSummaries: sessionSummaries.length > 0 ? sessionSummaries : undefined,
     // Pass raw JSON strings so buildTemplateAccountAccess can parse them
-    toolPlanJson: await (async () => {
-      if (client.tier !== "WHITE_GLOVE") return undefined;
-      const tp = await prisma.toolPlan.findFirst({
-        where: { clientId, status: { in: ["approved", "draft"] } },
-        orderBy: { createdAt: "desc" },
-        select: { toolsJson: true },
-      });
-      return tp?.toolsJson ?? undefined;
-    })(),
+    // Pass toolPlanJson and answersJson for GUIDED and WHITE_GLOVE
+    // (needed for the install guides section in the playbook)
+    toolPlanJson: (client.tier === "WHITE_GLOVE" || client.tier === "GUIDED")
+      ? await prisma.toolPlan.findFirst({
+          where: { clientId, status: { in: ["approved", "draft"] } },
+          orderBy: { createdAt: "desc" },
+          select: { toolsJson: true },
+        }).then((tp) => tp?.toolsJson ?? undefined)
+      : undefined,
     answersJson: intake?.answers ?? undefined,
   };
 }

@@ -699,6 +699,48 @@ export interface PlaybookInput {
   answersJson?: string;
 }
 
+// ── Install guide section (GUIDED + DFY) ─────────────────────────────────────
+
+export interface InstallGuidePlatformEntry {
+  /** grok_bot | claude | chatgpt */
+  platform: string;
+  platformLabel: string;
+  /** Pre-built alternative to show first, when verified and set */
+  readyMadeAlternative: { name: string; url: string; note: string } | null;
+  /** Copy-paste routine prompt from ROUTINE_PROMPTS[slug][platform] */
+  routinePrompt: string;
+  /**
+   * Operator key steps — Shea-focused. References the client guide by slug
+   * rather than duplicating full instructions.
+   */
+  operatorKeySteps: string[];
+  /** What Shea checks / confirms on the call or async */
+  operatorNotes: string[];
+  /** Confirmation code note (use the portal verify flow) */
+  confirmationNote: string;
+}
+
+export interface InstallGuideEntry {
+  workflowSlug: string;
+  workflowName: string;
+  /** Connectors needed for this workflow */
+  connectorsNeeded: string[];
+  /** Per-platform entries for each platform the client uses */
+  platforms: InstallGuidePlatformEntry[];
+  /** DFY only: extra build notes for Shea performing the install with delegated access */
+  dfyBuildNotes?: string[];
+}
+
+export interface PlaybookInstallGuides {
+  /** Present for GUIDED and WHITE_GLOVE (DFY) */
+  applicableTier: string;
+  /**
+   * General pre-install checklist for Shea to run before the first session or build.
+   */
+  preInstallChecklist: string[];
+  entries: InstallGuideEntry[];
+}
+
 // ── DFY account access section ────────────────────────────────────────────────
 
 export interface AccountAccessItem {
@@ -786,6 +828,11 @@ export interface PlaybookContent {
    * ATG app never stores client credentials; this section stores no secrets.
    */
   accountAccess?: AccountAccessSection;
+  /**
+   * Per-workflow install guides — only present for GUIDED and WHITE_GLOVE.
+   * Reuses ROUTINE_PROMPTS as the source of truth — no duplicated text.
+   */
+  installGuides?: PlaybookInstallGuides;
 }
 
 const AccountAccessItemZod = z.object({
@@ -844,6 +891,8 @@ const PlaybookZod = z.object({
     scopeCreepWatchOuts: z.array(z.string()),
   }),
   accountAccess: AccountAccessSectionZod.optional(),
+  // installGuides is always built from the template (not from LLM) for consistency
+  // The LLM is not instructed to generate it; it's appended post-generation.
 });
 
 const PLAYBOOK_SYSTEM = `You are writing a confidential operator playbook for Shea Curran (ATG Consulting) to use internally when running a client engagement. This document is never shown to clients.
@@ -1193,7 +1242,7 @@ function buildTemplateAccountAccess(input: PlaybookInput): AccountAccessSection 
       "Kickoff call (30–60 min): confirm scope, review access list, answer questions. Client agrees to the access agreement in writing (email is sufficient).",
       "Access granted: client invites Shea to each account using their admin console or team invite (no shared passwords). Shea confirms access in the client's Workbench chat.",
       "Environment review: Shea audits the current tool state, notes existing automations or workflows that could conflict.",
-      "Skill installation: Shea installs the customised SKILL.md files in the client's AI platform (Grok Bot / Claude / ChatGPT). Nothing runs until the test step.",
+      "Skill installation: Shea installs the customised SKILL.md files in the client's AI platform (Grok Bot / Claude / ChatGPT). Follow the 'Install guides' section of this playbook for per-workflow step-by-step instructions. Nothing runs until the test step.",
       "Connector configuration: Shea connects the client's email, calendar, and CRM connectors inside their chosen AI platform. ATG app is not used for this — all connections are in the client's own platform.",
       "Dry run (first 3 outputs): each workflow generates output for client review. Client approves, edits, or requests changes before Shea marks the workflow as live.",
       "Schedule setup: Shea configures the scheduled task / routine in the client's platform. Client confirms the schedule is correct.",
@@ -1212,9 +1261,158 @@ function buildTemplateAccountAccess(input: PlaybookInput): AccountAccessSection 
   };
 }
 
+// ── Install guides builder ────────────────────────────────────────────────────
+
+const PLATFORM_LABELS_PB: Record<string, string> = {
+  grok_bot: "Grok Bot",
+  claude:   "Claude",
+  chatgpt:  "ChatGPT",
+};
+
+/**
+ * Per-platform operator key steps — Shea-focused, not duplicating the full client guide.
+ * These tell Shea what to do on the live call or when building with delegated access.
+ */
+const OPERATOR_KEY_STEPS: Record<string, Record<string, string[]>> = {
+  default: {
+    grok_bot: [
+      "Confirm the client has an X Premium subscription active.",
+      "Open grok.com, go to the Skills tab, click 'Add skill → Import from file'.",
+      "Upload the personalised SKILL.md (downloaded from ATG portal for this client).",
+      "Test by typing '/' in a Grok chat — skill name should appear in the list.",
+      "Create a routine: ask Grok 'Create a routine that runs [skill name] every [schedule].'",
+      "Run the skill once, review output with the client present, confirm they approve the format.",
+    ],
+    claude: [
+      "Open claude.ai, go to the client's Project (or create one named after the engagement).",
+      "Click Project Settings → Skills → Upload ZIP (pack SKILL.md as skill.md inside a folder named after the slug).",
+      "Alternatively paste SKILL.md into Project Instructions if Skills tab is unavailable.",
+      "Set up a Zapier Zap: Schedule trigger → Claude 'Send message' action → Gmail 'Create draft' action.",
+      "Test the full chain with a sample input, confirm draft appears in client's Gmail Drafts.",
+      "Walk the client through finding the draft and copying it.",
+    ],
+    chatgpt: [
+      "Open chatgpt.com, go to My GPTs → Create a GPT.",
+      "Name it after the workflow; paste System Prompt from SKILL.md into Instructions.",
+      "If client has Business/Enterprise: add a Skill (not a GPT) for a cleaner interface.",
+      "For scheduling: open a regular ChatGPT chat and ask it to create a Scheduled Task.",
+      "Test: trigger the task, confirm output appears, review with client.",
+      "Note: Scheduled Tasks run in main chat, not inside GPTs — confirm client understands.",
+    ],
+  },
+};
+
+const OPERATOR_NOTES: Record<string, string[]> = {
+  "follow-up":        ["Check that the client's contact name and last touchpoint produce a realistic email. Adjust the prompt tone if output sounds too formal/informal.", "Ask the client to copy a real draft from the output into their email app to confirm the copy flow works."],
+  "inbox-triage":     ["Paste a sample inbox summary yourself to test before the call. Confirm the urgency ranking makes sense for this client's actual workload.", "Have client paste 3 real (anonymised) emails during the call to verify the flow."],
+  "review-request":   ["Confirm the client has a Google Business / Yelp / platform URL to link. The routine prompt includes a placeholder — update it to the real URL.", "Have client read the draft aloud to check it sounds like them."],
+  "social-calendar":  ["Generate one week of posts live on the call. Review tone, hashtag count, and character limits for each platform the client uses.", "Confirm the client's Buffer or scheduling tool is connected if they want to queue posts."],
+  "seo-audit":        ["Run the audit against their actual URL during the call. Flag any critical P0 items for the action plan.", "Confirm they have access to Google Search Console — walk them through it if not."],
+  "money-snapshot":   ["Have client paste a real week's transactions (redacted) during the call. Check that the numbers in the summary match their actual figures.", "Clarify this is a summary only — not accounting advice."],
+  "booking-flow":     ["Confirm their calendar tool (Calendly, Google Calendar) is connected in their AI platform.", "Test a confirmation and reminder message with a real (past) appointment."],
+  "quote-proposal":   ["Run a sample quote with realistic numbers during the call. Client should read the full proposal before approving.", "Confirm the output includes all required fields (scope, price, payment terms)."],
+  "prospect-research":["Run a sample search for a real prospect type in their territory. Verify at least 2 results are real businesses.", "Remind client to verify contact info before outreach — AI can hallucinate details."],
+  "faq-support":      ["Paste 3 real support questions from the client's inbox. Check that answers match their actual policies.", "Confirm they have a FAQ doc or knowledge base the skill can reference."],
+};
+
+function buildInstallGuides(input: PlaybookInput): PlaybookInstallGuides | undefined {
+  const isEligible = input.tier === "GUIDED" || input.tier === "WHITE_GLOVE";
+  if (!isEligible) return undefined;
+
+  // Derive which workflows to include from the tool plan
+  const toolPlanTools: { name: string; slug?: string }[] = (() => {
+    try { return JSON.parse(input.toolPlanJson ?? "[]") as { name: string; slug?: string }[]; } catch { return []; }
+  })();
+
+  // Derive which platforms the client uses from intake
+  const answers: Record<string, unknown> = (() => {
+    try { return JSON.parse(input.answersJson ?? "{}") as Record<string, unknown>; } catch { return {}; }
+  })();
+  const aiPlatforms: string[] = Array.isArray(answers.aiPlatforms)
+    ? (answers.aiPlatforms as string[]).filter((p) => p !== "none" && p !== "not_sure")
+    : ["grok_bot"]; // default to Grok Bot if no preference
+
+  // Use the module-level imports (shared source of truth with client SKILL.md exports)
+  const ROUTINE_PROMPTS = _ROUTINE_PROMPTS as unknown as Record<string, Record<string, string>>;
+  const CONNECTORS_NEEDED = _CONNECTORS_NEEDED;
+
+  // Deduplicate to known ATG workflow slugs (tool plan may include non-ATG tools)
+  const knownSlugs = new Set(Object.keys(ROUTINE_PROMPTS));
+  const workflows = toolPlanTools
+    .filter((t) => t.slug && knownSlugs.has(t.slug))
+    .slice(0, 5); // max 5 workflows in the playbook guide
+
+  // If no matching slugs, use the first 3 from intake areas
+  const AREA_DEFAULTS: Record<string, string[]> = {
+    sales: ["follow-up", "prospect-research"],
+    executive_assistant: ["inbox-triage", "booking-flow"],
+    marketing: ["social-calendar", "review-request"],
+    customer_support: ["faq-support", "inbox-triage"],
+  };
+  if (workflows.length === 0) {
+    const slugs = input.areas.flatMap((a) => AREA_DEFAULTS[a] ?? [])
+      .filter((s, i, arr) => arr.indexOf(s) === i)
+      .slice(0, 3);
+    for (const s of slugs) {
+      if (knownSlugs.has(s)) workflows.push({ name: s.split("-").map((w) => w[0]!.toUpperCase() + w.slice(1)).join(" "), slug: s });
+    }
+  }
+
+  const entries: InstallGuideEntry[] = workflows.map((wf) => {
+    const slug = wf.slug!;
+    const connectors = CONNECTORS_NEEDED[slug] ?? [];
+    const wfOperatorNotes = OPERATOR_NOTES[slug] ?? ["Review the output with the client before marking complete.", "Confirm the approval flow is clear to the client."];
+    const isDFY = input.tier === "WHITE_GLOVE";
+
+    const platforms: InstallGuidePlatformEntry[] = aiPlatforms.map((platform) => {
+      const routinePrompt = ROUTINE_PROMPTS[slug]?.[platform as keyof typeof ROUTINE_PROMPTS[string]] ?? "";
+      const keySteps = OPERATOR_KEY_STEPS[slug]?.[platform] ?? OPERATOR_KEY_STEPS.default[platform] ?? [];
+      return {
+        platform,
+        platformLabel: PLATFORM_LABELS_PB[platform] ?? platform,
+        readyMadeAlternative: null, // admin can set in platformReadyMade field
+        routinePrompt,
+        operatorKeySteps: keySteps,
+        operatorNotes: wfOperatorNotes,
+        confirmationNote: `After install, ask the client to run the skill once and copy the ATG verification code (ATG-XXXX) that appears. Have them paste it into ATG portal → My Workflows → ↓ Install → Paste verification code. This confirms the skill is live in their own platform.`,
+      };
+    });
+
+    return {
+      workflowSlug: slug,
+      workflowName: wf.name,
+      connectorsNeeded: connectors,
+      platforms,
+      dfyBuildNotes: isDFY ? [
+        `With delegated access, install this skill in the client's ${aiPlatforms.map((p) => PLATFORM_LABELS_PB[p] ?? p).join(" / ")} account directly — do not install in your own ATG account.`,
+        `Follow the account access section: confirm access is granted before beginning the install.`,
+        `After install and test, walk the client through finding the output and how to approve or dismiss it.`,
+        `Log the installation date in the admin access log for this client.`,
+      ] : undefined,
+    };
+  });
+
+  return {
+    applicableTier: input.tier,
+    preInstallChecklist: [
+      `Confirm the client has an active subscription to each AI platform listed (${aiPlatforms.map((p) => PLATFORM_LABELS_PB[p] ?? p).join(", ")}).`,
+      "Download personalised SKILL.md files for each workflow from the ATG admin portal before the call.",
+      "Verify the client's email and calendar accounts are accessible (for connector setup).",
+      "Have the ATG verification code flow ready — explain to client what to expect.",
+      "For each workflow: know the connectors needed and confirm they're available in the client's platform.",
+      "Set expectation: every output is a draft for their review — nothing sends automatically.",
+    ],
+    entries,
+  };
+}
+
 export async function generateClientPlaybook(input: PlaybookInput): Promise<PlaybookContent & { source: "LLM" | "TEMPLATE" }> {
   const llm = getClient();
-  if (!llm) return { ...buildTemplatePlaybook(input), source: "TEMPLATE" };
+
+  // installGuides is always built from the template (not LLM) — consistent source of truth
+  const installGuides = buildInstallGuides(input);
+
+  if (!llm) return { ...buildTemplatePlaybook(input), installGuides, source: "TEMPLATE" };
 
   try {
     const completion = await llm.chat.completions.create({
@@ -1231,12 +1429,13 @@ export async function generateClientPlaybook(input: PlaybookInput): Promise<Play
     const parsed = PlaybookZod.safeParse(raw);
     if (!parsed.success) {
       console.error("[llm] playbook schema mismatch, using template");
-      return { ...buildTemplatePlaybook(input), source: "TEMPLATE" };
+      return { ...buildTemplatePlaybook(input), installGuides, source: "TEMPLATE" };
     }
-    return { ...parsed.data, source: "LLM" };
+    // Merge LLM output with template-built installGuides
+    return { ...parsed.data, installGuides, source: "LLM" };
   } catch (err) {
     console.error("[llm] playbook generation error:", err);
-    return { ...buildTemplatePlaybook(input), source: "TEMPLATE" };
+    return { ...buildTemplatePlaybook(input), installGuides, source: "TEMPLATE" };
   }
 }
 
@@ -1352,7 +1551,7 @@ export async function summarizeSession(
 // Each loads the active WorkflowTemplate from DB, falls back to TEMPLATE_SEEDS.
 // Client approval of output is always on. Nothing is sent automatically.
 
-import { TEMPLATE_SEEDS } from "./templates";
+import { TEMPLATE_SEEDS, ROUTINE_PROMPTS as _ROUTINE_PROMPTS, CONNECTORS_NEEDED as _CONNECTORS_NEEDED } from "./templates";
 
 async function getSystemPrompt(slug: string): Promise<string> {
   const tpl = await loadWorkflowTemplate(slug);
