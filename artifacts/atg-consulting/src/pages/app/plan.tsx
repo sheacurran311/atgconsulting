@@ -92,6 +92,23 @@ export default function PlanPage() {
 
   const tier = account?.tier ?? "NONE";
   const canAccess = tier === "SELF_SERVE" || tier === "GUIDED" || tier === "WHITE_GLOVE";
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+
+  async function refreshPlan() {
+    setRefreshing(true);
+    setRefreshMsg(null);
+    const r = await api.aiAssist.reportRefresh().catch((e: Error) => {
+      setRefreshMsg(e.message.includes("rate") ? e.message : e.message.includes("enabled") ? "AI Assist is not enabled yet." : "Refresh failed. Try again later.");
+      return null;
+    });
+    if (r) {
+      setRefreshMsg(r.message);
+      // Reload plan
+      api.toolPlan.get().then(setPlan).catch(() => null);
+    }
+    setRefreshing(false);
+  }
 
   async function requestPlan() {
     setGenerating(true);
@@ -124,7 +141,32 @@ export default function PlanPage() {
             <a href="/#tiers" className="btn-primary text-sm">View plans</a>
           </div>
         ) : plan ? (
-          <PlanView plan={plan} />
+          <>
+            <PlanView plan={plan} />
+            <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--canvas-border)" }}>
+              <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>INTAKE CHANGED?</p>
+              <p className="text-sm mb-3" style={{ color: "var(--canvas-text-2)" }}>
+                If you updated your intake answers, regenerate the plan to reflect them.
+              </p>
+              {refreshMsg && (
+                <p className="text-sm mb-2 font-medium" style={{ color: refreshMsg.includes("fail") || refreshMsg.includes("rate") ? "#DC2626" : "#16A34A" }}>
+                  {refreshMsg}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={refreshPlan}
+                disabled={refreshing}
+                className="btn-secondary text-sm"
+                style={{ padding: "7px 14px" }}
+              >
+                {refreshing ? "Refreshing…" : "Refresh my plan"}
+              </button>
+              <p className="text-xs mt-1" style={{ color: "var(--canvas-text-3)" }}>
+                Rate-limited to once per hour. Guided clients: the diff is shared with Shea.
+              </p>
+            </div>
+          </>
         ) : pendingMsg ? (
           <div className="rounded-xl p-6" style={{ background: "rgba(59,107,255,0.06)", border: "1px solid rgba(59,107,255,0.2)" }}>
             <p className="font-semibold text-sm mb-1" style={{ color: "var(--canvas-text)" }}>Plan requested</p>

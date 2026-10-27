@@ -88,6 +88,8 @@ model Client {
   playbooks              ClientPlaybook[]
   sessionRecords         SessionRecord[]
   clientWorkflowSettings ClientWorkflowSettings[]
+  aiAssistMessages       AIAssistMessage[]
+  aiAssistUsage          AIAssistUsage[]
   agentChains         AgentChain[]
   dayProfile          DayProfile?
   declaredAccounts    DeclaredAccount[]
@@ -157,6 +159,8 @@ model Plan {
   model             String?
   promptVersion     String?
   pdfDocumentId     String?  // client-facing PDF
+  /// Admin-visible plain-text summary of what changed vs the previous plan (for Guided clients)
+  refreshDiff       String?
 
   createdAt         DateTime @default(now())
 
@@ -762,4 +766,41 @@ model KnowledgeArticle {
   updatedAt   DateTime @updatedAt
 
   @@index([enabled, sortOrder])
+}
+
+// ── AI Assist (Setup Coach, Skill Customizer, Troubleshooter, Report Refresh) ─
+
+/// One conversation message for any AI Assist feature.
+/// Retained for AI_CHAT_LOG_RETENTION_DAYS (env, default 30).
+model AIAssistMessage {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  /// coach | customize | troubleshoot | refresh
+  feature   String
+  role      String   // user | assistant
+  content   String
+  /// Input token count for this message (assistant messages carry the full turn cost)
+  tokens    Int      @default(0)
+  model     String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([clientId, feature, createdAt])
+  @@index([createdAt]) // for retention sweep
+}
+
+/// Monthly aggregated usage per client × feature.
+/// Updated on every LLM call; reset each month (YYYY-MM key).
+model AIAssistUsage {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  month        String   // YYYY-MM
+  feature      String   // coach | customize | troubleshoot | refresh | all
+  messageCount Int      @default(0)
+  tokenCount   Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([clientId, month, feature])
+  @@index([clientId, month])
 }

@@ -8,6 +8,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/db";
 import { generateDailyReport } from "../lib/reports";
+import { pruneOldChatLogs } from "../lib/ai-assist";
 
 const router = Router();
 
@@ -50,6 +51,9 @@ router.post("/cron/daily-reports", async (req, res) => {
       results.push({ clientId, status: `error:${msg}` });
     }
   }
+
+  // Prune old AI chat logs after daily reports
+  pruneOldChatLogs().catch(console.error);
 
   res.json({ ok: true, date: today, processed: results.length, results });
 });

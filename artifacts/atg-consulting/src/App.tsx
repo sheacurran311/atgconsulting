@@ -31,6 +31,7 @@ import AdminMessagesPage from "@/pages/admin/messages";
 import AdminTiersPage from "@/pages/admin/tiers";
 import AdminWorkflowTemplatesPage from "@/pages/admin/workflow-templates";
 import AdminToolsPage from "@/pages/admin/tools";
+import AdminAIUsagePage from "@/pages/admin/ai-usage";
 
 function Metadata() {
   const [location] = useLocation();
@@ -132,6 +133,7 @@ function AuthenticatedApp() {
         <Route path="/admin/tiers" component={AdminTiersPage} />
         <Route path="/admin/workflow-templates" component={AdminWorkflowTemplatesPage} />
         <Route path="/admin/tools" component={AdminToolsPage} />
+        <Route path="/admin/ai-usage" component={AdminAIUsagePage} />
 
         {/* Legacy */}
         <Route path="/user-portal" component={() => <Redirect to="/app" />} />

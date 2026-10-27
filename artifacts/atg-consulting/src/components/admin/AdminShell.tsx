@@ -11,6 +11,7 @@ const navItems = [
   { label: "Content",     to: "/admin/content"  },
   { label: "Templates",   to: "/admin/workflow-templates" },
   { label: "Tools",       to: "/admin/tools"    },
+  { label: "AI usage",    to: "/admin/ai-usage" },
   { label: "Audit log",   to: "/admin/audit"    },
 ];
 

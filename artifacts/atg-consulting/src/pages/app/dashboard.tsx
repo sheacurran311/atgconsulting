@@ -16,6 +16,8 @@ import { useAccount } from "@/lib/useAccount";
 import { hasOperator } from "@/lib/tiers";
 import ResourcesTab from "@/components/app/ResourcesTab";
 import InfoTab from "@/components/app/InfoTab";
+import AICoachPanel from "@/components/app/AICoachPanel";
+import TroubleshooterPanel from "@/components/app/TroubleshooterPanel";
 
 const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
 
@@ -86,6 +88,7 @@ const TABS = [
   { id: "hours",     label: "Hours saved" },
   { id: "resources", label: "Resources" },
   { id: "info",      label: "Guides" },
+  { id: "coach",     label: "AI Coach" },
 ];
 
 export default function DashboardPage() {
@@ -140,6 +143,12 @@ export default function DashboardPage() {
         {tab === "hours" && <div className="max-w-content"><HoursSavedTab tier={tier} /></div>}
         {tab === "resources" && <div className="max-w-content"><ResourcesTab /></div>}
         {tab === "info" && <div className="max-w-content"><InfoTab /></div>}
+        {tab === "coach" && (
+          <div className="max-w-content space-y-4">
+            <AICoachPanel tier={tier} />
+            <TroubleshooterPanel tier={tier} />
+          </div>
+        )}
 
         <div className="max-w-content mt-8 pt-6" style={{ borderTop: "1px solid var(--canvas-border)" }}>
           {account ? (hasOperator(tier) ? <RequestWorkflowForm /> : <UpgradePrompt />) : null}

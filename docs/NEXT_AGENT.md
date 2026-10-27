@@ -89,6 +89,7 @@ Merge in this exact order. Each PR may depend on the previous.
 | **#23** | `cursor/install-first-c8a4` | Install-first: intake AI platforms, Install CTA, progress tracking, DayBlock reframe | **YES** (ClientWorkflowSettings columns) | No |
 | **#24** | `cursor/tools-db-c8a4` | Tool DB, /go/:slug, admin CRUD + CSV, affiliate disclosure, LLM integration | **YES** (Tool, ToolClick, KnowledgeArticle) | No |
 | **#25** | `cursor/knowledge-c8a4` | Client Resources + Guides tabs, platform guides, personalised tool links | No | No |
+| **#26** | `cursor/ai-assist-c8a4` | AI Assist: Setup Coach, Skill Customizer, Troubleshooter, Report Refresh | **YES** (AIAssistMessage, AIAssistUsage; Plan.refreshDiff) | No |
 
 After merging all four, run `pnpm db:push` once to apply all pending schema changes.
 
