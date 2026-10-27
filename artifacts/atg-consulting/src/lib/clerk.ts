@@ -22,6 +22,9 @@ export const clerkAppearance = {
     // Concept 3 terminal lockup (light variant) — dark ink on white card background.
     // Same visual identity as the site nav bar, which uses the inline <LogoLockup> component.
     logoImageUrl: `${window.location.origin}${basePath}/brand/v2/lockup-light.svg`,
+    // Legal links shown below the sign-up form
+    termsPageUrl: `${window.location.origin}${basePath}/terms`,
+    privacyPolicyUrl: `${window.location.origin}${basePath}/privacy`,
   },
   variables: {
     colorPrimary: "#0A0A0B",

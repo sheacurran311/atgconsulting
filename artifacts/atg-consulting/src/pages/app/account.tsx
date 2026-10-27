@@ -152,13 +152,18 @@ export default function AccountPage() {
             )}
           </div>
           {billingEnabled && tier !== "NONE" && (
-            <button
-              onClick={openBillingPortal}
-              disabled={portalLoading}
-              className="btn-secondary text-sm py-2 px-3"
-            >
-              {portalLoading ? "Opening…" : "Manage billing & invoices"}
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={openBillingPortal}
+                disabled={portalLoading}
+                className="btn-secondary text-sm py-2 px-3"
+              >
+                {portalLoading ? "Opening…" : "Manage billing & invoices"}
+              </button>
+              <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
+                See our <Link to="/refunds"><span className="underline" style={{ color: "var(--blue-btn)" }}>Refund Policy</span></Link> for cancellation terms.
+              </p>
+            </div>
           )}
           {!billingEnabled && (
             <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
