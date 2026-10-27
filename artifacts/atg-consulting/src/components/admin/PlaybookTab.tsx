@@ -22,6 +22,30 @@ interface AccountAccess {
   offboarding: string[];
 }
 
+interface InstallGuidePlatform {
+  platform: string;
+  platformLabel: string;
+  readyMadeAlternative: { name: string; url: string; note: string } | null;
+  routinePrompt: string;
+  operatorKeySteps: string[];
+  operatorNotes: string[];
+  confirmationNote: string;
+}
+
+interface InstallGuideEntry {
+  workflowSlug: string;
+  workflowName: string;
+  connectorsNeeded: string[];
+  platforms: InstallGuidePlatform[];
+  dfyBuildNotes?: string[];
+}
+
+interface PlaybookInstallGuides {
+  applicableTier: string;
+  preInstallChecklist: string[];
+  entries: InstallGuideEntry[];
+}
+
 interface PlaybookContent {
   clientSummary: string;
   risksAndClarifications: string[];
@@ -33,6 +57,7 @@ interface PlaybookContent {
   milestones: { day30: string; day60: string; day90: string; ongoingCadence: string };
   kpisAndUpsell: { kpis: string[]; upgradesTriggers: string[]; scopeCreepWatchOuts: string[] };
   accountAccess?: AccountAccess;
+  installGuides?: PlaybookInstallGuides;
 }
 
 function parseContent(raw: string): PlaybookContent | null {
@@ -210,6 +235,106 @@ function PlaybookView({ content, pb }: { content: PlaybookContent; pb: ClientPla
               <p className="font-mono text-2xs mb-2" style={{ color: "#D97706", letterSpacing: "0.08em" }}>OFFBOARDING</p>
               <BulletList items={content.accountAccess.offboarding} />
             </div>
+          </div>
+        </Section>
+      )}
+
+      {/* Install guides — GUIDED and DFY */}
+      {content.installGuides && (
+        <Section title="Install guides" badge={`${content.installGuides.applicableTier === "WHITE_GLOVE" ? "DONE-FOR-YOU" : "GUIDED"} · OPERATOR REFERENCE`}>
+          <div className="mb-4 rounded-xl p-3" style={{ background: "rgba(59,107,255,0.06)", border: "1px solid rgba(59,107,255,0.18)" }}>
+            <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>PRE-INSTALL CHECKLIST</p>
+            <BulletList items={content.installGuides.preInstallChecklist} />
+          </div>
+
+          <div className="space-y-6">
+            {content.installGuides.entries.map((entry) => (
+              <div key={entry.workflowSlug} className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--canvas-border)" }}>
+                {/* Workflow header */}
+                <div className="px-4 py-3 flex items-center gap-3" style={{ background: "var(--canvas-2)", borderBottom: "1px solid var(--canvas-border)" }}>
+                  <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)" }}>{entry.workflowName}</p>
+                  <code className="font-mono text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--canvas-1)", color: "var(--canvas-text-3)", border: "1px solid var(--canvas-border)" }}>
+                    {entry.workflowSlug}
+                  </code>
+                </div>
+
+                <div className="p-4 space-y-4">
+                  {/* Connectors */}
+                  {entry.connectorsNeeded.length > 0 && (
+                    <div>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>CONNECTORS NEEDED</p>
+                      <BulletList items={entry.connectorsNeeded} />
+                    </div>
+                  )}
+
+                  {/* DFY build notes */}
+                  {entry.dfyBuildNotes && entry.dfyBuildNotes.length > 0 && (
+                    <div className="rounded-lg p-3" style={{ background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.2)" }}>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "#D97706", letterSpacing: "0.06em" }}>DFY BUILD NOTES</p>
+                      <BulletList items={entry.dfyBuildNotes} />
+                    </div>
+                  )}
+
+                  {/* Per-platform entries */}
+                  {entry.platforms.map((p) => (
+                    <div key={p.platform} className="rounded-lg p-3" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+                      <p className="font-mono text-2xs font-bold mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>
+                        {p.platformLabel.toUpperCase()}
+                      </p>
+
+                      {/* Ready-made alternative */}
+                      {p.readyMadeAlternative && (
+                        <div className="mb-3 rounded px-2 py-1.5" style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                          <p className="text-xs font-semibold" style={{ color: "#16A34A" }}>
+                            Ready-made: {p.readyMadeAlternative.name}
+                          </p>
+                          <p className="text-xs" style={{ color: "var(--canvas-text-2)" }}>{p.readyMadeAlternative.note}</p>
+                          <a href={p.readyMadeAlternative.url} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: "var(--blue)" }}>
+                            {p.readyMadeAlternative.url} ↗
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Operator key steps */}
+                      {p.operatorKeySteps.length > 0 && (
+                        <div className="mb-3">
+                          <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.04em" }}>INSTALL STEPS (SHEA)</p>
+                          <ol className="space-y-1">
+                            {p.operatorKeySteps.map((step, i) => (
+                              <li key={i} className="flex gap-2 text-xs">
+                                <span className="flex-shrink-0 font-mono w-4 text-right" style={{ color: "var(--blue)" }}>{i + 1}.</span>
+                                <span style={{ color: "var(--canvas-text-2)" }}>{step}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+
+                      {/* Routine prompt */}
+                      {p.routinePrompt && (
+                        <div className="mb-3">
+                          <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.04em" }}>ROUTINE PROMPT (COPY-PASTE)</p>
+                          <div className="rounded p-2 font-mono text-xs" style={{ background: "var(--canvas-1)", border: "1px solid var(--canvas-border)", whiteSpace: "pre-wrap", color: "var(--canvas-text-2)" }}>
+                            {p.routinePrompt}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Operator notes */}
+                      <div className="mb-2">
+                        <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.04em" }}>OPERATOR NOTES</p>
+                        <BulletList items={p.operatorNotes} />
+                      </div>
+
+                      {/* Confirmation code */}
+                      <div className="rounded px-2 py-1.5 text-xs" style={{ background: "rgba(59,107,255,0.06)", border: "1px solid rgba(59,107,255,0.15)", color: "var(--canvas-text-2)" }}>
+                        <strong style={{ color: "var(--blue)" }}>Verification: </strong>{p.confirmationNote}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </Section>
       )}

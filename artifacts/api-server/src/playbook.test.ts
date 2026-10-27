@@ -257,3 +257,155 @@ test("POST /admin/clients/:id/access-log is blocked without auth", async () => {
   assert.notEqual(res.status, 200, `unauthenticated POST should not return 200 (got ${res.status})`);
   assert.ok(res.status >= 400, `expected 4xx or 5xx, got ${res.status}`);
 });
+
+// ── Install guides in playbook ────────────────────────────────────────────────
+
+test("GUIDED playbook includes installGuides section", async () => {
+  const saved = { OPENAI_API_KEY: process.env.OPENAI_API_KEY, XAI_API_KEY: process.env.XAI_API_KEY, LLM_API_KEY: process.env.LLM_API_KEY };
+  delete process.env.OPENAI_API_KEY; delete process.env.XAI_API_KEY; delete process.env.LLM_API_KEY;
+  try {
+    const { generateClientPlaybook } = await import("./lib/llm");
+    const result = await generateClientPlaybook({
+      clientName: "Guided Test Client",
+      role: "Owner",
+      industry: "Real estate",
+      bizSize: "solo",
+      areas: ["sales", "executive_assistant"],
+      aiComfort: 2,
+      hoursLost: 15,
+      helpStyle: "guided",
+      timeSinks: ["email", "followups"],
+      tier: "GUIDED",
+      vertical: "real_estate",
+      answersJson: JSON.stringify({ aiPlatforms: ["grok_bot", "claude"] }),
+      toolPlanJson: JSON.stringify([
+        { name: "Lead follow-up", slug: "follow-up", why: "Drafts follow-ups" },
+        { name: "Inbox triage", slug: "inbox-triage", why: "Sorts inbox" },
+      ]),
+    });
+
+    assert.ok(result.installGuides, "GUIDED playbook must include installGuides");
+    assert.equal(result.installGuides!.applicableTier, "GUIDED");
+    assert.ok(result.installGuides!.preInstallChecklist.length >= 4, "preInstallChecklist has ≥4 items");
+    assert.ok(result.installGuides!.entries.length >= 1, "at least one workflow entry");
+
+    const followUpEntry = result.installGuides!.entries.find((e) => e.workflowSlug === "follow-up");
+    assert.ok(followUpEntry, "follow-up entry present");
+    assert.ok(followUpEntry!.platforms.length >= 1, "at least one platform entry");
+
+    // Platforms should match the aiPlatforms in answersJson
+    const platformNames = followUpEntry!.platforms.map((p) => p.platform);
+    assert.ok(platformNames.includes("grok_bot"), "Grok Bot platform entry present");
+    assert.ok(platformNames.includes("claude"), "Claude platform entry present");
+
+    // Each platform must have a routine prompt (from ROUTINE_PROMPTS)
+    for (const platform of followUpEntry!.platforms) {
+      assert.ok(platform.routinePrompt.length > 20, `routinePrompt non-empty for ${platform.platform}`);
+      assert.ok(platform.operatorKeySteps.length >= 3, `operatorKeySteps has ≥3 items for ${platform.platform}`);
+      assert.ok(platform.confirmationNote.includes("ATG"), "confirmationNote references ATG verification code");
+    }
+
+    // GUIDED should NOT have dfyBuildNotes
+    assert.equal(followUpEntry!.dfyBuildNotes, undefined, "GUIDED should not have dfyBuildNotes");
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
+});
+
+test("WHITE_GLOVE (DFY) playbook includes installGuides with dfyBuildNotes", async () => {
+  const saved = { OPENAI_API_KEY: process.env.OPENAI_API_KEY, XAI_API_KEY: process.env.XAI_API_KEY, LLM_API_KEY: process.env.LLM_API_KEY };
+  delete process.env.OPENAI_API_KEY; delete process.env.XAI_API_KEY; delete process.env.LLM_API_KEY;
+  try {
+    const { generateClientPlaybook } = await import("./lib/llm");
+    const result = await generateClientPlaybook({
+      clientName: "DFY Install Test",
+      role: "Owner",
+      industry: "Home services",
+      bizSize: "solo",
+      areas: ["sales"],
+      aiComfort: 1,
+      hoursLost: 25,
+      helpStyle: "done_for_you",
+      timeSinks: ["followups"],
+      tier: "WHITE_GLOVE",
+      vertical: "home_services",
+      answersJson: JSON.stringify({ aiPlatforms: ["grok_bot"] }),
+      toolPlanJson: JSON.stringify([{ name: "Lead follow-up", slug: "follow-up", why: "Follow-ups" }]),
+    });
+
+    assert.ok(result.installGuides, "DFY playbook must include installGuides");
+    const entry = result.installGuides!.entries[0];
+    assert.ok(entry, "at least one entry");
+    assert.ok(Array.isArray(entry!.dfyBuildNotes) && entry!.dfyBuildNotes!.length >= 2, "dfyBuildNotes present for DFY");
+    // DFY build notes should mention delegated access
+    const dfyText = entry!.dfyBuildNotes!.join(" ").toLowerCase();
+    assert.ok(dfyText.includes("delegated") || dfyText.includes("access"), "dfyBuildNotes mention delegated access");
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
+});
+
+test("SELF_SERVE playbook does NOT include installGuides", async () => {
+  const saved = { OPENAI_API_KEY: process.env.OPENAI_API_KEY, XAI_API_KEY: process.env.XAI_API_KEY, LLM_API_KEY: process.env.LLM_API_KEY };
+  delete process.env.OPENAI_API_KEY; delete process.env.XAI_API_KEY; delete process.env.LLM_API_KEY;
+  try {
+    const { generateClientPlaybook } = await import("./lib/llm");
+    const result = await generateClientPlaybook({
+      clientName: "Self-serve Test",
+      role: "Owner",
+      industry: "Retail",
+      bizSize: "solo",
+      areas: ["marketing"],
+      aiComfort: 3,
+      hoursLost: 8,
+      helpStyle: "self_serve",
+      timeSinks: ["social_content"],
+      tier: "SELF_SERVE",
+      vertical: "restaurants",
+    });
+
+    assert.equal(result.installGuides, undefined, "SELF_SERVE playbook must NOT include installGuides");
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
+});
+
+test("installGuides uses ROUTINE_PROMPTS as source of truth (routine prompt matches)", async () => {
+  const saved = { OPENAI_API_KEY: process.env.OPENAI_API_KEY, XAI_API_KEY: process.env.XAI_API_KEY, LLM_API_KEY: process.env.LLM_API_KEY };
+  delete process.env.OPENAI_API_KEY; delete process.env.XAI_API_KEY; delete process.env.LLM_API_KEY;
+  try {
+    const { generateClientPlaybook } = await import("./lib/llm");
+    const { ROUTINE_PROMPTS } = await import("./lib/templates");
+    const result = await generateClientPlaybook({
+      clientName: "Routine Prompt Test",
+      role: "Owner",
+      industry: "Professional services",
+      bizSize: "2-10",
+      areas: ["sales"],
+      aiComfort: 2,
+      hoursLost: 12,
+      helpStyle: "guided",
+      timeSinks: ["followups"],
+      tier: "GUIDED",
+      vertical: "professional_services",
+      answersJson: JSON.stringify({ aiPlatforms: ["grok_bot"] }),
+      toolPlanJson: JSON.stringify([{ name: "Lead follow-up", slug: "follow-up", why: "Follow-ups" }]),
+    });
+
+    const entry = result.installGuides?.entries.find((e) => e.workflowSlug === "follow-up");
+    const grokEntry = entry?.platforms.find((p) => p.platform === "grok_bot");
+    const expectedPrompt = ROUTINE_PROMPTS["follow-up"]?.grok_bot;
+    assert.ok(expectedPrompt, "ROUTINE_PROMPTS has follow-up grok_bot entry");
+    assert.equal(grokEntry?.routinePrompt, expectedPrompt, "routine prompt matches ROUTINE_PROMPTS source");
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
+});

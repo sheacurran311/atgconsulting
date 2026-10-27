@@ -272,7 +272,7 @@ const QUALITY_CHECKS: Record<string, string[]> = {
   "faq-support":     ["Is the answer accurate for your specific policies?", "Is the tone appropriate for the customer's situation?"],
 };
 
-const CONNECTORS_NEEDED: Record<string, string[]> = {
+export const CONNECTORS_NEEDED: Record<string, string[]> = {
   "follow-up":        ["Email (Gmail / Outlook) — optional, for reviewing drafts in your inbox"],
   "inbox-triage":     ["Email (Gmail / Outlook) — paste summaries rather than connecting live if preferred"],
   "review-request":   ["None required — copy the draft and send manually"],
