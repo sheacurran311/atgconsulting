@@ -4,6 +4,7 @@ import LogoLockup from "@/components/LogoLockup";
 import AdminSwitcher from "@/components/admin/AdminSwitcher";
 
 const navItems = [
+  { label: "Discovery",   to: "/admin/discovery" },
   { label: "Clients",     to: "/admin/clients"  },
   { label: "Intakes",     to: "/admin/intakes"  },
   { label: "Plans & DFY", to: "/admin/tiers"   },

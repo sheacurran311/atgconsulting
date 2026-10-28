@@ -10,6 +10,7 @@ import PlanResultPage from "@/pages/plan-result";
 import NotFound from "@/pages/not-found";
 import { PrivacyPage, TermsPage } from "@/pages/legal";
 import RefundsPage from "@/pages/refunds";
+import IntakeDiscoveryPage from "@/pages/intake";
 import { SignInPage, SignUpPage } from "@/pages/auth";
 
 // App (client portal) pages
@@ -33,6 +34,7 @@ import AdminTiersPage from "@/pages/admin/tiers";
 import AdminWorkflowTemplatesPage from "@/pages/admin/workflow-templates";
 import AdminToolsPage from "@/pages/admin/tools";
 import AdminAIUsagePage from "@/pages/admin/ai-usage";
+import AdminDiscoveryPage from "@/pages/admin/discovery";
 
 function Metadata() {
   const [location] = useLocation();
@@ -104,6 +106,7 @@ function AuthenticatedApp() {
         <Route path="/sign-up/*?" component={SignUpPage} />
 
         {/* Intake + plan */}
+        <Route path="/intake" component={IntakeDiscoveryPage} />
         <Route path="/start" component={StartPage} />
         <Route path="/start/result/:intakeId" component={PlanResultPage} />
         <Route path="/privacy" component={PrivacyPage} />
@@ -136,6 +139,7 @@ function AuthenticatedApp() {
         <Route path="/admin/workflow-templates" component={AdminWorkflowTemplatesPage} />
         <Route path="/admin/tools" component={AdminToolsPage} />
         <Route path="/admin/ai-usage" component={AdminAIUsagePage} />
+        <Route path="/admin/discovery" component={AdminDiscoveryPage} />
 
         {/* Legacy */}
         <Route path="/user-portal" component={() => <Redirect to="/app" />} />

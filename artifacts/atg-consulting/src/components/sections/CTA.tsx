@@ -52,12 +52,12 @@ export default function CTA() {
           >
             Book a 1:1 with Shea
           </a>
-          <Link to="/start">
+          <Link to="/intake">
             <span
               className="btn-secondary-white"
               style={{ fontSize: "15px", padding: "12px 24px" }}
             >
-              Get my free snapshot first
+              Start your free assessment
             </span>
           </Link>
         </div>

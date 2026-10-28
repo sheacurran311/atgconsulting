@@ -77,9 +77,9 @@ export default function Hero() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <Link to="/start">
+              <Link to="/intake">
                 <span className="btn-primary" style={{ fontSize: "15px", padding: "12px 22px" }}>
-                  Map my workflow →
+                  Start your free assessment →
                 </span>
               </Link>
               <a

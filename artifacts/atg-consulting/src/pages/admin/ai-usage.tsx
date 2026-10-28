@@ -51,7 +51,11 @@ export default function AdminAIUsagePage() {
     customize: "rgba(139,92,246,0.12)",
     troubleshoot: "rgba(234,179,8,0.12)",
     refresh: "rgba(34,197,94,0.12)",
+    intake: "rgba(234,179,8,0.12)",
   };
+
+  // Note: discovery intake tokens are tracked on DiscoveryIntake.tokensUsed,
+  // not in AIAssistUsage. View them in the Discovery inbox (/admin/discovery).
 
   return (
     <AdminShell>

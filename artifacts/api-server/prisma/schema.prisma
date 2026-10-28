@@ -861,3 +861,55 @@ model WorkflowInstallCode {
   @@unique([clientId, slug])
   @@index([clientId])
 }
+
+// ── Discovery intake (adaptive, pre-auth) ─────────────────────────────────────
+
+/// A discovery intake session. Works for logged-in or anonymous prospects.
+/// Adaptive: the server calls Grok to pick follow-up questions.
+/// Expires after 90 days if not converted to a client.
+model DiscoveryIntake {
+  id              String    @id @default(cuid())
+
+  /// Prospect's contact email (optional at start; required for report delivery)
+  contactEmail    String?
+  contactName     String?
+
+  /// JSON array of { id, category, question, answer } — the actual Q&A
+  answers         String    @default("[]")
+
+  /// Full human-readable transcript of the session
+  transcript      String    @default("")
+
+  /// Text extracted from a pasted document or uploaded PDF/DOCX (optional)
+  rawUpload       String?
+
+  /// AI-generated report draft (JSON: findings, workflows, tier, proposalScope)
+  reportDraft     String?
+
+  reportApprovedAt DateTime?
+
+  /// new | reviewed | report_sent | converted
+  status          String    @default("new")
+
+  /// Set when this intake is linked to a converted client
+  clientId        String?
+
+  /// Hashed IP for rate limiting (no plain IPs stored)
+  ipHash          String?
+
+  /// True when prospect clicked the consent checkbox
+  consentGiven    Boolean   @default(false)
+
+  /// Total tokens used for adaptive AI calls in this session
+  tokensUsed      Int       @default(0)
+
+  /// Session automatically expires after 90 days if not converted
+  expiresAt       DateTime
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([contactEmail])
+  @@index([status, createdAt])
+  @@index([expiresAt])
+}
