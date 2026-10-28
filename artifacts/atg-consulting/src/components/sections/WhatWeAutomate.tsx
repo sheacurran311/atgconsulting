@@ -86,7 +86,7 @@ export default function WhatWeAutomate() {
         </div>
 
         <div className="mt-10 text-center">
-          <Link to="/start">
+          <Link to="/intake">
             <span className="btn-primary" style={{ fontSize: "15px", padding: "12px 22px" }}>
               Tell me where you want help
             </span>

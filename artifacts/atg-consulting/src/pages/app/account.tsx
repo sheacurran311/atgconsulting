@@ -181,7 +181,7 @@ export default function AccountPage() {
               <p className="text-sm mb-3" style={{ color: "var(--canvas-text-2)" }}>
                 No intake on file. Complete the intake form to personalise your Workbench.
               </p>
-              <Link to="/start"><span className="btn-primary text-sm py-2 px-4">Start intake →</span></Link>
+              <Link to="/intake"><span className="btn-primary text-sm py-2 px-4">Start intake →</span></Link>
             </div>
           ) : (
             <div>
@@ -201,7 +201,7 @@ export default function AccountPage() {
                 ))}
               </div>
               <div className="flex items-center gap-3">
-                <Link to="/start">
+                <Link to="/intake">
                   <span className="btn-secondary text-sm py-2 px-3">Edit my intake →</span>
                 </Link>
                 <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>

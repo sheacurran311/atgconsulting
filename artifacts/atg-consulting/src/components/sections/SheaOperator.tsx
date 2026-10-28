@@ -84,7 +84,7 @@ export default function SheaOperator() {
               >
                 Book a 1:1 with Shea
               </a>
-              <Link to="/start">
+              <Link to="/intake">
                 <span className="btn-secondary-white" style={{ fontSize: "15px", padding: "12px 22px" }}>
                   Map my workflow
                 </span>

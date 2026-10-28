@@ -16,6 +16,8 @@ interface LogEntry {
   tokens: number; model: string; createdAt: string;
 }
 
+interface HealthResult { ok: boolean; model: string; latencyMs?: number; error?: string; timestamp?: string }
+
 export default function AdminAIUsagePage() {
   const [rows, setRows] = useState<UsageRow[]>([]);
   const [month, setMonth] = useState("");
@@ -24,6 +26,8 @@ export default function AdminAIUsagePage() {
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [logLoading, setLogLoading] = useState(false);
+  const [health, setHealth] = useState<HealthResult | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/ai-assist/usage", { credentials: "include" })
@@ -63,11 +67,47 @@ export default function AdminAIUsagePage() {
     <AdminShell>
       <div className="max-w-content mx-auto space-y-6">
         <div>
-          <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>ADMIN · AI ASSIST</p>
-          <h1 className="font-extrabold text-2xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.025em" }}>AI usage · {month}</h1>
-          {disclaimer && (
-            <p className="text-xs mt-1" style={{ color: "var(--canvas-text-3)" }}>{disclaimer}</p>
-          )}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>ADMIN · AI ASSIST</p>
+              <h1 className="font-extrabold text-2xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.025em" }}>AI usage · {month}</h1>
+              {disclaimer && (
+                <p className="text-xs mt-1" style={{ color: "var(--canvas-text-3)" }}>{disclaimer}</p>
+              )}
+            </div>
+            {/* Grok health check */}
+            <div style={{ flexShrink: 0 }}>
+              {health ? (
+                <div className="rounded-xl px-4 py-3 text-sm" style={{
+                  background: health.ok ? "rgba(22,163,74,0.06)" : "rgba(220,38,38,0.06)",
+                  border: `1px solid ${health.ok ? "rgba(22,163,74,0.2)" : "rgba(220,38,38,0.2)"}`,
+                }}>
+                  <p className="font-mono text-2xs mb-0.5" style={{ color: health.ok ? "#16A34A" : "#DC2626", letterSpacing: "0.06em" }}>
+                    GROK · {health.ok ? "OK" : "ERROR"}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--canvas-text-2)" }}>
+                    {health.model}{health.latencyMs ? ` · ${health.latencyMs}ms` : ""}
+                  </p>
+                  {health.error && <p className="text-xs" style={{ color: "#DC2626" }}>{health.error}</p>}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setHealthLoading(true);
+                    const r = await fetch("/api/admin/ai-assist/health", { credentials: "include" });
+                    setHealth(await r.json() as HealthResult);
+                    setHealthLoading(false);
+                  }}
+                  disabled={healthLoading}
+                  className="btn-secondary text-sm"
+                  style={{ padding: "7px 14px" }}
+                >
+                  {healthLoading ? "Testing…" : "Test Grok connection"}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Totals */}

@@ -13,7 +13,7 @@ export default function NotFound() {
         </p>
         <div className="flex items-center justify-center gap-3">
           <Link to="/"><span className="btn-secondary text-sm">Back home</span></Link>
-          <Link to="/start"><span className="btn-primary text-sm">Map my workflow</span></Link>
+          <Link to="/intake"><span className="btn-primary text-sm">Map my workflow</span></Link>
         </div>
       </div>
     </div>

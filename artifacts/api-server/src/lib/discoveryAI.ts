@@ -12,6 +12,7 @@
  */
 
 import OpenAI from "openai";
+import { getGrokClient, GROK_MODEL, GROK_VISION_MODEL, logFallback } from "./grokClient";
 import {
   QUESTION_BANK, CORE_QUESTIONS, FALLBACK_ORDER, CATEGORY_LABELS,
   QUESTION_MAP, type Question,
@@ -24,12 +25,23 @@ export interface AnsweredQuestion {
   answer: string;
 }
 
+/** An AI-generated follow-up question (not from the bank). */
+export interface GeneratedQuestion {
+  id: string;     // synthetic ID: "gq_<slug>"
+  category: string;
+  text: string;
+  type: "text" | "choice" | "multiselect";
+  options?: string[];
+  generated: true; // flags it as AI-generated, not from bank
+}
+
 export interface NextQuestionResult {
-  nextIds: string[];      // IDs from the bank to ask next (1–3)
-  done: boolean;          // AI says coverage is sufficient
+  nextIds: string[];                 // IDs from the bank to ask next (1–3)
+  generatedQuestions?: GeneratedQuestion[]; // 0–2 Grok-authored follow-ups
+  done: boolean;
   tokensUsed: number;
   fromCache?: boolean;
-  fromFallback?: boolean; // AI was skipped; using fixed order
+  fromFallback?: boolean;
 }
 
 export interface ReportDraft {
@@ -48,9 +60,8 @@ export interface ReportDraft {
 const AI_CAP_INTAKE = parseInt(process.env.AI_CAP_INTAKE ?? "60000", 10);
 
 function getClient(): OpenAI | null {
-  const apiKey = process.env.XAI_API_KEY ?? process.env.OPENAI_API_KEY ?? process.env.LLM_API_KEY;
-  if (!apiKey) return null;
-  return new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL, timeout: 20_000 });
+  
+  return getGrokClient();
 }
 
 function isEnabled(): boolean {
@@ -108,45 +119,88 @@ export async function nextQuestion(
     return `${label} [${cat}]:\n${qs.map((q) => `  - id:${q.id} "${q.text.slice(0, 80)}"`).join("\n")}`;
   }).filter(Boolean).join("\n\n");
 
+  // Last answered Q&A (the most recent answer to ground new follow-ups)
+
+
   const prompt = `You are helping run an ATG Consulting discovery intake for a prospect.
-Questions answered so far: ${answered.length}
+Questions answered so far: ${answered.length} / ~20 total target.
 Covered categories: ${coveredCategories.join(", ") || "none yet"}
 Uncovered categories: ${Object.keys(CATEGORY_LABELS).filter((c) => !coveredCategories.includes(c)).join(", ")}
 
 Recent Q&A:
 ${qaSummary || "(none yet)"}
 
-Available questions:
+Available bank questions:
 ${availableSummary}
 
-Select 1–3 question IDs to ask next. Prioritise uncovered categories and follow-ups that the latest answers suggest.
-If coverage is sufficient (all critical categories covered AND answers are detailed), set done=true.
-Critical categories: company, systems, alerts, sales, invoicing, ai_tools, goals.
+Your job:
+1. Select 1–3 question IDs from the bank that best continue the conversation.
+2. Optionally write 0–2 NEW follow-up questions grounded in the LATEST ANSWER (not in the bank).
+   New questions must be short (<= 120 chars), relevant to what the prospect just said, and add
+   information not covered by the bank. Valid types: text, choice, multiselect.
+   For choice/multiselect include 2–5 short options.
+3. If critical categories are covered and answers are detailed, set done=true.
 
-Return ONLY valid JSON: {"nextIds":["id1","id2"],"done":false}`;
+Critical categories: company, authority, systems, alerts, sales, invoicing, ai_tools, goals.
+
+Return ONLY valid JSON:
+{
+  "nextIds": ["id1"],
+  "generatedQuestions": [
+    {"id":"gq_erp_vendor","category":"systems","text":"Which ERP vendor are you using?","type":"choice","options":["SAP","NetSuite","QuickBooks","Other"]}
+  ],
+  "done": false
+}
+If no new questions, set generatedQuestions to [].`;
 
   try {
     const completion = await llm.chat.completions.create({
-      model: process.env.AI_MODEL_DEFAULT ?? "grok-3-mini-latest",
+      model: GROK_MODEL,
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 120,
-      temperature: 0.2,
+      max_tokens: 400,
+      temperature: 0.3,
       response_format: { type: "json_object" },
     });
-    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}") as { nextIds?: string[]; done?: boolean };
+    const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}") as {
+      nextIds?: string[];
+      generatedQuestions?: Array<{ id?: string; category?: string; text?: string; type?: string; options?: string[] }>;
+      done?: boolean;
+    };
     const tokensUsed = completion.usage?.total_tokens ?? 0;
+
     const nextIds = (raw.nextIds ?? [])
       .filter((id): id is string => typeof id === "string" && QUESTION_MAP[id] !== undefined && !alreadyAnswered.has(id))
       .slice(0, 3);
 
-    if (nextIds.length === 0 && !raw.done) {
+    // Validate and sanitize generated questions
+    const MAX_NEW = 2;
+    const generatedQuestions: GeneratedQuestion[] = (raw.generatedQuestions ?? [])
+      .filter((q) =>
+        q.text && q.text.length >= 10 && q.text.length <= 200 &&
+        q.category && ["text", "choice", "multiselect"].includes(q.type ?? "") &&
+        !(q.id && alreadyAnswered.has(q.id)) // never repeat
+      )
+      .slice(0, MAX_NEW)
+      .map((q, i) => ({
+        id: q.id ?? `gq_${Date.now()}_${i}`,
+        category: q.category ?? "general",
+        text: q.text!,
+        type: (q.type ?? "text") as "text" | "choice" | "multiselect",
+        options: Array.isArray(q.options) ? q.options.slice(0, 5).filter((o) => typeof o === "string") : undefined,
+        generated: true as const,
+      }));
+
+    if (nextIds.length === 0 && generatedQuestions.length === 0 && !raw.done) {
+      logFallback("nextQuestion", "empty_response");
       return fallbackNextQuestion(answered, alreadyAnswered);
     }
-    return { nextIds, done: raw.done ?? false, tokensUsed };
-  } catch {
+    return { nextIds, generatedQuestions, done: raw.done ?? false, tokensUsed };
+  } catch (err) {
+    logFallback("nextQuestion", "llm_error", err instanceof Error ? err.message : String(err));
     return fallbackNextQuestion(answered, alreadyAnswered);
   }
 }
+
 
 function fallbackNextQuestion(answered: AnsweredQuestion[], alreadyAnswered: Set<string>): NextQuestionResult {
   const nextId = FALLBACK_ORDER.find((id) => !alreadyAnswered.has(id));
@@ -202,7 +256,7 @@ gapIds should list critical question IDs NOT found in the document.`;
 
   try {
     const completion = await llm.chat.completions.create({
-      model: process.env.AI_MODEL_DEFAULT ?? "grok-3-mini-latest",
+      model: GROK_MODEL,
       messages: [{ role: "user", content: prompt }],
       max_tokens: 2000,
       temperature: 0.1,
@@ -259,7 +313,7 @@ Return ONLY valid JSON matching this schema. No jargon. No invented stats or tes
 
   try {
     const completion = await llm.chat.completions.create({
-      model: process.env.AI_MODEL_DEFAULT ?? "grok-3-mini-latest",
+      model: GROK_MODEL,
       messages: [{ role: "user", content: prompt }],
       max_tokens: 2000,
       temperature: 0.5,

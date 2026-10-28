@@ -10,13 +10,13 @@
  */
 
 import OpenAI from "openai";
+import { getGrokClient, GROK_MODEL, logFallback } from "./grokClient";
 import type { AnsweredQuestion } from "./discoveryAI";
 import { ROLE_CONFIGS } from "./roleQuestions";
 
 function getClient(): OpenAI | null {
-  const apiKey = process.env.XAI_API_KEY ?? process.env.OPENAI_API_KEY ?? process.env.LLM_API_KEY;
-  if (!apiKey) return null;
-  return new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL, timeout: 20_000 });
+  
+  return getGrokClient();
 }
 
 // ── Suggest additional members ────────────────────────────────────────────────
@@ -51,7 +51,7 @@ export async function suggestMembers(
 
   try {
     const completion = await llm.chat.completions.create({
-      model: process.env.AI_MODEL_DEFAULT ?? "grok-3-mini-latest",
+      model: GROK_MODEL,
       max_tokens: 600,
       temperature: 0.3,
       response_format: { type: "json_object" },
@@ -156,7 +156,7 @@ export async function generateMergedReview(
 
   try {
     const completion = await llm.chat.completions.create({
-      model: process.env.AI_MODEL_DEFAULT ?? "grok-3-mini-latest",
+      model: GROK_MODEL,
       max_tokens: 2000,
       temperature: 0.4,
       response_format: { type: "json_object" },
@@ -244,7 +244,7 @@ export async function generateProposalSigners(
 
   try {
     const completion = await llm.chat.completions.create({
-      model: process.env.AI_MODEL_DEFAULT ?? "grok-3-mini-latest",
+      model: GROK_MODEL,
       max_tokens: 1000,
       temperature: 0.3,
       response_format: { type: "json_object" },

@@ -6,11 +6,11 @@
  *   AI_ASSIST_ENABLED        — "true" to enable; default off in production until Shea sets it
  *   AI_MODEL_DEFAULT         — model for text features (default: grok-3-mini-latest)
  *   AI_MODEL_VISION          — model for vision/image (default: grok-2-vision-preview)
- *   AI_CAP_SELF_SERVE        — monthly token cap for Self-serve clients (default: 50 000)
- *   AI_CAP_GUIDED            — monthly token cap for Guided clients (default: 150 000)
- *   AI_CAP_DFY               — monthly token cap for DFY clients (default: 500 000)
- *   AI_TOKEN_PRICE_INPUT     — input token price per 1K, for cost estimates (default: 0.0003)
- *   AI_TOKEN_PRICE_OUTPUT    — output token price per 1K (default: 0.0006)
+ *   AI_CAP_SELF_SERVE        — monthly token cap for Self-serve clients (default: 250 000)
+ *   AI_CAP_GUIDED            — monthly token cap for Guided clients (default: 750 000)
+ *   AI_CAP_DFY               — monthly token cap for DFY clients (default: 2 000 000)
+ *   AI_TOKEN_PRICE_INPUT     — input token price per 1K, for cost estimates (default: 0.002)
+ *   AI_TOKEN_PRICE_OUTPUT    — output token price per 1K (default: 0.006)
  *   AI_CHAT_LOG_RETENTION_DAYS — how long to keep chat logs (default: 30)
  *   AI_RATE_LIMIT_PER_MIN    — max messages per client per minute (default: 5)
  *
@@ -26,6 +26,7 @@
 import OpenAI from "openai";
 import { createHash } from "crypto";
 import { prisma } from "./db";
+import { getGrokClient, GROK_MODEL, GROK_VISION_MODEL, logFallback } from "./grokClient";
 
 // ── Env helpers ───────────────────────────────────────────────────────────────
 
@@ -33,27 +34,26 @@ export function isEnabled(): boolean {
   return process.env.AI_ASSIST_ENABLED === "true";
 }
 
-export const DEFAULT_MODEL    = process.env.AI_MODEL_DEFAULT ?? "grok-3-mini-latest";
-export const VISION_MODEL     = process.env.AI_MODEL_VISION  ?? "grok-2-vision-preview";
+export const DEFAULT_MODEL    = GROK_MODEL;
+export const VISION_MODEL     = GROK_VISION_MODEL;
 const RATE_LIMIT_PER_MIN      = parseInt(process.env.AI_RATE_LIMIT_PER_MIN ?? "5", 10);
 const RETENTION_DAYS          = parseInt(process.env.AI_CHAT_LOG_RETENTION_DAYS ?? "30", 10);
 
 const CAP: Record<string, number> = {
-  SELF_SERVE:  parseInt(process.env.AI_CAP_SELF_SERVE ?? "50000",  10),
-  GUIDED:      parseInt(process.env.AI_CAP_GUIDED     ?? "150000", 10),
-  WHITE_GLOVE: parseInt(process.env.AI_CAP_DFY        ?? "500000", 10),
-  NONE:        parseInt(process.env.AI_CAP_SELF_SERVE ?? "50000",  10), // test mode = self-serve cap
+  SELF_SERVE:  parseInt(process.env.AI_CAP_SELF_SERVE ?? "250000",  10),
+  GUIDED:      parseInt(process.env.AI_CAP_GUIDED     ?? "750000", 10),
+  WHITE_GLOVE: parseInt(process.env.AI_CAP_DFY        ?? "2000000", 10),
+  NONE:        parseInt(process.env.AI_CAP_SELF_SERVE ?? "250000", 10), // test mode = self-serve cap
 };
 
-export const TOKEN_PRICE_INPUT  = parseFloat(process.env.AI_TOKEN_PRICE_INPUT  ?? "0.0003");
-export const TOKEN_PRICE_OUTPUT = parseFloat(process.env.AI_TOKEN_PRICE_OUTPUT ?? "0.0006");
+export const TOKEN_PRICE_INPUT  = parseFloat(process.env.AI_TOKEN_PRICE_INPUT  ?? "0.002");
+export const TOKEN_PRICE_OUTPUT = parseFloat(process.env.AI_TOKEN_PRICE_OUTPUT ?? "0.006");
 
 // ── OpenAI client (reuses the same key/base as llm.ts) ───────────────────────
 
 function getClient(): OpenAI | null {
-  const apiKey = process.env.XAI_API_KEY ?? process.env.OPENAI_API_KEY ?? process.env.LLM_API_KEY;
-  if (!apiKey) return null;
-  return new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL, timeout: 25_000 });
+  
+  return getGrokClient();
 }
 
 // ── In-process prompt cache (60 s TTL) ───────────────────────────────────────

@@ -304,7 +304,7 @@ export default function AdminDiscoveryPage() {
                       </span>
                     </div>
                     <p className="text-xs truncate" style={{ color: "var(--canvas-text-3)" }}>
-                      {new Date(row.createdAt).toLocaleDateString()} · {row.tokensUsed.toLocaleString()} tokens
+                      {new Date(row.createdAt).toLocaleDateString()} · {row.tokensUsed > 0 ? `${row.tokensUsed.toLocaleString()} tokens` : "no AI used"}
                     </p>
                     {(row.decisionAuthority === "partial" || row.decisionAuthority === "none") && (
                       <span className="font-mono text-2xs px-1.5 py-0.5 rounded mt-1 inline-block" style={{ background: "rgba(234,179,8,0.12)", color: "#D97706", letterSpacing: "0.04em", border: "1px solid rgba(234,179,8,0.3)" }}>

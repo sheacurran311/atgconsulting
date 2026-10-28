@@ -171,7 +171,7 @@ export default function Calculator() {
                 </>
               )}
 
-              <Link to="/start">
+              <Link to="/intake">
                 <span className="btn-primary w-full justify-center">Map my workflow →</span>
               </Link>
             </div>

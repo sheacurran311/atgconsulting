@@ -72,7 +72,7 @@ export default function Nav({ onPalette }: Props) {
             ) : (
               <a href={`${basePath}/sign-in`} className="px-3 py-1.5 rounded-md text-sm font-medium" style={{ color: "var(--ink-text-2)" }}>Sign in</a>
             )}
-            <Link to="/start">
+            <Link to="/intake">
               <span className="btn-primary text-sm" style={{ padding: "8px 16px" }}>Map my workflow</span>
             </Link>
           </div>
@@ -115,7 +115,7 @@ export default function Nav({ onPalette }: Props) {
             ) : (
               <a href={`${basePath}/sign-in`} onClick={() => setOpen(false)} className="btn-secondary-white w-full justify-center text-sm">Sign in</a>
             )}
-            <Link to="/start" onClick={() => setOpen(false)}>
+            <Link to="/intake" onClick={() => setOpen(false)}>
               <span className="btn-primary w-full justify-center">Map my workflow</span>
             </Link>
           </div>
