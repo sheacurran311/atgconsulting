@@ -23,6 +23,7 @@ import { markClientView } from "@/lib/viewMode";
 const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Discovery",   to: "/admin/discovery",          icon: Search },
   { label: "Engagements", to: "/admin/engagements",        icon: Users },
+  { label: "Catalog",     to: "/admin/catalog",            icon: Search },
   { label: "Clients",     to: "/admin/clients",            icon: Contact },
   { label: "Intakes (legacy)",     to: "/admin/intakes",            icon: ClipboardList },
   { label: "Plans & DFY", to: "/admin/tiers",              icon: Layers },

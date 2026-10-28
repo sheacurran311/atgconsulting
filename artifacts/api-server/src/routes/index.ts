@@ -26,6 +26,7 @@ import installVerifyRouter from "./install-verify";
 import impersonateRouter from "./impersonate";
 import discoveryRouter from "./discovery";
 import engagementRouter from "./engagement";
+import catalogRouter from "./catalog";
 import { blockIfImpersonating } from "../lib/impersonate";
 
 const router: IRouter = Router();
@@ -65,5 +66,6 @@ router.use(installVerifyRouter);
 router.use(impersonateRouter);
 router.use(discoveryRouter);
 router.use(engagementRouter);
+router.use(catalogRouter);
 
 export default router;

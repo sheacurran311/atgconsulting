@@ -131,12 +131,18 @@ router.post("/discovery/start", async (req, res) => {
       : q
   );
 
+  // Get suggested chips for the top_problems question (based on business type from invite/request)
+  const businessType = (req.body as Record<string, string | undefined>).businessType ?? null;
+  const { getPainChips } = await import("../lib/catalogAI");
+  const painChips = getPainChips(businessType);
+
   res.json({
     sessionId: intake.id,
     questions: questionsWithMeta,
     totalAsked: 0,
     done: false,
-    emailFirst: true, // signals client to treat email as required+validated
+    emailFirst: true,
+    painChips, // suggested chips for the top_problems free-text field
   });
 });
 
@@ -202,6 +208,10 @@ router.post("/discovery/next", async (req, res) => {
     done: result.done || merged.length >= 25,
     fromFallback: result.fromFallback ?? false,
     aiUsed: !result.fromFallback,
+    // Include chips alongside the top_problems question
+    painChips: allNext.some((q) => q.id === "top_problems")
+      ? (() => { const { getPainChips } = require("../lib/catalogAI") as typeof import("../lib/catalogAI"); return getPainChips(merged.find((a) => a.id === "business_type")?.answer ?? null); })()
+      : undefined,
   });
 });
 

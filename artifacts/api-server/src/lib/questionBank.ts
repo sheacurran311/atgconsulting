@@ -119,7 +119,7 @@ export const QUESTION_BANK: Question[] = [
   {
     id: "top_problems",
     category: "company",
-    text: "What are the top 2–3 problems or bottlenecks you're hoping to solve? Be as specific as you can.",
+    text: "Describe what eats your time or goes wrong in your business. Be as specific as you can — name the tasks, people, or systems involved.",
     type: "text",
     core: true,
     followUpIds: ["ops_manual_steps", "sales_pipeline_stage", "invoicing_bottleneck"],

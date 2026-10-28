@@ -901,6 +901,9 @@ model DiscoveryIntake {
   /// Role context for this respondent (e.g. 'Owner', 'IT admin') — used in role-scoped intake
   respondentRole  String?
 
+  /// JSON: Grok-classified pain taxonomy {departments, tasks, industries, severity}
+  painClassification String?
+
   /// full | partial | none — from the decision-authority question
   decisionAuthority String?
   /// Approver details (collected when authority is partial or none)
@@ -922,6 +925,8 @@ model DiscoveryIntake {
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  catalogMatches  CatalogMatch[]
 
   @@index([contactEmail])
   @@index([status, createdAt])
@@ -1044,4 +1049,72 @@ model EngagementMember {
 
   @@index([engagementId])
   @@index([inviteToken])
+}
+
+// ── Recommendation catalog ────────────────────────────────────────────────────
+
+/// A verified catalog item: a Grok Bot template, Claude skill, ChatGPT GPT,
+/// MCP connector, or ATG custom template that can be recommended to clients.
+model CatalogItem {
+  id            String    @id @default(cuid())
+  name          String
+  /// grok_bot_template | claude_skill | claude_plugin | chatgpt_gpt | mcp_connector | atg_template
+  sourceType    String
+  /// Official or marketplace URL (never invented)
+  sourceUrl     String    @default("")
+  description   String    @default("")
+  /// Plain-English explanation of how it helps (1-2 sentences)
+  howItHelps    String    @default("")
+
+  /// JSON: {departments:string[], tasks:string[], industries:string[]}
+  tags          String    @default("{}")
+
+  /// SELF_SERVE | GUIDED | WHITE_GLOVE | all
+  tierFit       String    @default("all")
+
+  /// Only verified items are shown to clients
+  verified      Boolean   @default(false)
+  verifiedAt    DateTime?
+  verifiedBy    String?   // admin email
+
+  /// Referral tracking (goes through /go/:slug if set)
+  referralUrl   String    @default("")
+
+  /// Date the URL was last checked for validity
+  lastCheckedAt DateTime?
+
+  /// pending | approved | rejected
+  reviewStatus  String    @default("pending")
+  reviewNotes   String    @default("")
+
+  /// Pre-computed text embedding for semantic search (JSON float array)
+  embedding     String?
+
+  enabled       Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  matches       CatalogMatch[]
+
+  @@index([sourceType])
+  @@index([verified, enabled])
+  @@index([reviewStatus])
+}
+
+/// One matched catalog item for a discovery intake, ranked per pain point.
+model CatalogMatch {
+  id            String    @id @default(cuid())
+  intakeId      String
+  intake        DiscoveryIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+  catalogItemId String
+  catalogItem   CatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
+  painPoint     String    // classified pain area this item addresses
+  score         Float     @default(0)
+  rankExplanation String  @default("")
+  /// true = no existing item matches; suggests custom build or DFY
+  isGap         Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  @@index([intakeId])
+  @@index([catalogItemId])
 }
