@@ -6,6 +6,20 @@ import { useState, useEffect } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 import { Link } from "wouter";
 
+interface InviteRow {
+  id: string; token: string; link: string; status: string;
+  prefilledName: string | null; prefilledCompany: string | null;
+  contextNote: string | null; discoveryIntakeId: string | null;
+  expiresAt: string; revokedAt: string | null; createdAt: string;
+}
+
+interface ProposalRow {
+  id: string; status: string; reviewSummary: string; execSummary: string;
+  understanding: string; scope: string; howWeConnect: string;
+  milestones: string; investment: string; acceptanceClause: string;
+  approvedAt: string | null; portalPublishedAt: string | null;
+}
+
 interface IntakeRow {
   id: string;
   contactEmail: string | null;
@@ -35,6 +49,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }
 };
 
 export default function AdminDiscoveryPage() {
+  const [tab, setTab] = useState<"inbox" | "invites">("inbox");
   const [intakes, setIntakes] = useState<IntakeRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -42,7 +57,18 @@ export default function AdminDiscoveryPage() {
   const [generating, setGenerating] = useState(false);
   const [approving, setApproving] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [generatingProposal, setGeneratingProposal] = useState(false);
+  const [proposal, setProposal] = useState<ProposalRow | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+
+  // Invite management state
+  const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteCompany, setInviteCompany] = useState("");
+  const [inviteIndustry, setInviteIndustry] = useState("");
+  const [inviteNote, setInviteNote] = useState("");
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -56,10 +82,66 @@ export default function AdminDiscoveryPage() {
 
   useEffect(() => { load(); }, [statusFilter]);
 
+  function loadInvites() {
+    fetch("/api/admin/discovery/invites", { credentials: "include" })
+      .then((r) => r.json() as Promise<InviteRow[]>)
+      .then(setInvites).catch(() => null);
+  }
+  useEffect(() => { if (tab === "invites") loadInvites(); }, [tab]);
+
   async function openDetail(id: string) {
     const r = await fetch(`/api/admin/discovery/${id}`, { credentials: "include" });
     const d = await r.json() as IntakeDetail;
     setSelected(d);
+    setProposal(null);
+    // Load proposal if it exists
+    fetch(`/api/admin/discovery/${id}/proposal`, { credentials: "include" })
+      .then((r) => r.ok ? r.json() as Promise<ProposalRow> : null)
+      .then((p) => { if (p) setProposal(p); })
+      .catch(() => null);
+  }
+
+  async function createInvite() {
+    setCreatingInvite(true);
+    const r = await fetch("/api/admin/discovery/invite", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prefilledName: inviteName || undefined, prefilledCompany: inviteCompany || undefined, prefilledIndustry: inviteIndustry || undefined, contextNote: inviteNote || undefined }),
+    });
+    const d = await r.json() as InviteRow;
+    setCreatingInvite(false);
+    setInviteName(""); setInviteCompany(""); setInviteIndustry(""); setInviteNote("");
+    loadInvites();
+    const fullLink = `${window.location.origin}${d.link}`;
+    navigator.clipboard.writeText(fullLink).catch(() => null);
+    setCopiedLink(fullLink);
+    setTimeout(() => setCopiedLink(null), 4000);
+  }
+
+  async function revokeInvite(id: string) {
+    await fetch(`/api/admin/discovery/invites/${id}`, { method: "DELETE", credentials: "include" });
+    loadInvites();
+  }
+
+  async function generateProposal() {
+    if (!selected) return;
+    setGeneratingProposal(true);
+    const r = await fetch(`/api/admin/discovery/${selected.id}/proposal`, { method: "POST", credentials: "include" });
+    const d = await r.json() as { ok: boolean; proposal: ProposalRow };
+    if (d.ok) setProposal(d.proposal);
+    setGeneratingProposal(false);
+  }
+
+  async function approveProposal(publishToPortal = false) {
+    if (!selected) return;
+    setApproving(true);
+    await fetch(`/api/admin/discovery/${selected.id}/proposal/approve`, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ publishToPortal }),
+    });
+    setProposal((p) => p ? { ...p, status: publishToPortal ? "portal_published" : "approved", approvedAt: new Date().toISOString() } : p);
+    setApproving(false);
   }
 
   async function generateReport() {
@@ -110,11 +192,19 @@ export default function AdminDiscoveryPage() {
         {/* List panel */}
         <div className="w-72 flex-shrink-0 space-y-4">
           <div>
-            <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>DISCOVERY INBOX</p>
-            <h1 className="font-extrabold text-xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.02em" }}>
-              {total} submission{total !== 1 ? "s" : ""}
-            </h1>
+            <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>DISCOVERY</p>
+            <div className="flex gap-1 mt-2">
+              {(["inbox", "invites"] as const).map((t) => (
+                <button key={t} type="button" onClick={() => setTab(t)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-md transition-all capitalize"
+                  style={{ background: tab === t ? "var(--blue)" : "var(--canvas-2)", color: tab === t ? "#fff" : "var(--canvas-text-2)", border: "none", cursor: "pointer" }}>
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {tab === "inbox" && (<>
           <select
             className="field-input text-xs w-full"
             value={statusFilter}
@@ -126,8 +216,38 @@ export default function AdminDiscoveryPage() {
             <option value="report_sent">Report sent</option>
             <option value="converted">Converted</option>
           </select>
+          </>)}
 
-          {loading ? (
+          {tab === "invites" && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold" style={{ color: "var(--canvas-text)" }}>Create invite link</p>
+              <input className="field-input text-xs w-full" placeholder="Name (optional)" value={inviteName} onChange={(e) => setInviteName(e.target.value)} />
+              <input className="field-input text-xs w-full" placeholder="Company (optional)" value={inviteCompany} onChange={(e) => setInviteCompany(e.target.value)} />
+              <input className="field-input text-xs w-full" placeholder="Industry (optional)" value={inviteIndustry} onChange={(e) => setInviteIndustry(e.target.value)} />
+              <textarea className="field-input text-xs w-full" rows={2} placeholder="Private Grok context note (not shown to prospect)" value={inviteNote} onChange={(e) => setInviteNote(e.target.value)} style={{ resize: "vertical" }} />
+              <button type="button" onClick={createInvite} disabled={creatingInvite} className="btn-primary text-xs w-full" style={{ padding: "8px" }}>
+                {creatingInvite ? "Creating…" : "Create + copy link"}
+              </button>
+              {copiedLink && <p className="text-xs" style={{ color: "#16A34A" }}>✓ Copied: {copiedLink}</p>}
+              <div className="space-y-2 mt-2">
+                {invites.map((inv) => (
+                  <div key={inv.id} className="rounded-lg p-3" style={{ background: "var(--canvas-1)", border: "1px solid var(--canvas-border)", opacity: inv.revokedAt ? 0.5 : 1 }}>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="text-xs font-medium" style={{ color: "var(--canvas-text)" }}>{inv.prefilledName ?? inv.prefilledCompany ?? "Anonymous invite"}</p>
+                      <span className="font-mono text-2xs px-1 py-0.5 rounded" style={{ background: "var(--canvas-2)", color: "var(--canvas-text-3)" }}>{inv.status}</span>
+                    </div>
+                    <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)" }}>{new Date(inv.expiresAt).toLocaleDateString()}</p>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${inv.link}`).catch(() => null); setCopiedLink(inv.link); setTimeout(() => setCopiedLink(null), 2000); }} className="text-xs underline" style={{ color: "var(--blue)" }}>Copy link</button>
+                      {!inv.revokedAt && <button type="button" onClick={() => revokeInvite(inv.id)} className="text-xs underline" style={{ color: "#DC2626" }}>Revoke</button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === "inbox" ? (loading ? (
             <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
           ) : intakes.length === 0 ? (
             <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>No submissions yet.</p>
@@ -161,7 +281,7 @@ export default function AdminDiscoveryPage() {
                 );
               })}
             </div>
-          )}
+          )) : null}
         </div>
 
         {/* Detail panel */}
@@ -174,19 +294,40 @@ export default function AdminDiscoveryPage() {
                 </p>
                 <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>{selected.contactEmail ?? "—"}</p>
               </div>
-              <div className="flex gap-2 flex-shrink-0">
+              <div className="flex flex-wrap gap-2 flex-shrink-0">
                 {!report && (
                   <button type="button" onClick={generateReport} disabled={generating} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
-                    {generating ? "Generating…" : "Generate report draft"}
+                    {generating ? "Generating…" : "Generate report"}
                   </button>
                 )}
                 {report && !selected.reportApprovedAt && (
-                  <button type="button" onClick={approveReport} disabled={approving} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
+                  <button type="button" onClick={approveReport} disabled={approving} className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
                     {approving ? "Approving…" : "Approve report"}
                   </button>
                 )}
+                {/* Proposal actions */}
+                {!proposal && (
+                  <button type="button" onClick={generateProposal} disabled={generatingProposal} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
+                    {generatingProposal ? "Drafting proposal…" : "Generate proposal"}
+                  </button>
+                )}
+                {proposal && proposal.status === "draft" && (
+                  <>
+                    <a href={`/api/admin/discovery/${selected.id}/proposal.html`} target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
+                      Preview proposal →
+                    </a>
+                    <button type="button" onClick={() => approveProposal(false)} disabled={approving} className="btn-primary text-sm" style={{ padding: "7px 14px", background: "#16A34A" }}>
+                      {approving ? "…" : "Approve & export PDF"}
+                    </button>
+                  </>
+                )}
+                {proposal && proposal.status !== "draft" && (
+                  <a href={`/api/admin/discovery/${selected.id}/proposal.html`} target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
+                    Open proposal PDF →
+                  </a>
+                )}
                 {!selected.clientId && (
-                  <button type="button" onClick={convertToClient} disabled={converting} className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
+                  <button type="button" onClick={convertToClient} disabled={converting} className="btn-ghost text-sm" style={{ padding: "7px 14px" }}>
                     {converting ? "Converting…" : "Convert to client"}
                   </button>
                 )}
@@ -267,6 +408,36 @@ export default function AdminDiscoveryPage() {
                     <ul className="list-disc pl-4 space-y-0.5">
                       {report.nextSteps.map((s, i) => <li key={i} style={{ color: "var(--canvas-text-2)" }}>{s}</li>)}
                     </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Proposal draft panel */}
+            {proposal && (
+              <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--canvas-border)" }}>
+                <div className="px-4 py-3 flex items-center justify-between" style={{ background: "var(--canvas-2)", borderBottom: "1px solid var(--canvas-border)" }}>
+                  <p className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>PROPOSAL DRAFT</p>
+                  <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: proposal.status === "draft" ? "rgba(234,179,8,0.1)" : "rgba(22,163,74,0.08)", color: proposal.status === "draft" ? "#D97706" : "#16A34A" }}>
+                    {proposal.status.toUpperCase()}
+                  </span>
+                </div>
+                <div className="p-4 space-y-4 text-sm">
+                  {[
+                    ["Internal review", proposal.reviewSummary],
+                    ["Executive summary", proposal.execSummary],
+                    ["Understanding", proposal.understanding],
+                    ["Scope", proposal.scope],
+                    ["How it connects", proposal.howWeConnect],
+                  ].map(([label, value]) => value ? (
+                    <div key={label}>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>{label?.toUpperCase()}</p>
+                      <p style={{ color: "var(--canvas-text)", whiteSpace: "pre-wrap" }}>{value}</p>
+                    </div>
+                  ) : null)}
+                  <div>
+                    <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>INVESTMENT</p>
+                    <p style={{ color: "var(--canvas-text)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>{proposal.investment}</p>
                   </div>
                 </div>
               </div>

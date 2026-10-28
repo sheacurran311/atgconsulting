@@ -107,6 +107,7 @@ function AuthenticatedApp() {
 
         {/* Intake + plan */}
         <Route path="/intake" component={IntakeDiscoveryPage} />
+        <Route path="/intake/i/:token" component={IntakeDiscoveryPage} />
         <Route path="/start" component={StartPage} />
         <Route path="/start/result/:intakeId" component={PlanResultPage} />
         <Route path="/privacy" component={PrivacyPage} />

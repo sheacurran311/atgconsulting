@@ -913,3 +913,63 @@ model DiscoveryIntake {
   @@index([status, createdAt])
   @@index([expiresAt])
 }
+
+// ── Discovery invite links ────────────────────────────────────────────────────
+
+/// A tokenized intake invite Shea creates and shares manually.
+/// The app sends nothing — Shea copies the link and sends it himself.
+model DiscoveryInvite {
+  id                 String    @id @default(cuid())
+  token              String    @unique
+
+  /// Optional context pre-filled for the prospect
+  prefilledName      String?
+  prefilledCompany   String?
+  prefilledIndustry  String?
+
+  /// Private note to Grok — not shown to the prospect.
+  /// Example: "large-format print shop, ERP plus factory floor plus install crews"
+  contextNote        String?
+
+  /// created | opened | in_progress | submitted | revoked
+  status             String    @default("created")
+
+  /// Set when the prospect submits the intake from this link
+  discoveryIntakeId  String?
+
+  expiresAt          DateTime  // 30 days from creation
+  revokedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([token])
+  @@index([status])
+}
+
+// ── Discovery proposal ─────────────────────────────────────────────────────────
+
+/// ATG-branded proposal generated from a discovery intake.
+/// Shea edits and approves; nothing is sent automatically.
+/// Proposal is exported as a print-ready HTML page (browser print-to-PDF).
+model DiscoveryProposal {
+  id                 String    @id @default(cuid())
+  discoveryIntakeId  String    @unique
+
+  /// draft | approved | portal_published
+  status             String    @default("draft")
+
+  /// Grok-generated, all editable by Shea
+  reviewSummary      String    @default("")  // Shea's internal review (not in PDF)
+  execSummary        String    @default("")
+  understanding      String    @default("")  // 'Our understanding of your situation'
+  scope              String    @default("")  // 'What we'll build'
+  howWeConnect       String    @default("")  // 'How it connects to your existing tools'
+  milestones         String    @default("[]")  // JSON array of {label, description}
+  investment         String    @default("{}")  // JSON {tier, price, care, notes}
+  acceptanceClause   String    @default("")  // signature/acceptance section
+
+  approvedAt         DateTime?
+  portalPublishedAt  DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
