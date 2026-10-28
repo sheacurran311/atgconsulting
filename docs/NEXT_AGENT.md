@@ -98,7 +98,8 @@ Merge in this exact order. Each PR may depend on the previous.
 | **#32** | `cursor/legal-pages-c8a4` | Legal pages /terms /privacy /refunds; draft banner; footer + Clerk links; cookie audit | No | No |
 | **#33** | `cursor/legal-pages-c8a4` | Re-synced legal files (all placeholders filled); real pricing on Tiers; refund policy links | No | No |
 | **#34** | `cursor/discovery-intake-c8a4` | Adaptive Grok intake, mobile-first, invite links, proposal PDF, email+linking, decision authority | **YES** (DiscoveryIntake + DiscoveryInvite + DiscoveryProposal) | **YES** (pdf-parse, multer) |
-| **#35** | `cursor/multi-person-intake-c8a4` | Multi-person company engagement: role-scoped intakes, merged review, per-module signers | **YES** (DiscoveryEngagement, EngagementMember, DiscoveryIntake columns) | No |
+| **#35** | `cursor/grok-native-c8a4` | Shared Grok client, /start→/intake, adaptive follow-ups, cap/pricing | No | No |
+| **#36** | `cursor/catalog-c8a4` | Recommendation catalog, pain taxonomy, semantic matching, admin import/review | **YES** (CatalogItem, CatalogMatch, DiscoveryIntake.painClassification) | No |
 
 After merging all four, run `pnpm db:push` once to apply all pending schema changes.
 

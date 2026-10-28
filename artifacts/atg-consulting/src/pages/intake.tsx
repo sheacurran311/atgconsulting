@@ -74,6 +74,7 @@ export default function IntakePage() {
 
   // ── State ─────────────────────────────────────────────────────────────────
   type Phase = "start" | "email" | "questions" | "upload" | "submit" | "done";
+  const [painChips, setPainChips] = useState<string[]>([]);
   const [phase, setPhase] = useState<Phase>("start");
   const [sessionId, setSessionId] = useState("");
   const [currentQ, setCurrentQ] = useState<Question | null>(null);
@@ -188,10 +189,11 @@ export default function IntakePage() {
     }).catch(() => null);
 
     if (!r?.ok) { setError("Could not start the intake. Please try again."); setLoading(false); return; }
-    const data = await r.json() as { sessionId: string; questions: Question[]; totalAsked: number };
+    const data = await r.json() as { sessionId: string; questions: Question[]; totalAsked: number; painChips?: string[] };
     setSessionId(data.sessionId);
     setTotalAsked(data.totalAsked);
     setCurrentQ(data.questions[0] ?? null);
+    if (data.painChips) setPainChips(data.painChips);
     setPhase("questions");
     saveTLS(data.sessionId, 0);
 
@@ -272,8 +274,9 @@ export default function IntakePage() {
     }).catch(() => null);
 
     if (!r?.ok) { setError("Network error. Try again."); setLoading(false); return; }
-    const data = await r.json() as { questions: Question[]; totalAsked: number; done: boolean };
+    const data = await r.json() as { questions: Question[]; totalAsked: number; done: boolean; painChips?: string[] };
     setTotalAsked(data.totalAsked);
+    if (data.painChips) setPainChips(data.painChips);
 
     if (data.done || data.questions.length === 0) {
       setCurrentQ(null);
@@ -587,6 +590,28 @@ export default function IntakePage() {
                     onBlur={(e) => { e.target.style.borderColor = "var(--ink-border)"; }}
                   />
                   <p className="font-mono text-xs mt-2" style={{ color: "var(--ink-text-3)" }}>⌘ + Enter to continue</p>
+                  {/* Pain chips — shown only for the top_problems question */}
+                  {currentQ?.id === "top_problems" && painChips.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs mb-2" style={{ color: "var(--ink-text-3)" }}>Common examples (tap to add):</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {painChips.map((chip) => (
+                          <button
+                            key={chip}
+                            type="button"
+                            onClick={() => setInputValue((v) => v ? `${v}; ${chip}` : chip)}
+                            style={{
+                              padding: "5px 10px", borderRadius: "6px", fontSize: "12px",
+                              border: "1px solid var(--ink-border)", background: "var(--ink-2)",
+                              color: "var(--ink-text-2)", cursor: "pointer", WebkitTapHighlightColor: "transparent",
+                            }}
+                          >
+                            {chip}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
