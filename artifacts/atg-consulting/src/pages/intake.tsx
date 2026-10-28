@@ -71,7 +71,7 @@ export default function IntakePage() {
   const inviteToken = matchInvite ? paramsInvite?.token : null;
 
   // ── State ─────────────────────────────────────────────────────────────────
-  type Phase = "start" | "questions" | "upload" | "submit" | "done";
+  type Phase = "start" | "email" | "questions" | "upload" | "submit" | "done";
   const [phase, setPhase] = useState<Phase>("start");
   const [sessionId, setSessionId] = useState("");
   const [currentQ, setCurrentQ] = useState<Question | null>(null);
@@ -88,6 +88,7 @@ export default function IntakePage() {
 
   // Prefilled from invite
   const [prefilledName, setPrefilledName] = useState("");
+  const [prefilledEmail, setPrefilledEmail] = useState("");
   const [prefilledCompany, setPrefilledCompany] = useState("");
   const currentInviteToken = useRef<string | null>(inviteToken ?? null);
 
@@ -106,9 +107,10 @@ export default function IntakePage() {
     if (!inviteToken) return;
     currentInviteToken.current = inviteToken;
     fetch(`/api/discovery/invite/${inviteToken}`, { credentials: "include" })
-      .then((r) => r.json() as Promise<{ prefilledName?: string; prefilledCompany?: string; prefilledIndustry?: string }>)
+      .then((r) => r.json() as Promise<{ prefilledName?: string; prefilledEmail?: string; prefilledCompany?: string; prefilledIndustry?: string }>)
       .then((d) => {
         if (d.prefilledName) setPrefilledName(d.prefilledName);
+        if (d.prefilledEmail) { setPrefilledEmail(d.prefilledEmail.toLowerCase()); setContactEmail(d.prefilledEmail.toLowerCase()); }
         if (d.prefilledCompany) setPrefilledCompany(d.prefilledCompany);
         // Mark as opened
         fetch(`/api/discovery/invite/${inviteToken}/status`, {
@@ -170,22 +172,34 @@ export default function IntakePage() {
       }).catch(() => null);
     }
 
-    // Pre-answer name/company from invite
-    if (prefilledName || prefilledCompany) {
-      const preAnswers: AnsweredQuestion[] = [];
-      if (prefilledName) preAnswers.push({ id: "contact_name", category: "contact", question: "What's your name?", answer: prefilledName });
-      if (prefilledCompany) preAnswers.push({ id: "company_name", category: "company", question: "What's your company name?", answer: prefilledCompany });
-      if (preAnswers.length > 0) setAnswered(preAnswers);
-    }
+    // Pre-answer name/email/company from invite context (skip those questions)
+    const preAnswers: AnsweredQuestion[] = [];
+    if (prefilledName) preAnswers.push({ id: "contact_name", category: "contact", question: "What's your name?", answer: prefilledName });
+    if (contactEmail) preAnswers.push({ id: "contact_email", category: "contact", question: "What's your email?", answer: contactEmail });
+    if (prefilledCompany) preAnswers.push({ id: "company_name", category: "company", question: "What's your company name?", answer: prefilledCompany });
+    if (preAnswers.length > 0) setAnswered(preAnswers);
 
     setLoading(false);
   }, [prefilledName, prefilledCompany]);
 
-  // Auto-start when arriving via invite link
+  // Auto-start when arriving via invite link (go to email step first unless email is prefilled)
   useEffect(() => {
-    if (inviteToken) { startSession(); }
-    else if (resumeId) { startSession(resumeId); }
-  }, [inviteToken]);
+    if (inviteToken) {
+      // Wait for invite data to load (prefilledEmail may set contactEmail in the invite effect)
+      // If email is prefilled, start session directly; otherwise show email step
+      const timer = setTimeout(() => {
+        if (prefilledEmail) {
+          startSession(); // email already set from invite
+        } else {
+          setPhase("email"); // show email step
+        }
+      }, 600);
+      return () => clearTimeout(timer);
+    } else if (resumeId) {
+      startSession(resumeId);
+    }
+    return undefined;
+  }, [inviteToken, prefilledEmail]);
 
   // ── Submit answer + get next question ─────────────────────────────────────
   const advance = useCallback(async (choiceAnswer?: string) => {
@@ -359,25 +373,94 @@ export default function IntakePage() {
               </div>
 
               <div className="flex flex-col gap-3">
-                <button
-                  type="button"
-                  onClick={() => startSession()}
-                  disabled={loading}
-                  className="btn-primary w-full"
-                  style={{ padding: "16px", fontSize: "16px", borderRadius: "12px", minHeight: "54px" }}
-                >
-                  {loading ? "Starting…" : "Start my free assessment →"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPhase("upload")}
-                  className="btn-secondary-white w-full"
-                  style={{ padding: "16px", fontSize: "14px", borderRadius: "12px", minHeight: "54px" }}
-                >
-                  Already filled out our questionnaire?
-                </button>
+              <button
+                type="button"
+                onClick={() => setPhase("email")}
+                disabled={loading}
+                className="btn-primary w-full"
+                style={{ padding: "16px", fontSize: "16px", borderRadius: "12px", minHeight: "54px" }}
+              >
+                {loading ? "Starting…" : "Start my free assessment →"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPhase("upload")}
+                className="btn-secondary-white w-full"
+                style={{ padding: "16px", fontSize: "14px", borderRadius: "12px", minHeight: "54px" }}
+              >
+                Already filled out our questionnaire?
+              </button>
               </div>
               {error && <p className="text-sm mt-3" style={{ color: "#DC2626" }}>{error}</p>}
+            </div>
+          )}
+
+          {/* ── Email step — required before questions start ── */}
+          {phase === "email" && (
+            <div>
+              <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>LET'S START</p>
+              <h2 style={{ color: "var(--ink-text)", fontSize: "clamp(20px,5vw,28px)", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.3, marginBottom: "8px" }}>
+                What's your email address?
+              </h2>
+              <p className="text-sm mb-5" style={{ color: "var(--ink-text-2)", lineHeight: 1.6 }}>
+                Use the email you'll log in with later, usually your business email.
+              </p>
+              <input
+                autoFocus
+                type="email"
+                placeholder="you@company.com"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value.toLowerCase().trim())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (contactEmail.includes("@") && contactEmail.includes(".")) {
+                      startSession();
+                    }
+                  }
+                }}
+                style={{
+                  width: "100%", padding: "18px", borderRadius: "12px",
+                  border: "1px solid var(--ink-border)", background: "var(--ink-1)",
+                  color: "var(--ink-text)", fontSize: "18px",
+                  fontFamily: "var(--font-sans)", outline: "none",
+                  marginBottom: "8px",
+                }}
+                onFocus={(e) => { e.target.style.borderColor = "var(--blue)"; }}
+                onBlur={(e) => { e.target.style.borderColor = "var(--ink-border)"; }}
+              />
+              {prefilledEmail && contactEmail === prefilledEmail && (
+                <p className="text-xs mb-4" style={{ color: "var(--blue)" }}>
+                  ✓ Pre-filled by Shea — you can change it if needed.
+                </p>
+              )}
+              {error && <p className="text-sm mb-3" style={{ color: "#DC2626" }}>{error}</p>}
+              <button
+                type="button"
+                onClick={() => {
+                  const cleaned = contactEmail.toLowerCase().trim();
+                  if (!cleaned.includes("@") || !cleaned.includes(".")) {
+                    setError("Please enter a valid email address.");
+                    return;
+                  }
+                  setContactEmail(cleaned);
+                  setError(null);
+                  startSession();
+                }}
+                disabled={loading || !contactEmail}
+                style={{
+                  width: "100%", padding: "18px", borderRadius: "12px",
+                  background: "var(--blue)", color: "#fff", fontSize: "17px",
+                  fontWeight: 700, border: "none", cursor: "pointer",
+                  minHeight: "58px", opacity: (loading || !contactEmail) ? 0.6 : 1,
+                }}
+              >
+                {loading ? "Starting…" : "Continue →"}
+              </button>
+              <button type="button" onClick={() => setPhase("start")}
+                style={{ display: "block", marginTop: "16px", color: "var(--ink-text-3)", background: "none", border: "none", cursor: "pointer", fontSize: "14px" }}>
+                ← Back
+              </button>
             </div>
           )}
 
@@ -632,6 +715,14 @@ export default function IntakePage() {
               <p className="text-sm mb-6" style={{ color: "var(--ink-text-2)", lineHeight: 1.65, maxWidth: "360px", margin: "0 auto 24px" }}>
                 No automated emails. Shea will review your answers and reach out directly when a tailored proposal is ready.
               </p>
+              {contactEmail && (
+                <div style={{ display: "inline-block", padding: "12px 16px", borderRadius: "10px", background: "rgba(59,107,255,0.1)", border: "1px solid rgba(59,107,255,0.25)", margin: "0 auto 16px", maxWidth: "380px" }}>
+                  <p style={{ color: "var(--blue)", fontSize: "13px", fontWeight: 600, marginBottom: "2px" }}>When your proposal is ready:</p>
+                  <p style={{ color: "var(--ink-text-2)", fontSize: "13px", lineHeight: 1.5 }}>
+                    Sign up at atgconsulting.io with <strong style={{ color: "var(--ink-text)" }}>{contactEmail}</strong> to view it in your portal.
+                  </p>
+                </div>
+              )}
               <div className="flex flex-col gap-3" style={{ maxWidth: "280px", margin: "0 auto" }}>
                 <Link to="/"><span style={{ display: "block", padding: "14px 20px", borderRadius: "12px", background: "var(--ink-2)", color: "var(--ink-text-2)", textAlign: "center", fontWeight: 600, textDecoration: "none" }}>Back to site</span></Link>
                 <a href="mailto:shea@atgconsulting.io" style={{ display: "block", padding: "14px 20px", borderRadius: "12px", border: "1px solid var(--ink-border)", color: "var(--ink-text-3)", textAlign: "center", fontSize: "14px", textDecoration: "none" }}>

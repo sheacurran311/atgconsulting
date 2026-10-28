@@ -924,6 +924,7 @@ model DiscoveryInvite {
 
   /// Optional context pre-filled for the prospect
   prefilledName      String?
+  prefilledEmail     String?   // pre-filled and editable by prospect
   prefilledCompany   String?
   prefilledIndustry  String?
 

@@ -117,17 +117,26 @@ router.post("/discovery/start", async (req, res) => {
     data: { ipHash: hashIpDiscovery(ip), expiresAt: expires },
   });
 
-  // Always start with core questions
-  const coreIds = ["contact_name", "contact_email", "company_name", "role", "business_type", "team_size"];
-  const firstQuestions = coreIds
+  // First two questions: name then email (required + validated server-side on submit)
+  // Then continue with the rest of the core questions via /next
+  const firstIds = ["contact_name", "contact_email"];
+  const firstQuestions = firstIds
     .map((id) => QUESTION_MAP[id])
     .filter((q): q is NonNullable<typeof q> => !!q);
 
+  // Attach helper text to the email question for the client
+  const questionsWithMeta = firstQuestions.map((q) =>
+    q.id === "contact_email"
+      ? { ...q, helperText: "Use the email you'll log in with later, usually your business email." }
+      : q
+  );
+
   res.json({
     sessionId: intake.id,
-    questions: firstQuestions,
+    questions: questionsWithMeta,
     totalAsked: 0,
     done: false,
+    emailFirst: true, // signals client to treat email as required+validated
   });
 });
 
@@ -196,7 +205,7 @@ router.post("/discovery/next", async (req, res) => {
 const SubmitBody = z.object({
   sessionId:    z.string().min(1),
   finalAnswers: z.array(AnswerSchema),
-  contactEmail: z.string().email().optional(),
+  contactEmail: z.string().email().toLowerCase().optional(),
   contactName:  z.string().max(100).optional(),
   consentGiven: z.boolean(),
   honeypot:     z.string().max(0).optional(), // must be empty
@@ -218,6 +227,14 @@ router.post("/discovery/submit", async (req, res) => {
     return;
   }
 
+  // Email is required for account linking
+  const contactEmailFromBody = parsed.data.contactEmail;
+  const emailFromAnswers2 = parsed.data.finalAnswers?.find((a) => a.id === "contact_email")?.answer;
+  if (!contactEmailFromBody && !emailFromAnswers2) {
+    res.status(422).json({ error: "An email address is required to submit the intake." });
+    return;
+  }
+
   const allAnswers: AnsweredQuestion[] = [
     ...session.answers,
     ...parsed.data.finalAnswers.filter((a) => !session.answers.find((e) => e.id === a.id)).map((a) => ({
@@ -233,7 +250,9 @@ router.post("/discovery/submit", async (req, res) => {
     : allAnswers.find((a) => a.id === "contact_name")?.answer ?? null;
 
   const emailFromAnswers = allAnswers.find((a) => a.id === "contact_email")?.answer ?? null;
-  const finalEmail = email ?? (typeof emailFromAnswers === "string" ? emailFromAnswers : null);
+  const rawEmail = email ?? (typeof emailFromAnswers === "string" ? emailFromAnswers : null);
+  // Always store email lowercased for reliable matching in account linking
+  const finalEmail = rawEmail ? rawEmail.toLowerCase().trim() : null;
 
   await prisma.discoveryIntake.update({
     where: { id: session.id },
@@ -402,6 +421,51 @@ router.post("/admin/discovery/:id/approve", withUser, requireAdmin, async (req, 
   res.json({ ok: true });
 });
 
+// ── Admin: manual link intake to an existing client ──────────────────────────
+
+router.post("/admin/discovery/:id/link-client", withUser, requireAdmin, async (req, res) => {
+  const actor = (req as AuthedRequest).atgUser!;
+  const { clientId: targetClientId } = req.body as { clientId?: string };
+  if (!targetClientId) { res.status(422).json({ error: "clientId is required." }); return; }
+
+  const intake = await prisma.discoveryIntake.findUnique({ where: { id: req.params.id as string } });
+  if (!intake) { res.status(404).json({ error: "Intake not found." }); return; }
+
+  const client = await prisma.client.findUnique({
+    where: { id: targetClientId },
+    include: { user: { select: { email: true, name: true } } },
+  });
+  if (!client) { res.status(404).json({ error: "Client not found." }); return; }
+
+  const previousClientId = intake.clientId;
+  await prisma.discoveryIntake.update({
+    where: { id: intake.id },
+    data: { clientId: targetClientId, status: "converted" },
+  });
+
+  await audit({
+    actorUserId: actor.id,
+    action: "DISCOVERY_MANUAL_LINK",
+    entity: "DiscoveryIntake",
+    entityId: intake.id,
+    meta: {
+      adminEmail: actor.email,
+      targetClientId,
+      targetClientEmail: client.user?.email ?? "—",
+      previousClientId: previousClientId ?? null,
+      reason: "manual admin override — email mismatch",
+    },
+  });
+
+  res.json({
+    ok: true,
+    intakeId: intake.id,
+    clientId: targetClientId,
+    clientEmail: client.user?.email,
+    clientName: client.user?.name,
+  });
+});
+
 // ── Admin: convert intake to client ──────────────────────────────────────────
 
 router.post("/admin/discovery/:id/convert", withUser, requireAdmin, async (req, res) => {
@@ -478,6 +542,7 @@ function makeInviteToken(): string {
 
 const InviteBody = z.object({
   prefilledName:     z.string().max(100).optional(),
+  prefilledEmail:    z.string().email().toLowerCase().optional(),
   prefilledCompany:  z.string().max(200).optional(),
   prefilledIndustry: z.string().max(100).optional(),
   contextNote:       z.string().max(1000).optional(),
@@ -488,7 +553,7 @@ router.get("/discovery/invite/:token", async (req, res) => {
   const inv = await prisma.discoveryInvite.findUnique({
     where: { token: req.params.token as string },
     select: {
-      id: true, prefilledName: true, prefilledCompany: true, prefilledIndustry: true,
+      id: true, prefilledName: true, prefilledEmail: true, prefilledCompany: true, prefilledIndustry: true,
       status: true, expiresAt: true, revokedAt: true,
     },
   });
@@ -497,6 +562,7 @@ router.get("/discovery/invite/:token", async (req, res) => {
   if (inv.expiresAt < new Date()) { res.status(410).json({ error: "This invite link has expired." }); return; }
   res.json({
     prefilledName: inv.prefilledName,
+    prefilledEmail: inv.prefilledEmail,
     prefilledCompany: inv.prefilledCompany,
     prefilledIndustry: inv.prefilledIndustry,
     status: inv.status,

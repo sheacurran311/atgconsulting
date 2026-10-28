@@ -57,6 +57,9 @@ export default function AdminDiscoveryPage() {
   const [generating, setGenerating] = useState(false);
   const [approving, setApproving] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [manualLinkId, setManualLinkId] = useState("");
+  const [manualLinking, setManualLinking] = useState(false);
+  const [manualLinkMsg, setManualLinkMsg] = useState<string | null>(null);
   const [generatingProposal, setGeneratingProposal] = useState(false);
   const [proposal, setProposal] = useState<ProposalRow | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
@@ -64,6 +67,7 @@ export default function AdminDiscoveryPage() {
   // Invite management state
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
   const [inviteCompany, setInviteCompany] = useState("");
   const [inviteIndustry, setInviteIndustry] = useState("");
   const [inviteNote, setInviteNote] = useState("");
@@ -106,11 +110,11 @@ export default function AdminDiscoveryPage() {
     const r = await fetch("/api/admin/discovery/invite", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prefilledName: inviteName || undefined, prefilledCompany: inviteCompany || undefined, prefilledIndustry: inviteIndustry || undefined, contextNote: inviteNote || undefined }),
+      body: JSON.stringify({ prefilledName: inviteName || undefined, prefilledEmail: inviteEmail || undefined, prefilledCompany: inviteCompany || undefined, prefilledIndustry: inviteIndustry || undefined, contextNote: inviteNote || undefined }),
     });
     const d = await r.json() as InviteRow;
     setCreatingInvite(false);
-    setInviteName(""); setInviteCompany(""); setInviteIndustry(""); setInviteNote("");
+    setInviteName(""); setInviteEmail(""); setInviteCompany(""); setInviteIndustry(""); setInviteNote("");
     loadInvites();
     const fullLink = `${window.location.origin}${d.link}`;
     navigator.clipboard.writeText(fullLink).catch(() => null);
@@ -121,6 +125,26 @@ export default function AdminDiscoveryPage() {
   async function revokeInvite(id: string) {
     await fetch(`/api/admin/discovery/invites/${id}`, { method: "DELETE", credentials: "include" });
     loadInvites();
+  }
+
+  async function manualLinkToClient() {
+    if (!selected || !manualLinkId.trim()) return;
+    setManualLinking(true);
+    const r = await fetch(`/api/admin/discovery/${selected.id}/link-client`, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: manualLinkId.trim() }),
+    });
+    const d = await r.json() as { ok?: boolean; error?: string; clientEmail?: string; clientName?: string };
+    if (d.ok) {
+      setManualLinkMsg(`✓ Linked to ${d.clientName ?? d.clientEmail ?? manualLinkId}`);
+      setSelected((s) => s ? { ...s, clientId: manualLinkId.trim() } : s);
+      setManualLinkId("");
+    } else {
+      setManualLinkMsg(d.error ?? "Failed to link.");
+    }
+    setManualLinking(false);
+    setTimeout(() => setManualLinkMsg(null), 5000);
   }
 
   async function generateProposal() {
@@ -222,6 +246,7 @@ export default function AdminDiscoveryPage() {
             <div className="space-y-3">
               <p className="text-xs font-semibold" style={{ color: "var(--canvas-text)" }}>Create invite link</p>
               <input className="field-input text-xs w-full" placeholder="Name (optional)" value={inviteName} onChange={(e) => setInviteName(e.target.value)} />
+              <input className="field-input text-xs w-full" type="email" placeholder="Email (pre-fills and editable)" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value.toLowerCase())} />
               <input className="field-input text-xs w-full" placeholder="Company (optional)" value={inviteCompany} onChange={(e) => setInviteCompany(e.target.value)} />
               <input className="field-input text-xs w-full" placeholder="Industry (optional)" value={inviteIndustry} onChange={(e) => setInviteIndustry(e.target.value)} />
               <textarea className="field-input text-xs w-full" rows={2} placeholder="Private Grok context note (not shown to prospect)" value={inviteNote} onChange={(e) => setInviteNote(e.target.value)} style={{ resize: "vertical" }} />
@@ -338,6 +363,28 @@ export default function AdminDiscoveryPage() {
                 )}
               </div>
             </div>
+
+            {/* Manual link to client (override for email mismatch) */}
+            {!selected.clientId && (
+              <div className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+                <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>MANUAL LINK — ADMIN OVERRIDE</p>
+                <p className="text-xs mb-2" style={{ color: "var(--canvas-text-3)" }}>
+                  For cases where the prospect signed up with a different email. This action is audit-logged.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    className="field-input text-xs flex-1"
+                    placeholder="Client ID (cuid)"
+                    value={manualLinkId}
+                    onChange={(e) => setManualLinkId(e.target.value)}
+                  />
+                  <button type="button" onClick={manualLinkToClient} disabled={manualLinking || !manualLinkId.trim()} className="btn-secondary text-xs" style={{ padding: "6px 12px", flexShrink: 0 }}>
+                    {manualLinking ? "…" : "Link"}
+                  </button>
+                </div>
+                {manualLinkMsg && <p className="text-xs mt-1" style={{ color: manualLinkMsg.startsWith("✓") ? "#16A34A" : "#DC2626" }}>{manualLinkMsg}</p>}
+              </div>
+            )}
 
             {/* Q&A transcript */}
             <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--canvas-border)" }}>
