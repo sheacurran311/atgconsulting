@@ -3,7 +3,8 @@
  * Shown in admin nav as a searchable dropdown.
  * On selection: POST /api/admin/impersonate → redirects to portal.
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "wouter";
 import { api, type ClientAdmin } from "@/lib/api";
 
@@ -16,7 +17,24 @@ export default function AdminSwitcher() {
   const [clients, setClients] = useState<ClientAdmin[]>([]);
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [panelStyle, setPanelStyle] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
   const dropRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  function placePanel() {
+    const button = buttonRef.current;
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const margin = 12;
+    const width = Math.min(320, window.innerWidth - margin * 2);
+    const sidebar = button.closest("aside");
+    const anchorLeft = sidebar ? sidebar.getBoundingClientRect().right + 8 : rect.left;
+    const left = Math.min(Math.max(margin, anchorLeft), window.innerWidth - width - margin);
+    const top = Math.max(margin, rect.bottom + 8);
+    const maxHeight = Math.max(220, window.innerHeight - top - margin);
+    setPanelStyle({ top, left, width, maxHeight });
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -24,14 +42,28 @@ export default function AdminSwitcher() {
     api.admin.clients().then(setClients).catch(() => null).finally(() => setLoading(false));
   }, [open]);
 
-  // Close on outside click
+  useLayoutEffect(() => {
+    if (!open) return;
+    placePanel();
+    window.addEventListener("resize", placePanel);
+    window.addEventListener("scroll", placePanel, true);
+    return () => {
+      window.removeEventListener("resize", placePanel);
+      window.removeEventListener("scroll", placePanel, true);
+    };
+  }, [open]);
+
+  // Close on outside click. The panel is portaled, so it is not inside dropRef.
   useEffect(() => {
+    if (!open) return;
     function handle(e: MouseEvent) {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (dropRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
-  }, []);
+  }, [open]);
 
   const filtered = clients.filter((c) =>
     !query ||
@@ -71,9 +103,10 @@ export default function AdminSwitcher() {
   return (
     <div className="relative" ref={dropRef}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all"
+        className="text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all whitespace-nowrap"
         style={{
           background: open ? "rgba(59,107,255,0.12)" : "var(--canvas-2)",
           border: `1px solid ${open ? "var(--blue)" : "var(--canvas-border)"}`,
@@ -83,11 +116,16 @@ export default function AdminSwitcher() {
         👁 View as client
       </button>
 
-      {open && (
+      {open && panelStyle && createPortal(
         <div
-          className="absolute right-0 mt-1 rounded-xl overflow-hidden"
+          ref={panelRef}
+          className="rounded-xl overflow-hidden"
           style={{
-            width: "320px", zIndex: 60,
+            position: "fixed",
+            top: panelStyle.top,
+            left: panelStyle.left,
+            width: panelStyle.width,
+            zIndex: 80,
             background: "var(--canvas-1)", border: "1px solid var(--canvas-border)",
             boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
           }}
@@ -123,7 +161,7 @@ export default function AdminSwitcher() {
           </div>
 
           {/* Client list */}
-          <div className="overflow-y-auto" style={{ maxHeight: "280px" }}>
+          <div className="overflow-y-auto" style={{ maxHeight: Math.max(120, panelStyle.maxHeight - 108) }}>
             {loading ? (
               <p className="text-xs text-center py-4" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
             ) : filtered.length === 0 ? (
@@ -157,7 +195,8 @@ export default function AdminSwitcher() {
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

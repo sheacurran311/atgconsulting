@@ -6,12 +6,12 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
-import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
+import { gateAdminRouter, type AuthedRequest } from "../lib/auth";
 import { generateDailyReport } from "../lib/reports";
 import { audit } from "../lib/audit";
 
 const router = Router();
-router.use(withUser, requireAdmin);
+router.use(gateAdminRouter);
 
 // ── Clients ───────────────────────────────────────────────────────────────────
 

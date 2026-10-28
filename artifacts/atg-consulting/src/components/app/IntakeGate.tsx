@@ -8,10 +8,12 @@
  * child components via the returned context.
  */
 import { useState, useEffect, createContext, useContext } from "react";
-import { Link } from "wouter";
+import { Link, Redirect } from "wouter";
 import { useUser } from "@clerk/react";
 import { portalApi, type PortalStatus } from "@/lib/api";
 import LogoMark from "@/components/LogoMark";
+import { useAccount } from "@/lib/useAccount";
+import { syncSignedInUser, wantsClientView } from "@/lib/viewMode";
 
 interface PortalCtx extends PortalStatus {
   refetch: () => void;
@@ -25,12 +27,38 @@ export function usePortal(): PortalCtx | null {
 
 interface Props { children: React.ReactNode }
 
+export function NeedsIntake() {
+  return (
+    <div className="rounded-2xl p-10 text-center" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
+      <p className="font-bold mb-2" style={{ color: "var(--canvas-text)" }}>Complete the intake first</p>
+      <p className="text-sm mb-5" style={{ color: "var(--canvas-text-2)" }}>
+        Your portal opens once the intake is linked to this account.
+      </p>
+      <Link to="/start">
+        <span className="btn-primary">Start the intake</span>
+      </Link>
+    </div>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--canvas)" }}>
+      <span className="font-mono text-xs" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>LOADING…</span>
+    </div>
+  );
+}
+
 export default function IntakeGate({ children }: Props) {
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
+  const { account, loading: accountLoading } = useAccount();
   const [status, setStatus] = useState<PortalStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [impersonating, setImpersonating] = useState<boolean | null>(null);
 
-  function fetch() {
+  if (user?.id) syncSignedInUser(user.id);
+
+  function fetchStatus() {
     setLoading(true);
     portalApi.status()
       .then(setStatus)
@@ -39,19 +67,38 @@ export default function IntakeGate({ children }: Props) {
   }
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) fetch();
+    if (isLoaded && isSignedIn) fetchStatus();
+    else if (isLoaded) setLoading(false);
   }, [isLoaded, isSignedIn]);
 
-  if (!isLoaded || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--canvas)" }}>
-        <span className="font-mono text-xs" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>LOADING…</span>
-      </div>
-    );
+  useEffect(() => {
+    if (!account?.isAdmin) {
+      setImpersonating(false);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/admin/impersonate/status", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() as Promise<{ active?: boolean }> : { active: false }))
+      .then((d) => { if (!cancelled) setImpersonating(!!d.active); })
+      .catch(() => { if (!cancelled) setImpersonating(false); });
+    return () => { cancelled = true; };
+  }, [account?.isAdmin]);
+
+  const resolvingAdmin = !!account?.isAdmin && impersonating === null;
+  if (!isLoaded || (isSignedIn && accountLoading) || resolvingAdmin) {
+    return <LoadingScreen />;
   }
 
-  // User has signed in but has no intake linked to their account
-  if (status && !status.hasIntake) {
+  // ADMIN_EMAILS is applied on the API. Send that account to the console
+  // unless they are viewing a client, or they opened the client portal on purpose.
+  if (account?.isAdmin && !impersonating && !wantsClientView()) {
+    return <Redirect to="/admin" />;
+  }
+
+  if (loading) return <LoadingScreen />;
+
+  // User has signed in but has no client profile or intake linked to their account
+  if (status && (!status.hasClient || !status.hasIntake)) {
     const { email, name } = status.intakePrefill;
     const params = new URLSearchParams();
     if (email) params.set("email", email);
@@ -94,7 +141,7 @@ export default function IntakeGate({ children }: Props) {
   }
 
   return (
-    <PortalContext.Provider value={status ? { ...status, refetch: fetch } : null}>
+    <PortalContext.Provider value={status ? { ...status, refetch: fetchStatus } : null}>
       {children}
     </PortalContext.Provider>
   );

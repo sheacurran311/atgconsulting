@@ -1,21 +1,35 @@
 import { useUser } from "@clerk/react";
 import { Link, useLocation, Redirect } from "wouter";
+import {
+  ArrowLeft,
+  CalendarCheck,
+  FileText,
+  GraduationCap,
+  LayoutDashboard,
+  Map,
+  MessagesSquare,
+  Shield,
+  UserRound,
+  BarChart3,
+  type LucideIcon,
+} from "lucide-react";
 import LogoLockup from "@/components/LogoLockup";
 import OperatorPanel from "@/components/workbench/OperatorPanel";
 import IntakeGate from "@/components/app/IntakeGate";
 import ImpersonationBanner from "@/components/app/ImpersonationBanner";
 import { useAccount } from "@/lib/useAccount";
 import { hasOperator } from "@/lib/tiers";
+import { clearClientView } from "@/lib/viewMode";
 
-const navItems = [
-  { label: "Dashboard",     to: "/app",                  icon: "◈" },
-  { label: "My plan",       to: "/app/plan",             icon: "▣" },
-  { label: "Sessions",      to: "/app/sessions",         icon: "◑" },
-  { label: "Consultations", to: "/app/consultations",    icon: "◷" },
-  { label: "Documents",     to: "/app/documents",        icon: "▤" },
-  { label: "Reports",       to: "/app/reports",          icon: "▦" },
-  { label: "Learn",         to: "/app/learn",            icon: "◎" },
-  { label: "Account",       to: "/app/account",          icon: "◉" },
+const navItems: { label: string; to: string; icon: LucideIcon }[] = [
+  { label: "Dashboard",     to: "/app",               icon: LayoutDashboard },
+  { label: "My plan",       to: "/app/plan",          icon: Map },
+  { label: "Sessions",      to: "/app/sessions",      icon: CalendarCheck },
+  { label: "Consultations", to: "/app/consultations", icon: MessagesSquare },
+  { label: "Documents",     to: "/app/documents",     icon: FileText },
+  { label: "Reports",       to: "/app/reports",       icon: BarChart3 },
+  { label: "Learn",         to: "/app/learn",         icon: GraduationCap },
+  { label: "Account",       to: "/app/account",       icon: UserRound },
 ];
 
 interface Props { children: React.ReactNode; wide?: boolean }
@@ -23,8 +37,13 @@ interface Props { children: React.ReactNode; wide?: boolean }
 export default function AppShell({ children, wide = false }: Props) {
   const { isLoaded, isSignedIn } = useUser();
   const { account } = useAccount();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const operator = hasOperator(account?.tier);
+
+  function openAdmin() {
+    clearClientView();
+    setLocation("/admin");
+  }
 
   if (!isLoaded) {
     return (
@@ -44,7 +63,7 @@ export default function AppShell({ children, wide = false }: Props) {
 
       {/* Desktop sidebar */}
       <aside
-        className="hidden md:flex flex-col w-52 flex-shrink-0"
+        className="hidden md:flex flex-col w-52 flex-shrink-0 h-dvh sticky top-0"
         style={{
           background: "var(--ink-1)",
           borderRight: "1px solid var(--ink-border)",
@@ -61,7 +80,7 @@ export default function AppShell({ children, wide = false }: Props) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 p-2 space-y-0.5 mt-1" aria-label="Client portal navigation">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5 mt-1" aria-label="Client portal navigation">
           {navItems.map((item) => {
             const active = location === item.to || (item.to !== "/app" && location.startsWith(item.to));
             return (
@@ -69,14 +88,12 @@ export default function AppShell({ children, wide = false }: Props) {
                 <span
                   className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer"
                   style={{
-                    color: active ? "var(--ink-text)" : "var(--ink-text-3)",
+                    color: "#FFFFFF",
                     background: active ? "var(--ink-2)" : "transparent",
                     letterSpacing: "-0.005em",
                   }}
                 >
-                  <span className="font-mono text-xs" aria-hidden="true" style={{ color: active ? "var(--blue)" : "var(--ink-text-3)" }}>
-                    {item.icon}
-                  </span>
+                  <item.icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" strokeWidth={1.75} style={{ color: active ? "var(--blue)" : "#FFFFFF" }} />
                   {item.label}
                 </span>
               </Link>
@@ -84,11 +101,23 @@ export default function AppShell({ children, wide = false }: Props) {
           })}
         </nav>
 
-        <div className="p-3" style={{ borderTop: "1px solid var(--ink-border)" }}>
+        <div className="flex-shrink-0 p-3" style={{ borderTop: "1px solid var(--ink-border)" }}>
+          {account?.isAdmin && (
+            <button
+              type="button"
+              onClick={openAdmin}
+              className="flex w-full items-center gap-2 px-3 py-2 rounded-md text-xs font-semibold cursor-pointer"
+              style={{ color: "#FFFFFF", background: "transparent", border: "none", textAlign: "left" }}
+            >
+              <Shield className="w-4 h-4 flex-shrink-0" aria-hidden="true" strokeWidth={1.75} />
+              Admin console
+            </button>
+          )}
           {account ? (operator ? <OperatorPanel /> : <OperatorUpgrade />) : null}
           <Link to="/">
-            <span className="flex items-center gap-2 px-3 py-2 mt-2 rounded-md text-xs font-medium transition-colors cursor-pointer" style={{ color: "var(--ink-text-3)" }}>
-              ← Marketing site
+            <span className="flex items-center gap-2 px-3 py-2 mt-2 rounded-md text-xs font-medium transition-colors cursor-pointer" style={{ color: "#FFFFFF" }}>
+              <ArrowLeft className="w-4 h-4 flex-shrink-0" aria-hidden="true" strokeWidth={1.75} />
+              Marketing site
             </span>
           </Link>
         </div>
@@ -96,11 +125,13 @@ export default function AppShell({ children, wide = false }: Props) {
 
       {/* Mobile tab bar */}
       <div
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex overflow-x-auto"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex"
         style={{
           background: "var(--ink-1)",
           borderTop: "1px solid var(--ink-border)",
           paddingBottom: "env(safe-area-inset-bottom)",
+          overflowX: "auto",
+          overflowY: "hidden",
         }}
       >
         {navItems.map((item) => {
@@ -109,9 +140,9 @@ export default function AppShell({ children, wide = false }: Props) {
             <Link key={item.to} to={item.to}>
               <span
                 className="flex flex-col items-center gap-0.5 px-4 py-3 text-2xs font-medium whitespace-nowrap flex-shrink-0 cursor-pointer"
-                style={{ color: active ? "var(--blue)" : "var(--ink-text-3)" }}
+                style={{ color: "#FFFFFF" }}
               >
-                <span className="font-mono text-base leading-none">{item.icon}</span>
+                <item.icon className="w-4 h-4" aria-hidden="true" strokeWidth={1.75} style={{ color: active ? "var(--blue)" : "#FFFFFF" }} />
                 {item.label}
               </span>
             </Link>
@@ -121,6 +152,24 @@ export default function AppShell({ children, wide = false }: Props) {
 
       {/* Main */}
       <main className="flex-1 min-w-0 overflow-auto pb-20 md:pb-0">
+        {account?.isAdmin && (
+          <div
+            className="flex items-center justify-between gap-3 px-5 sm:px-8 py-2"
+            style={{ background: "var(--ink-1)", borderBottom: "1px solid var(--ink-border)" }}
+          >
+            <span className="text-xs font-medium" style={{ color: "var(--ink-text-2)" }}>
+              Signed in as admin. This is the client portal.
+            </span>
+            <button
+              type="button"
+              onClick={openAdmin}
+              className="text-xs font-semibold flex-shrink-0 cursor-pointer"
+              style={{ color: "var(--blue)", background: "transparent", border: "none" }}
+            >
+              Open admin console
+            </button>
+          </div>
+        )}
         <div className={wide ? "p-5 sm:p-8" : "p-5 sm:p-8 max-w-content mx-auto"}>
           {children}
         </div>

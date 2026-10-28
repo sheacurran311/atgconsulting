@@ -112,19 +112,25 @@ export default function DashboardPage() {
           </a>
         </div>
 
-        <div className="flex gap-1 mb-6 overflow-x-auto" style={{ borderBottom: "1px solid var(--canvas-border)" }}>
+        <div
+          className="flex gap-1 mb-6"
+          style={{
+            borderBottom: "1px solid var(--canvas-border)",
+            overflowX: "auto",
+            overflowY: "hidden",
+          }}
+        >
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className="px-4 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap"
+              className="px-4 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap flex-shrink-0"
               style={{
                 color: tab === t.id ? "var(--blue)" : "var(--canvas-text-2)",
-                marginBottom: "-1px",
                 background: "transparent",
                 border: "none",
-                borderBottom: `2px solid ${tab === t.id ? "var(--blue)" : "transparent"}`,
+                boxShadow: tab === t.id ? "inset 0 -2px 0 var(--blue)" : "none",
               }}
             >
               {t.label}

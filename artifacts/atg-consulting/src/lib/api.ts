@@ -19,6 +19,13 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   return res.json() as Promise<T>;
 }
 
+/** True when the API refused because this account has no client profile yet. */
+export function missingProfile(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const status = (err as Error & { status?: number }).status;
+  return status === 404 && /client profile|intake/i.test(err.message);
+}
+
 const get = <T>(path: string) => req<T>("GET", path);
 const post = <T>(path: string, body?: unknown) => req<T>("POST", path, body);
 const put = <T>(path: string, body?: unknown) => req<T>("PUT", path, body);

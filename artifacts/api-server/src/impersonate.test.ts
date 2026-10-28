@@ -137,3 +137,26 @@ test("blockIfImpersonating allows POST when allowEdits=true", async () => {
   blockIfImpersonating(mockReq as unknown as Parameters<typeof blockIfImpersonating>[0], mockRes as unknown as Parameters<typeof blockIfImpersonating>[1], mockNext);
   assert.equal(passed, true, "POST should be allowed when allowEdits=true");
 });
+
+test("client /day is not swallowed by the admin router", async () => {
+  const express = (await import("express")).default;
+  const { gateAdminRouter } = await import("./lib/auth.js");
+  const admin = express.Router();
+  admin.use(gateAdminRouter);
+  admin.get("/admin/ping", (_req, res) => { res.json({ admin: true }); });
+  const day = express.Router();
+  day.get("/day", (_req, res) => { res.json({ day: true }); });
+  const api = express.Router();
+  api.use(admin);
+  api.use(day);
+  const app = express();
+  app.use("/api", api);
+
+  const dayRes = await request(app).get("/api/day");
+  assert.equal(dayRes.status, 200);
+  assert.equal(dayRes.body.day, true);
+
+  const adminRes = await request(app).get("/api/admin/ping");
+  assert.equal(adminRes.status, 401);
+  assert.notEqual(adminRes.body.error, "Admin access required.");
+});

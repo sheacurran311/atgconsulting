@@ -61,10 +61,22 @@ export default function OperatorPanel() {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder={SHEA.messagePlaceholder}
-          rows={3}
+          rows={5}
           maxLength={2000}
-          className="w-full rounded-lg text-xs resize-none outline-none"
-          style={{ background: "var(--ink-3)", border: "1px solid var(--ink-border)", color: "var(--ink-text)", padding: "8px 10px", fontFamily: "var(--font-sans)" }}
+          className="w-full rounded-lg text-xs resize-none outline-none leading-snug"
+          style={{
+            background: "var(--ink-3)",
+            border: "1px solid var(--ink-border)",
+            color: "var(--ink-text)",
+            padding: "8px 10px",
+            fontFamily: "var(--font-sans)",
+            // Global border-box folds padding into the rows height and clips the last line.
+            boxSizing: "content-box",
+            lineHeight: 1.45,
+            fieldSizing: "content",
+            maxHeight: "140px",
+            overflowY: "auto",
+          }}
         />
         <div className="flex gap-2 mt-2">
           <button

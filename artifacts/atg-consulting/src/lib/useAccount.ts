@@ -17,12 +17,13 @@ interface AccountState {
 export function useAccount(): AccountState {
   const { isLoaded, isSignedIn, user } = useUser();
   const [account, setAccount] = useState<ClientProfile | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    if (!isLoaded || !isSignedIn) { setAccount(null); return; }
+    if (!isLoaded) return;
+    if (!isSignedIn) { setAccount(null); setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setError(null);

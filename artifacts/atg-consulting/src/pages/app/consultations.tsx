@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, useRoute } from "wouter";
 import AppShell from "@/components/app/AppShell";
-import { api, type Consultation } from "@/lib/api";
+import { NeedsIntake } from "@/components/app/IntakeGate";
+import { api, missingProfile, type Consultation } from "@/lib/api";
 
 export default function ConsultationsPage() {
   const [, params] = useRoute("/app/consultations/:id");
@@ -10,13 +11,28 @@ export default function ConsultationsPage() {
 }
 
 function ConsultationList() {
+  return (
+    <AppShell>
+      <ConsultationListBody />
+    </AppShell>
+  );
+}
+
+function ConsultationListBody() {
   const [items, setItems] = useState<Consultation[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { api.client.consultations().then(setItems).finally(() => setLoading(false)); }, []);
+  const [needsIntake, setNeedsIntake] = useState(false);
+  useEffect(() => {
+    api.client.consultations()
+      .then(setItems)
+      .catch((e: unknown) => {
+        if (missingProfile(e)) setNeedsIntake(true);
+      })
+      .finally(() => setLoading(false));
+  }, []);
   const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
 
   return (
-    <AppShell>
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -25,7 +41,9 @@ function ConsultationList() {
           </div>
           <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn-primary text-sm">Book a session</a>
         </div>
-        {loading ? <p className="text-canvas-text">Loading…</p> : items.length === 0 ? (
+        {loading ? <p className="text-canvas-text">Loading…</p> : needsIntake ? (
+          <NeedsIntake />
+        ) : items.length === 0 ? (
           <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-10 text-center">
             <p className="font-bold text-canvas-text mb-2">No consultations yet</p>
             <p className="text-canvas-text text-sm mb-5">Book your 1:1 with Shea to get started.</p>
@@ -52,14 +70,29 @@ function ConsultationList() {
           </ul>
         )}
       </div>
-    </AppShell>
   );
 }
 
 function ConsultationDetail({ id }: { id: string }) {
+  return (
+    <AppShell>
+      <ConsultationDetailBody id={id} />
+    </AppShell>
+  );
+}
+
+function ConsultationDetailBody({ id }: { id: string }) {
   const [c, setC] = useState<Consultation | null>(null);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { api.client.consultation(id).then(setC).finally(() => setLoading(false)); }, [id]);
+  const [needsIntake, setNeedsIntake] = useState(false);
+  useEffect(() => {
+    api.client.consultation(id)
+      .then(setC)
+      .catch((e: unknown) => {
+        if (missingProfile(e)) setNeedsIntake(true);
+      })
+      .finally(() => setLoading(false));
+  }, [id]);
 
   async function toggleAction(actionId: string) {
     const updated = await api.client.toggleActionItem(actionId).catch(() => null);
@@ -69,10 +102,9 @@ function ConsultationDetail({ id }: { id: string }) {
   }
 
   return (
-    <AppShell>
       <div className="max-w-2xl mx-auto">
         <Link to="/app/consultations"><span className="btn-ghost mb-6 inline-flex">← Back</span></Link>
-        {loading ? <p className="text-canvas-text">Loading…</p> : !c ? <p className="text-red-500">Not found.</p> : (
+        {loading ? <p className="text-canvas-text">Loading…</p> : needsIntake ? <NeedsIntake /> : !c ? <p className="text-red-500">Not found.</p> : (
           <div className="space-y-6">
             <div>
               <p className="section-eyebrow mb-1">{c.status.toLowerCase()}</p>
@@ -106,6 +138,5 @@ function ConsultationDetail({ id }: { id: string }) {
           </div>
         )}
       </div>
-    </AppShell>
   );
 }

@@ -14,7 +14,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
-import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
+import { gateAdminRouter, type AuthedRequest } from "../lib/auth";
 import { audit } from "../lib/audit";
 import {
   createImpToken, verify as verifyImp,
@@ -22,7 +22,7 @@ import {
 } from "../lib/impersonate";
 
 const router = Router();
-router.use(withUser, requireAdmin);
+router.use(gateAdminRouter);
 
 // ── Start impersonation ───────────────────────────────────────────────────────
 

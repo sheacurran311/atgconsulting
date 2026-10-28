@@ -15,12 +15,12 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
-import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
+import { gateAdminRouter, type AuthedRequest } from "../lib/auth";
 import { generateClientPlaybook, type PlaybookInput, type SessionSummarySnippet } from "../lib/llm";
 import { sanitiseText, sanitiseShortText } from "../lib/sanitize";
 
 const router = Router();
-router.use(withUser, requireAdmin);
+router.use(gateAdminRouter);
 
 // ── Build the LLM input from a client + optional intake ─────────────────────
 

@@ -97,6 +97,14 @@ export async function resolveUser(req: Request): Promise<ATGUser | null> {
   });
 
   const user = identity.user;
+  // The relation include can miss a Client row created earlier in a parallel
+  // request (portal status auto-links during sign-in). Re-read before giving up.
+  let clientId = user.client?.id ?? null;
+  if (!clientId) {
+    const row = await prisma.client.findUnique({ where: { userId: user.id }, select: { id: true } });
+    clientId = row?.id ?? null;
+  }
+
   const baseUser: ATGUser = {
     id: user.id,
     clerkId,
@@ -104,7 +112,7 @@ export async function resolveUser(req: Request): Promise<ATGUser | null> {
     name,
     imageUrl,
     role: role as "CLIENT" | "ADMIN",
-    clientId: user.client?.id ?? null,
+    clientId,
     isImpersonating: false,
     effectiveClientId: null,
     impersonateAllowEdits: false,
@@ -112,6 +120,9 @@ export async function resolveUser(req: Request): Promise<ATGUser | null> {
 
   // ── Impersonation cookie check ──────────────────────────────────────────────
   // Only honored when the real Clerk user is admin.
+  // Portal routes read clientId, so "view as client" must point that at the
+  // client being viewed. Otherwise an admin with no profile of their own gets
+  // "No client profile found" on every portal request.
   if (role === "ADMIN") {
     const rawCookie = (req.cookies as Record<string, string> | undefined)?.[IMP_COOKIE];
     if (rawCookie) {
@@ -120,10 +131,10 @@ export async function resolveUser(req: Request): Promise<ATGUser | null> {
       if (token && token.adminId === user.id) {
         return {
           ...baseUser,
+          clientId: token.clientId,
           isImpersonating: true,
           effectiveClientId: token.clientId,
           impersonateAllowEdits: token.allowEdits,
-          // clientId stays the admin's own clientId for identity; routes use effectiveClientId
         };
       }
     }
@@ -157,6 +168,19 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!user) { res.status(401).json({ error: "Sign in to continue." }); return; }
   if (user.role !== "ADMIN") { res.status(403).json({ error: "Admin access required." }); return; }
   next();
+}
+
+/**
+ * Mount at the top of a router whose routes all live under /admin.
+ * Other paths skip this router entirely. A blanket requireAdmin would
+ * answer client routes (such as /day) with 403 before they are reached.
+ */
+export function gateAdminRouter(req: Request, res: Response, next: NextFunction) {
+  if (!req.path.startsWith("/admin")) {
+    next("router");
+    return;
+  }
+  void withUser(req, res, () => requireAdmin(req, res, next));
 }
 
 export interface AuthedRequest extends Request {

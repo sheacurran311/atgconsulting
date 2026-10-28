@@ -5,8 +5,8 @@
  *   1. Admin calls POST /api/admin/impersonate { clientId }
  *   2. Server signs an impersonation token and sets a short-lived httpOnly cookie.
  *   3. auth.ts resolveUser() reads the cookie; when valid and real user is admin,
- *      sets effectiveClientId + isImpersonating on ATGUser.
- *   4. Portal routes see the effective clientId — the admin sees the client's view.
+ *      sets clientId, effectiveClientId, and isImpersonating on ATGUser.
+ *   4. Portal routes read clientId, so the admin sees that client's view.
  *   5. Mutations are blocked by default (blockIfImpersonating middleware).
  *   6. Admin can toggle allowEdits in the banner (PATCH /api/admin/impersonate).
  *   7. EXIT: DELETE /api/admin/impersonate clears the cookie.
