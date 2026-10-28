@@ -1236,10 +1236,12 @@ function buildTemplateAccountAccess(input: PlaybookInput): AccountAccessSection 
       "No credentials stored: ATG's app stores no passwords, tokens, or API keys. Only metadata (account name, access type, grant/revoke date) is logged.",
       "No automatic sending: Shea will not configure any system to send, post, or book on the client's behalf without a test-and-approval step the client can observe.",
       "Password sharing (if unavoidable): use the client's existing password manager sharing feature (1Password, Bitwarden, etc.), enable 2FA on the account, and note the date. Rotate credentials at offboarding.",
+      "Authorisation to grant access: the person inviting Shea to each account must be the account owner or hold admin rights to grant delegated access. If they do not, the account owner must explicitly grant the invitation before work begins.",
     ],
 
     buildWorkflow: [
       "Kickoff call (30–60 min): confirm scope, review access list, answer questions. Client agrees to the access agreement in writing (email is sufficient).",
+      "⚠ Signer check (before any access steps): confirm that the person who signed the proposal is either (a) the account owner for each system in the access list, or (b) has explicit written permission from the account owner to grant delegated access. If there is a separate approver listed in the proposal, get their written confirmation before proceeding.",
       "Access granted: client invites Shea to each account using their admin console or team invite (no shared passwords). Shea confirms access in the client's Workbench chat.",
       "Environment review: Shea audits the current tool state, notes existing automations or workflows that could conflict.",
       "Skill installation: Shea installs the customised SKILL.md files in the client's AI platform (Grok Bot / Claude / ChatGPT). Follow the 'Install guides' section of this playbook for per-workflow step-by-step instructions. Nothing runs until the test step.",

@@ -24,6 +24,7 @@ import knowledgeRouter from "./knowledge";
 import aiAssistRouter from "./ai-assist";
 import installVerifyRouter from "./install-verify";
 import impersonateRouter from "./impersonate";
+import discoveryRouter from "./discovery";
 import { blockIfImpersonating } from "../lib/impersonate";
 
 const router: IRouter = Router();
@@ -61,5 +62,6 @@ router.use(knowledgeRouter);
 router.use(aiAssistRouter);
 router.use(installVerifyRouter);
 router.use(impersonateRouter);
+router.use(discoveryRouter);
 
 export default router;

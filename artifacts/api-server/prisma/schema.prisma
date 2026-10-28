@@ -861,3 +861,123 @@ model WorkflowInstallCode {
   @@unique([clientId, slug])
   @@index([clientId])
 }
+
+// ── Discovery intake (adaptive, pre-auth) ─────────────────────────────────────
+
+/// A discovery intake session. Works for logged-in or anonymous prospects.
+/// Adaptive: the server calls Grok to pick follow-up questions.
+/// Expires after 90 days if not converted to a client.
+model DiscoveryIntake {
+  id              String    @id @default(cuid())
+
+  /// Prospect's contact email (optional at start; required for report delivery)
+  contactEmail    String?
+  contactName     String?
+
+  /// JSON array of { id, category, question, answer } — the actual Q&A
+  answers         String    @default("[]")
+
+  /// Full human-readable transcript of the session
+  transcript      String    @default("")
+
+  /// Text extracted from a pasted document or uploaded PDF/DOCX (optional)
+  rawUpload       String?
+
+  /// AI-generated report draft (JSON: findings, workflows, tier, proposalScope)
+  reportDraft     String?
+
+  reportApprovedAt DateTime?
+
+  /// new | reviewed | report_sent | converted
+  status          String    @default("new")
+
+  /// Set when this intake is linked to a converted client
+  clientId        String?
+
+  /// full | partial | none — from the decision-authority question
+  decisionAuthority String?
+  /// Approver details (collected when authority is partial or none)
+  approverName    String?
+  approverEmail   String?
+  approverRole    String?
+
+  /// Hashed IP for rate limiting (no plain IPs stored)
+  ipHash          String?
+
+  /// True when prospect clicked the consent checkbox
+  consentGiven    Boolean   @default(false)
+
+  /// Total tokens used for adaptive AI calls in this session
+  tokensUsed      Int       @default(0)
+
+  /// Session automatically expires after 90 days if not converted
+  expiresAt       DateTime
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([contactEmail])
+  @@index([status, createdAt])
+  @@index([expiresAt])
+}
+
+// ── Discovery invite links ────────────────────────────────────────────────────
+
+/// A tokenized intake invite Shea creates and shares manually.
+/// The app sends nothing — Shea copies the link and sends it himself.
+model DiscoveryInvite {
+  id                 String    @id @default(cuid())
+  token              String    @unique
+
+  /// Optional context pre-filled for the prospect
+  prefilledName      String?
+  prefilledEmail     String?   // pre-filled and editable by prospect
+  prefilledCompany   String?
+  prefilledIndustry  String?
+
+  /// Private note to Grok — not shown to the prospect.
+  /// Example: "large-format print shop, ERP plus factory floor plus install crews"
+  contextNote        String?
+
+  /// created | opened | in_progress | submitted | revoked
+  status             String    @default("created")
+
+  /// Set when the prospect submits the intake from this link
+  discoveryIntakeId  String?
+
+  expiresAt          DateTime  // 30 days from creation
+  revokedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([token])
+  @@index([status])
+}
+
+// ── Discovery proposal ─────────────────────────────────────────────────────────
+
+/// ATG-branded proposal generated from a discovery intake.
+/// Shea edits and approves; nothing is sent automatically.
+/// Proposal is exported as a print-ready HTML page (browser print-to-PDF).
+model DiscoveryProposal {
+  id                 String    @id @default(cuid())
+  discoveryIntakeId  String    @unique
+
+  /// draft | approved | portal_published
+  status             String    @default("draft")
+
+  /// Grok-generated, all editable by Shea
+  reviewSummary      String    @default("")  // Shea's internal review (not in PDF)
+  execSummary        String    @default("")
+  understanding      String    @default("")  // 'Our understanding of your situation'
+  scope              String    @default("")  // 'What we'll build'
+  howWeConnect       String    @default("")  // 'How it connects to your existing tools'
+  milestones         String    @default("[]")  // JSON array of {label, description}
+  investment         String    @default("{}")  // JSON {tier, price, care, notes}
+  acceptanceClause   String    @default("")  // signature/acceptance section
+
+  approvedAt         DateTime?
+  portalPublishedAt  DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
