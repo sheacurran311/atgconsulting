@@ -203,12 +203,13 @@ router.post("/discovery/next", async (req, res) => {
 // ── POST /api/discovery/submit ────────────────────────────────────────────────
 
 const SubmitBody = z.object({
-  sessionId:    z.string().min(1),
-  finalAnswers: z.array(AnswerSchema),
-  contactEmail: z.string().email().toLowerCase().optional(),
-  contactName:  z.string().max(100).optional(),
-  consentGiven: z.boolean(),
-  honeypot:     z.string().max(0).optional(), // must be empty
+  sessionId:      z.string().min(1),
+  finalAnswers:   z.array(AnswerSchema),
+  contactEmail:   z.string().email().toLowerCase().optional(),
+  contactName:    z.string().max(100).optional(),
+  consentGiven:   z.boolean(),
+  honeypot:       z.string().max(0).optional(), // must be empty
+  engMemberToken: z.string().max(100).optional(), // engagement member token for linking
 });
 
 router.post("/discovery/submit", async (req, res) => {
@@ -281,6 +282,24 @@ router.post("/discovery/submit", async (req, res) => {
       approverRole:      approverRole,
     },
   });
+
+  // If this is an engagement member submission, link intake + update member status
+  const engMemberToken = parsed.data.engMemberToken;
+  if (engMemberToken) {
+    const member = await prisma.engagementMember.findUnique({
+      where: { inviteToken: engMemberToken },
+    }).catch(() => null);
+    if (member && !member.revokedAt) {
+      await prisma.engagementMember.update({
+        where: { id: member.id },
+        data: { status: "submitted", discoveryIntakeId: session.id },
+      }).catch(() => null);
+      await prisma.discoveryIntake.update({
+        where: { id: session.id },
+        data: { engagementId: member.engagementId, respondentRole: member.role },
+      }).catch(() => null);
+    }
+  }
 
   res.json({ ok: true, sessionId: session.id });
 });

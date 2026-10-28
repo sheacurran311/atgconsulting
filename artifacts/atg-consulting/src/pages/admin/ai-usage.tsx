@@ -54,8 +54,10 @@ export default function AdminAIUsagePage() {
     intake: "rgba(234,179,8,0.12)",
   };
 
-  // Note: discovery intake tokens are tracked on DiscoveryIntake.tokensUsed,
-  // not in AIAssistUsage. View them in the Discovery inbox (/admin/discovery).
+  // Note: discovery intake tokens are tracked on DiscoveryIntake.tokensUsed (per submission).
+  // View per-submission totals in Discovery inbox (/admin/discovery).
+  // Multi-person engagement totals are shown in the Engagements page (/admin/engagements),
+  // where each engagement shows the sum of all member submission tokens.
 
   return (
     <AdminShell>

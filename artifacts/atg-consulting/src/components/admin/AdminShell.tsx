@@ -5,6 +5,7 @@ import AdminSwitcher from "@/components/admin/AdminSwitcher";
 
 const navItems = [
   { label: "Discovery",   to: "/admin/discovery" },
+  { label: "Engagements", to: "/admin/engagements" },
   { label: "Clients",     to: "/admin/clients"  },
   { label: "Intakes",     to: "/admin/intakes"  },
   { label: "Plans & DFY", to: "/admin/tiers"   },

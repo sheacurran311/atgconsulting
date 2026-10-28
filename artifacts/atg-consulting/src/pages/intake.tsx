@@ -64,11 +64,13 @@ function clearLS() { try { localStorage.removeItem(LS_KEY); } catch { /* ignore 
 export default function IntakePage() {
   const [, setLocation] = useLocation();
   const [matchInvite, paramsInvite] = useRoute("/intake/i/:token");
+  const [matchEngMember, paramsEngMember] = useRoute("/intake/e/:token");
 
   // URL params for resume
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const resumeId = searchParams.get("resume");
   const inviteToken = matchInvite ? paramsInvite?.token : null;
+  const engMemberToken = matchEngMember ? paramsEngMember?.token : null;
 
   // ── State ─────────────────────────────────────────────────────────────────
   type Phase = "start" | "email" | "questions" | "upload" | "submit" | "done";
@@ -102,6 +104,33 @@ export default function IntakePage() {
   useEffect(() => {
     setSaved(loadSaved());
   }, []);
+
+  // Engagement member token state
+  const [engRoleLabel, setEngRoleLabel] = useState("");
+  const [engRoleDesc, setEngRoleDesc] = useState("");
+  const [engCompanyName, setEngCompanyName] = useState("");
+  const currentEngMemberToken = useRef<string | null>(engMemberToken ?? null);
+
+  useEffect(() => {
+    if (!engMemberToken) return;
+    currentEngMemberToken.current = engMemberToken;
+    fetch(`/api/discovery/engagement/member/${engMemberToken}`, { credentials: "include" })
+      .then((r) => r.json() as Promise<{ roleLabel?: string; roleDesc?: string; companyName?: string; prefilledName?: string; prefilledEmail?: string; error?: string }>)
+      .then((d) => {
+        if (d.error) { setError(d.error); return; }
+        if (d.roleLabel) setEngRoleLabel(d.roleLabel);
+        if (d.roleDesc) setEngRoleDesc(d.roleDesc);
+        if (d.companyName) { setEngCompanyName(d.companyName); setPrefilledCompany(d.companyName); }
+        if (d.prefilledName) setPrefilledName(d.prefilledName);
+        if (d.prefilledEmail) { setPrefilledEmail(d.prefilledEmail.toLowerCase()); setContactEmail(d.prefilledEmail.toLowerCase()); }
+        fetch(`/api/discovery/engagement/member/${engMemberToken}/status`, {
+          method: "PATCH", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "opened" }),
+        }).catch(() => null);
+      })
+      .catch(() => null);
+  }, [engMemberToken]);
 
   useEffect(() => {
     if (!inviteToken) return;
@@ -152,7 +181,10 @@ export default function IntakePage() {
     const r = await fetch("/api/discovery/start", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inviteToken: currentInviteToken.current }),
+      body: JSON.stringify({
+        inviteToken: currentInviteToken.current,
+        engMemberToken: currentEngMemberToken.current,
+      }),
     }).catch(() => null);
 
     if (!r?.ok) { setError("Could not start the intake. Please try again."); setLoading(false); return; }
@@ -182,7 +214,16 @@ export default function IntakePage() {
     setLoading(false);
   }, [prefilledName, prefilledCompany]);
 
-  // Auto-start when arriving via invite link (go to email step first unless email is prefilled)
+  // Auto-start when arriving via engagement member token
+  useEffect(() => {
+    if (!engMemberToken) return;
+    const timer = setTimeout(() => {
+      if (prefilledEmail) { startSession(); } else { setPhase("email"); }
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [engMemberToken, prefilledEmail]);
+
+  // Auto-start when arriving via personal invite link (go to email step first unless email is prefilled)
   useEffect(() => {
     if (inviteToken) {
       // Wait for invite data to load (prefilledEmail may set contactEmail in the invite effect)
@@ -253,7 +294,8 @@ export default function IntakePage() {
     const r = await fetch("/api/discovery/submit", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, finalAnswers: answered, contactEmail, consentGiven: true, honeypot: "" }),
+      body: JSON.stringify({ sessionId, finalAnswers: answered, contactEmail, consentGiven: true, honeypot: "",
+        engMemberToken: currentEngMemberToken.current }),
     }).catch(() => null);
 
     if (!r?.ok) { setError("Could not submit. Please try again."); setSubmitting(false); return; }
