@@ -455,4 +455,12 @@ router.get("/admin/ai-assist/log/:clientId", withUser, requireAdmin, async (req,
   res.json(messages);
 });
 
+// ── Admin: Grok health check ──────────────────────────────────────────────────
+
+router.get("/admin/ai-assist/health", withUser, requireAdmin, async (_req, res) => {
+  const { grokHealthCheck, GROK_MODEL } = await import("../lib/grokClient");
+  const result = await grokHealthCheck();
+  res.json({ ...result, timestamp: new Date().toISOString(), model: GROK_MODEL });
+});
+
 export default router;

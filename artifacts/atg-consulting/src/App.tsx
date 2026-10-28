@@ -110,7 +110,14 @@ function AuthenticatedApp() {
         <Route path="/intake" component={IntakeDiscoveryPage} />
         <Route path="/intake/i/:token" component={IntakeDiscoveryPage} />
         <Route path="/intake/e/:token" component={IntakeDiscoveryPage} />
-        <Route path="/start" component={StartPage} />
+        {/* /start is now /intake — redirect preserving query params */}
+        <Route path="/start">
+          {() => {
+            const search = typeof window !== "undefined" ? window.location.search : "";
+            const next = "/intake" + search.replace("?tier=", "?tier=");
+            return <Redirect to={next} />;
+          }}
+        </Route>
         <Route path="/start/result/:intakeId" component={PlanResultPage} />
         <Route path="/privacy" component={PrivacyPage} />
         <Route path="/terms" component={TermsPage} />

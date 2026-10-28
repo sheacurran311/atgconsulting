@@ -188,15 +188,20 @@ router.post("/discovery/next", async (req, res) => {
     });
   }
 
-  const nextQuestions = result.nextIds
+  // Combine bank questions + Grok-generated follow-ups (capped at 15–25 total)
+  const bankQuestions = result.nextIds
     .map((id) => QUESTION_MAP[id])
     .filter((q): q is NonNullable<typeof q> => !!q);
 
+  const generated = result.generatedQuestions ?? [];
+  const allNext = [...bankQuestions, ...generated]; // bank first, generated after
+
   res.json({
-    questions: nextQuestions,
+    questions: allNext,
     totalAsked: merged.length,
     done: result.done || merged.length >= 25,
     fromFallback: result.fromFallback ?? false,
+    aiUsed: !result.fromFallback,
   });
 });
 
@@ -815,11 +820,9 @@ async function generateProposalDraft(
 ): Promise<ProposalContent> {
   const fallback = buildFallbackProposal(answers, reportDraft, contactName, authority);
 
-  const { default: OpenAI } = await import("openai");
-  const apiKey = process.env.XAI_API_KEY ?? process.env.OPENAI_API_KEY ?? process.env.LLM_API_KEY;
-  if (!apiKey) return { ...fallback, tokensUsed: 0 };
-
-  const llm = new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL, timeout: 25_000 });
+  const { getGrokClient: grokClient, GROK_MODEL: grokModel, logFallback: logFall } = await import("../lib/grokClient");
+  const llm = grokClient();
+  if (!llm) { logFall("proposal", "no_api_key"); return { ...fallback, tokensUsed: 0 }; }
   const qaSummary = answers.slice(0, 20).map((a) => `[${a.category}] ${a.question}\n→ ${a.answer}`).join("\n\n");
   const reportSummary = reportDraft.summary ? `\n\nReport summary: ${reportDraft.summary}` : "";
 
@@ -860,7 +863,7 @@ Keep it professional, plain English, no invented stats or outcomes.`;
 
   try {
     const completion = await llm.chat.completions.create({
-      model: process.env.AI_MODEL_DEFAULT ?? "grok-3-mini-latest",
+      model: grokModel,
       messages: [{ role: "user", content: prompt }],
       max_tokens: 2500,
       temperature: 0.5,

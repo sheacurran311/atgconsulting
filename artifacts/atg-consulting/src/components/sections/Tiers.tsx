@@ -16,7 +16,7 @@ const TIERS = [
     priceNote: "Founding price",
     priceStrike: "$297",
     cta: "Get started",
-    ctaHref: "/start?tier=self_serve",
+    ctaHref: "/intake?tier=self_serve",
     external: false,
     includes: [
       "Automated diagnosis report delivered immediately after intake",
@@ -63,7 +63,7 @@ const TIERS = [
     price: "From $3,500",
     priceNote: "By application only",
     cta: "Apply",
-    ctaHref: "/start?tier=done_for_you",
+    ctaHref: "/intake?tier=done_for_you",
     external: false,
     badge: "Limited spots",
     includes: [

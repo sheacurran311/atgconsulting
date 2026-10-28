@@ -12,11 +12,11 @@
  *
  * Without an API key (or on error), both fall back to deterministic templates.
  *
- * Providers: set OPENAI_API_KEY, XAI_API_KEY, or LLM_API_KEY + LLM_BASE_URL.
- * Model: LLM_MODEL (default: gpt-4o-mini). 20-second timeout.
+ * Provider: xAI Grok. Set XAI_API_KEY and optionally AI_MODEL_DEFAULT (default: grok-4.7).
  */
 
 import OpenAI from "openai";
+import { getGrokClient, GROK_MODEL, GROK_VISION_MODEL, logFallback } from "./grokClient";
 import { z } from "zod";
 import { prisma } from "./db";
 
@@ -101,13 +101,8 @@ export interface AdminPreCallReport {
 
 // ── Client ────────────────────────────────────────────────────────────────────
 
-function getClient(): OpenAI | null {
-  const apiKey = process.env.OPENAI_API_KEY ?? process.env.XAI_API_KEY ?? process.env.LLM_API_KEY;
-  if (!apiKey) return null;
-  return new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL, timeout: 20_000 });
-}
-
-const MODEL = process.env.LLM_MODEL ?? "gpt-4o-mini";
+const getClient = getGrokClient;
+const MODEL = GROK_MODEL;
 
 // ── Labels ────────────────────────────────────────────────────────────────────
 
@@ -228,6 +223,7 @@ export async function generateBothOutputs(intake: IntakeInput): Promise<LLMResul
   const context = buildContext(intake);
 
   if (!client) {
+    logFallback("generateBothOutputs", "no_api_key");
     return {
       clientSnapshot: buildTemplateClientSnapshot(intake),
       adminReport: buildTemplateAdminReport(intake),
@@ -250,11 +246,11 @@ export async function generateBothOutputs(intake: IntakeInput): Promise<LLMResul
     clientSnapshot:
       snapshotResult.status === "fulfilled"
         ? { ...snapshotResult.value, source: "LLM" }
-        : buildTemplateClientSnapshot(intake),
+        : (logFallback("clientSnapshot", "llm_error"), buildTemplateClientSnapshot(intake)),
     adminReport:
       reportResult.status === "fulfilled"
         ? { ...reportResult.value, source: "LLM" }
-        : buildTemplateAdminReport(intake),
+        : (logFallback("adminReport", "llm_error"), buildTemplateAdminReport(intake)),
   };
 }
 
@@ -646,12 +642,12 @@ export async function generateToolPlan(input: ToolPlanInput): Promise<ToolPlanOu
     const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
     const parsed = ToolPlanSchema.safeParse(raw);
     if (!parsed.success) {
-      console.error("[llm] tool plan schema mismatch, using template fallback");
+      logFallback("generateToolPlan", "schema_mismatch");
       return buildTemplatePlan(input);
     }
     return { ...parsed.data, source: "LLM" };
   } catch (err) {
-    console.error("[llm] tool plan generation failed:", err);
+    logFallback("generateToolPlan", "llm_error", err instanceof Error ? err.message : String(err));
     return buildTemplatePlan(input);
   }
 }
@@ -1430,13 +1426,13 @@ export async function generateClientPlaybook(input: PlaybookInput): Promise<Play
     const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
     const parsed = PlaybookZod.safeParse(raw);
     if (!parsed.success) {
-      console.error("[llm] playbook schema mismatch, using template");
+      logFallback("generateClientPlaybook", "schema_mismatch");
       return { ...buildTemplatePlaybook(input), installGuides, source: "TEMPLATE" };
     }
     // Merge LLM output with template-built installGuides
     return { ...parsed.data, installGuides, source: "LLM" };
   } catch (err) {
-    console.error("[llm] playbook generation error:", err);
+    logFallback("generateClientPlaybook", "llm_error", err instanceof Error ? err.message : String(err));
     return { ...buildTemplatePlaybook(input), installGuides, source: "TEMPLATE" };
   }
 }

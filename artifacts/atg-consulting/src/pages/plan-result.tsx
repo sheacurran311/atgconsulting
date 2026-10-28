@@ -247,7 +247,7 @@ function ErrorState({ message }: { message: string }) {
         Couldn&apos;t load your plan
       </p>
       <p className="text-sm mb-6" style={{ color: "var(--canvas-text-2)" }}>{message}</p>
-      <Link to="/start">
+      <Link to="/intake">
         <span className="btn-primary">Start over</span>
       </Link>
     </div>

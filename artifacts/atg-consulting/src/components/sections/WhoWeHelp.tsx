@@ -101,7 +101,7 @@ export default function WhoWeHelp() {
               <h3 className="font-extrabold text-lg" style={{ color: "var(--canvas-text)", letterSpacing: "-0.02em" }}>
                 {active.label}
               </h3>
-              <Link to="/start">
+              <Link to="/intake">
                 <span className="btn-primary text-sm" style={{ padding: "8px 14px" }}>
                   Map my workflow →
                 </span>

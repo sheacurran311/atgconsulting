@@ -34,7 +34,7 @@ export function NeedsIntake() {
       <p className="text-sm mb-5" style={{ color: "var(--canvas-text-2)" }}>
         Your portal opens once the intake is linked to this account.
       </p>
-      <Link to="/start">
+      <Link to="/intake">
         <span className="btn-primary">Start the intake</span>
       </Link>
     </div>

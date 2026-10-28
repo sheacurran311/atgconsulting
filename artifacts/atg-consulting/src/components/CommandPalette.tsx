@@ -21,7 +21,7 @@ const COMMANDS: Command[] = [
     label: "Map my workflow",
     sub: "Answer a few questions, get a tailored plan",
     shortcut: "I",
-    action: (nav) => nav("/start"),
+    action: (nav) => nav("/intake"),
   },
   {
     id: "book",
