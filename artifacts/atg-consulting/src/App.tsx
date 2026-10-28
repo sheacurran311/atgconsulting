@@ -35,6 +35,7 @@ import AdminWorkflowTemplatesPage from "@/pages/admin/workflow-templates";
 import AdminToolsPage from "@/pages/admin/tools";
 import AdminAIUsagePage from "@/pages/admin/ai-usage";
 import AdminDiscoveryPage from "@/pages/admin/discovery";
+import AdminEngagementsPage from "@/pages/admin/engagements";
 
 function Metadata() {
   const [location] = useLocation();
@@ -108,6 +109,7 @@ function AuthenticatedApp() {
         {/* Intake + plan */}
         <Route path="/intake" component={IntakeDiscoveryPage} />
         <Route path="/intake/i/:token" component={IntakeDiscoveryPage} />
+        <Route path="/intake/e/:token" component={IntakeDiscoveryPage} />
         <Route path="/start" component={StartPage} />
         <Route path="/start/result/:intakeId" component={PlanResultPage} />
         <Route path="/privacy" component={PrivacyPage} />
@@ -141,6 +143,7 @@ function AuthenticatedApp() {
         <Route path="/admin/tools" component={AdminToolsPage} />
         <Route path="/admin/ai-usage" component={AdminAIUsagePage} />
         <Route path="/admin/discovery" component={AdminDiscoveryPage} />
+        <Route path="/admin/engagements" component={AdminEngagementsPage} />
 
         {/* Legacy */}
         <Route path="/user-portal" component={() => <Redirect to="/app" />} />

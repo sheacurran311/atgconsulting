@@ -894,6 +894,13 @@ model DiscoveryIntake {
   /// Set when this intake is linked to a converted client
   clientId        String?
 
+  /// Links this intake to a multi-person engagement (optional)
+  engagementId    String?
+  engagement      DiscoveryEngagement? @relation(fields: [engagementId], references: [id], onDelete: SetNull)
+
+  /// Role context for this respondent (e.g. 'Owner', 'IT admin') — used in role-scoped intake
+  respondentRole  String?
+
   /// full | partial | none — from the decision-authority question
   decisionAuthority String?
   /// Approver details (collected when authority is partial or none)
@@ -980,4 +987,61 @@ model DiscoveryProposal {
   portalPublishedAt  DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+}
+
+// ── Multi-person company engagement ──────────────────────────────────────────
+
+/// Groups multiple IntakeSubmissions for one company engagement.
+model DiscoveryEngagement {
+  id              String   @id @default(cuid())
+  companyName     String
+
+  /// Email of the first respondent who created the engagement
+  primaryEmail    String?
+
+  /// collecting | reviewing | approved
+  status          String   @default("collecting")
+
+  /// JSON array of role strings that must submit before Shea can approve.
+  /// Default [] = no blocking requirement; Shea can approve any time.
+  rolesRequired   String   @default("[]")
+
+  /// Grok-generated merged review (JSON) combining all member submissions
+  mergedReview    String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  members         EngagementMember[]
+  intakes         DiscoveryIntake[]
+}
+
+/// One invited contributor within an engagement.
+model EngagementMember {
+  id                String    @id @default(cuid())
+  engagementId      String
+  engagement        DiscoveryEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  name              String?
+  email             String?
+  /// e.g. "Owner", "Ops manager", "IT admin", "Finance", "Sales"
+  role              String
+
+  /// invited | opened | in_progress | submitted | skipped
+  status            String    @default("invited")
+
+  /// Unique token for this member's role-scoped intake link
+  inviteToken       String?   @unique
+
+  inviteExpiresAt   DateTime?
+  revokedAt         DateTime?
+
+  /// Set when this member submits their intake
+  discoveryIntakeId String?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([engagementId])
+  @@index([inviteToken])
 }
