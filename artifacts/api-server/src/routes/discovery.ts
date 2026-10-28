@@ -254,15 +254,31 @@ router.post("/discovery/submit", async (req, res) => {
   // Always store email lowercased for reliable matching in account linking
   const finalEmail = rawEmail ? rawEmail.toLowerCase().trim() : null;
 
+  // Extract decision authority data from answers
+  const decisionAuthorityAnswer = allAnswers.find((a) => a.id === "decision_authority")?.answer ?? null;
+  const isFullAuthority = decisionAuthorityAnswer?.startsWith("Yes");
+  const authorityLevel = isFullAuthority ? "full"
+    : decisionAuthorityAnswer?.startsWith("Partial") ? "partial"
+    : decisionAuthorityAnswer?.startsWith("No") ? "none"
+    : null;
+
+  const approverName  = allAnswers.find((a) => a.id === "approver_name")?.answer ?? null;
+  const approverEmail = allAnswers.find((a) => a.id === "approver_email")?.answer?.toLowerCase().trim() ?? null;
+  const approverRole  = allAnswers.find((a) => a.id === "approver_role")?.answer ?? null;
+
   await prisma.discoveryIntake.update({
     where: { id: session.id },
     data:  {
-      answers:      JSON.stringify(allAnswers),
-      transcript:   buildTranscript(allAnswers),
-      contactEmail: finalEmail,
-      contactName:  name,
-      consentGiven: true,
-      status:       "new",
+      answers:           JSON.stringify(allAnswers),
+      transcript:        buildTranscript(allAnswers),
+      contactEmail:      finalEmail,
+      contactName:       name,
+      consentGiven:      true,
+      status:            "new",
+      decisionAuthority: authorityLevel,
+      approverName:      approverName,
+      approverEmail:     approverEmail,
+      approverRole:      approverRole,
     },
   });
 
@@ -321,6 +337,7 @@ router.get("/admin/discovery", withUser, requireAdmin, async (req, res) => {
     select: {
       id: true, contactEmail: true, contactName: true, status: true,
       reportApprovedAt: true, tokensUsed: true, consentGiven: true,
+      decisionAuthority: true, approverName: true, approverEmail: true, approverRole: true,
       createdAt: true, updatedAt: true, expiresAt: true, clientId: true,
     },
   });
@@ -645,7 +662,12 @@ router.post("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req,
   })();
 
   // Derive proposal content from report draft + LLM call
-  const proposalContent = await generateProposalDraft(answers, reportDraft, intake.contactName ?? "Prospect");
+  const proposalContent = await generateProposalDraft(answers, reportDraft, intake.contactName ?? "Prospect", {
+    decisionAuthority: intake.decisionAuthority ?? null,
+    approverName:      intake.approverName ?? null,
+    approverEmail:     intake.approverEmail ?? null,
+    approverRole:      intake.approverRole ?? null,
+  });
   const { tokensUsed, ...content } = proposalContent;
 
   const proposal = await prisma.discoveryProposal.upsert({
@@ -728,7 +750,19 @@ router.get("/admin/discovery/:id/proposal.html", withUser, requireAdmin, async (
   })();
 
   const companyName = answers.find((a) => a.id === "company_name")?.answer ?? intake.contactName ?? "Your Company";
-  const html = renderProposalHTML({ intake, proposal, milestones, investment, companyName });
+  const html = renderProposalHTML({
+    intake,
+    proposal,
+    milestones,
+    investment,
+    companyName,
+    authority: {
+      decisionAuthority: intake.decisionAuthority,
+      approverName: intake.approverName,
+      approverEmail: intake.approverEmail,
+      approverRole: intake.approverRole,
+    },
+  });
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(html);
 });
@@ -747,12 +781,20 @@ interface ProposalContent {
   tokensUsed: number;
 }
 
+interface AuthorityContext {
+  decisionAuthority: string | null;
+  approverName: string | null;
+  approverEmail: string | null;
+  approverRole: string | null;
+}
+
 async function generateProposalDraft(
   answers: AnsweredQuestion[],
   reportDraft: Record<string, unknown>,
   contactName: string,
+  authority?: AuthorityContext,
 ): Promise<ProposalContent> {
-  const fallback = buildFallbackProposal(answers, reportDraft, contactName);
+  const fallback = buildFallbackProposal(answers, reportDraft, contactName, authority);
 
   const { default: OpenAI } = await import("openai");
   const apiKey = process.env.XAI_API_KEY ?? process.env.OPENAI_API_KEY ?? process.env.LLM_API_KEY;
@@ -762,21 +804,38 @@ async function generateProposalDraft(
   const qaSummary = answers.slice(0, 20).map((a) => `[${a.category}] ${a.question}\n→ ${a.answer}`).join("\n\n");
   const reportSummary = reportDraft.summary ? `\n\nReport summary: ${reportDraft.summary}` : "";
 
-  const prompt = `Write an ATG Consulting proposal for ${contactName}. Base it on the following intake answers.${reportSummary}
+  // Authority context for the prompt
+  const authorityNote = authority ? (() => {
+    if (authority.decisionAuthority === "full") {
+      return `\nDecision authority: ${contactName} has full authority to approve and grant account access.`;
+    } else if (authority.decisionAuthority === "partial") {
+      return `\nDecision authority: PARTIAL — ${contactName} can approve some systems but not all. Approver: ${authority.approverName ?? "TBC"} (${authority.approverRole ?? "—"}). The scope and signature block must note that company-system access requires the approver's sign-off.`;
+    } else if (authority.decisionAuthority === "none") {
+      return `\nDecision authority: NONE — final approval is with ${authority.approverName ?? "someone else"} (${authority.approverRole ?? "—"}). The signature block should be for the approver, not ${contactName}. All scope items requiring system access need the approver's sign-off.`;
+    }
+    return "";
+  })() : "";
+
+  // Self-attestation clause (always required)
+  const selfAttestationNote = `The acceptanceClause MUST end with: 'By signing, you confirm you are authorized to approve this engagement and to grant ATG access to the accounts listed.'`;
+
+  const prompt = `Write an ATG Consulting proposal for ${contactName}. Base it on the following intake answers.${reportSummary}${authorityNote}
 
 Intake answers:
 ${qaSummary}
 
+${selfAttestationNote}
+
 Return ONLY valid JSON:
 {
-  "reviewSummary": "2-3 sentence internal review note for Shea (not in the client PDF)",
+  "reviewSummary": "2-3 sentence internal review note for Shea (not in the client PDF). Include a note about the decision authority level and any approver details.",
   "execSummary": "2-3 paragraph executive summary for the client",
   "understanding": "Paragraph describing ATG's understanding of the client's situation and challenges",
-  "scope": "Bullet-list description of what ATG will build and deliver",
+  "scope": "Bullet-list description of what ATG will build and deliver. If authority is partial or none, include a note: 'Items marked ⚠ require sign-off from [approver name/role] before access can be granted.'",
   "howWeConnect": "Brief description of how the workflows connect to the client's existing tools",
   "milestones": "[{\\"label\\": \\"Week 1\\", \\"description\\": \\"...\\"}]",
-  "investment": "{\\"tier\\": \\"GUIDED\\", \\"price\\": \\"$997\\", \\"care\\": \\"\\"  , \\"notes\\": \\"\\"}",
-  "acceptanceClause": "One sentence acceptance clause for the proposal"
+  "investment": "{\\"tier\\": \\"GUIDED\\", \\"price\\": \\"$997\\", \\"care\\": \\"\\", \\"notes\\": \\"\\"}",
+  "acceptanceClause": "Acceptance clause ending with the required self-attestation."
 }
 Keep it professional, plain English, no invented stats or outcomes.`;
 
@@ -805,17 +864,39 @@ Keep it professional, plain English, no invented stats or outcomes.`;
   }
 }
 
-function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<string, unknown>, contactName: string): Omit<ProposalContent, "tokensUsed"> {
+function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<string, unknown>, contactName: string, authority?: AuthorityContext): Omit<ProposalContent, "tokensUsed"> {
   const company = answers.find((a) => a.id === "company_name")?.answer ?? "your company";
   const problems = answers.find((a) => a.id === "top_problems")?.answer ?? "the challenges discussed";
   const suggestedTier = (reportDraft.suggestedTier as string | undefined) ?? "GUIDED";
   const tierPrices: Record<string, string> = { SELF_SERVE: "$197", GUIDED: "$997", WHITE_GLOVE: "$3,500" };
 
+  // Authority-aware scope and acceptance
+  const authorityNote = (() => {
+    if (!authority) return "";
+    if (authority.decisionAuthority === "partial") {
+      return `\n- ⚠ Items requiring company-system access need sign-off from ${authority.approverName ?? "the approver"} (${authority.approverRole ?? "—"}) before work begins`;
+    }
+    if (authority.decisionAuthority === "none") {
+      return `\n- ⚠ All scope items require final approval from ${authority.approverName ?? "the designated approver"} (${authority.approverRole ?? "—"})`;
+    }
+    return "";
+  })();
+
+  const reviewNote = (() => {
+    if (!authority?.decisionAuthority || authority.decisionAuthority === "full") {
+      return `Draft proposal for ${contactName} at ${company}. Review and edit before approving.`;
+    }
+    return `Draft proposal for ${contactName} at ${company}. ⚠ Decision authority is ${authority.decisionAuthority?.toUpperCase()}. Approver: ${authority.approverName ?? "TBC"} (${authority.approverRole ?? "—"}, ${authority.approverEmail ?? "no email"}). The signature block and scope must reflect this.`;
+  })();
+
+  // Self-attestation always included (required for all proposals)
+  const selfAttestation = "By signing, you confirm you are authorized to approve this engagement and to grant ATG access to the accounts listed.";
+
   return {
-    reviewSummary: `Draft proposal for ${contactName} at ${company}. Review and edit before approving.`,
+    reviewSummary: reviewNote,
     execSummary: `ATG Consulting is pleased to present this proposal for ${company}. Based on our discovery conversation, we understand that ${problems}. This proposal outlines how we'll address these challenges with a structured, approval-first AI workflow approach.`,
     understanding: `${company} is looking to reduce the time and effort spent on ${problems}. Your team currently handles these manually, and there is a clear opportunity to bring structure, consistency, and efficiency through well-designed AI workflows installed in your own AI platform.`,
-    scope: `- Initial assessment and tool plan\n- Setup guides for your chosen AI platform (Grok Bot, Claude, or ChatGPT)\n- ${suggestedTier === "WHITE_GLOVE" ? "Up to 3 custom workflows built and run by Shea" : suggestedTier === "GUIDED" ? "1:1 build sessions with Shea to set up your workflows" : "Ready-made workflows and step-by-step setup guides"}`,
+    scope: `- Initial assessment and tool plan\n- Setup guides for your chosen AI platform (Grok Bot, Claude, or ChatGPT)\n- ${suggestedTier === "WHITE_GLOVE" ? "Up to 3 custom workflows built and run by Shea" : suggestedTier === "GUIDED" ? "1:1 build sessions with Shea to set up your workflows" : "Ready-made workflows and step-by-step setup guides"}${authorityNote}`,
     howWeConnect: `All workflows run inside your own AI platform and connect to the tools you already use — email, calendar, CRM. ATG never accesses your accounts directly; you grant access through your own admin console when needed, and you can revoke it at any time.`,
     milestones: JSON.stringify([
       { label: "Week 1", description: "Discovery complete, tool plan delivered" },
@@ -823,7 +904,7 @@ function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<
       { label: "Week 4", description: "Review, refine, and plan next steps" },
     ]),
     investment: JSON.stringify({ tier: suggestedTier, price: tierPrices[suggestedTier] ?? "$997", care: suggestedTier === "WHITE_GLOVE" ? "$750/mo optional care plan" : "", notes: "All prices in USD." }),
-    acceptanceClause: `By engaging ATG Consulting, you agree to the Terms of Service and Refund Policy at atgconsulting.io/terms and /refunds.`,
+    acceptanceClause: `By engaging ATG Consulting, you agree to the Terms of Service and Refund Policy at atgconsulting.io/terms and /refunds. ${selfAttestation}`,
   };
 }
 
@@ -835,10 +916,19 @@ function renderProposalHTML(params: {
   milestones: { label: string; description: string }[];
   investment: Record<string, string>;
   companyName: string;
+  authority?: { decisionAuthority: string | null; approverName: string | null; approverEmail: string | null; approverRole: string | null };
 }): string {
-  const { intake, proposal, milestones, investment, companyName } = params;
+  const { intake, proposal, milestones, investment, companyName, authority } = params;
   const date = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const scope = proposal.scope.split("\n").filter(Boolean);
+
+  // Determine who signs: approver when authority is none; respondent otherwise
+  const needsApprover = authority?.decisionAuthority === "none" || authority?.decisionAuthority === "partial";
+  const signerName  = needsApprover && authority?.approverName  ? authority.approverName  : (intake.contactName ?? "");
+  const signerTitle = needsApprover && authority?.approverRole  ? authority.approverRole  : "";
+  const signerNote  = needsApprover
+    ? `<p style="font-size:12px;color:#6B6B6E;margin-top:10px">⚠ This proposal requires sign-off from ${authority?.approverName ?? "the designated approver"} (${authority?.approverRole ?? "—"}) for items involving system access.</p>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -997,9 +1087,10 @@ ${milestones.length > 0 ? `
   <div class="section-label">07 — Acceptance</div>
   <div class="section-title">Ready to move forward</div>
   <p>${proposal.acceptanceClause}</p>
+  ${signerNote}
   <div class="sig-line">
     <div class="sig-field">
-      <span class="sig-label">CLIENT SIGNATURE</span>
+      <span class="sig-label">${needsApprover ? "AUTHORISED SIGNATORY SIGNATURE" : "CLIENT SIGNATURE"}</span>
       <div class="sig-rule"></div>
     </div>
     <div class="sig-field">
@@ -1010,13 +1101,27 @@ ${milestones.length > 0 ? `
   <div class="sig-line" style="margin-top:24px">
     <div class="sig-field">
       <span class="sig-label">PRINT NAME</span>
-      <div class="sig-rule"></div>
+      <div class="sig-rule" style="position:relative">
+        ${signerName ? `<span style="position:absolute;bottom:4px;left:0;font-size:13px;color:#6B6B6E">${signerName}</span>` : ""}
+      </div>
     </div>
     <div class="sig-field">
       <span class="sig-label">TITLE</span>
-      <div class="sig-rule"></div>
+      <div class="sig-rule" style="position:relative">
+        ${signerTitle ? `<span style="position:absolute;bottom:4px;left:0;font-size:13px;color:#6B6B6E">${signerTitle}</span>` : ""}
+      </div>
     </div>
   </div>
+  ${needsApprover && intake.contactName ? `
+  <div class="sig-line" style="margin-top:24px">
+    <div class="sig-field">
+      <span class="sig-label">PREPARED BY (NON-SIGNATORY)</span>
+      <div class="sig-rule" style="position:relative">
+        <span style="position:absolute;bottom:4px;left:0;font-size:13px;color:#6B6B6E">${intake.contactName}</span>
+      </div>
+    </div>
+    <div class="sig-field"></div>
+  </div>` : ""}
 </div>
 
 <!-- Footer -->

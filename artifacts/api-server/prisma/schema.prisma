@@ -894,6 +894,13 @@ model DiscoveryIntake {
   /// Set when this intake is linked to a converted client
   clientId        String?
 
+  /// full | partial | none — from the decision-authority question
+  decisionAuthority String?
+  /// Approver details (collected when authority is partial or none)
+  approverName    String?
+  approverEmail   String?
+  approverRole    String?
+
   /// Hashed IP for rate limiting (no plain IPs stored)
   ipHash          String?
 

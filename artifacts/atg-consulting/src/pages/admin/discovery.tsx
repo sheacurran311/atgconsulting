@@ -28,6 +28,10 @@ interface IntakeRow {
   tokensUsed: number;
   consentGiven: boolean;
   reportApprovedAt: string | null;
+  decisionAuthority: string | null;
+  approverName: string | null;
+  approverEmail: string | null;
+  approverRole: string | null;
   createdAt: string;
   clientId: string | null;
 }
@@ -302,6 +306,11 @@ export default function AdminDiscoveryPage() {
                     <p className="text-xs truncate" style={{ color: "var(--canvas-text-3)" }}>
                       {new Date(row.createdAt).toLocaleDateString()} · {row.tokensUsed.toLocaleString()} tokens
                     </p>
+                    {(row.decisionAuthority === "partial" || row.decisionAuthority === "none") && (
+                      <span className="font-mono text-2xs px-1.5 py-0.5 rounded mt-1 inline-block" style={{ background: "rgba(234,179,8,0.12)", color: "#D97706", letterSpacing: "0.04em", border: "1px solid rgba(234,179,8,0.3)" }}>
+                        ⚠ PENDING APPROVER
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -383,6 +392,44 @@ export default function AdminDiscoveryPage() {
                   </button>
                 </div>
                 {manualLinkMsg && <p className="text-xs mt-1" style={{ color: manualLinkMsg.startsWith("✓") ? "#16A34A" : "#DC2626" }}>{manualLinkMsg}</p>}
+              </div>
+            )}
+
+            {/* Decision authority panel */}
+            {selected.decisionAuthority && (
+              <div className="rounded-xl p-4" style={{
+                background: selected.decisionAuthority === "full" ? "rgba(22,163,74,0.05)" : "rgba(234,179,8,0.06)",
+                border: `1px solid ${selected.decisionAuthority === "full" ? "rgba(22,163,74,0.2)" : "rgba(234,179,8,0.3)"}`,
+              }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="font-mono text-2xs" style={{ color: selected.decisionAuthority === "full" ? "#16A34A" : "#D97706", letterSpacing: "0.08em" }}>
+                    DECISION AUTHORITY · {selected.decisionAuthority.toUpperCase()}
+                  </p>
+                  {selected.decisionAuthority !== "full" && (
+                    <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: "rgba(234,179,8,0.12)", color: "#D97706" }}>⚠ PENDING APPROVER</span>
+                  )}
+                </div>
+                {selected.decisionAuthority === "full" ? (
+                  <p className="text-xs" style={{ color: "var(--canvas-text-2)" }}>Respondent has full authority to approve and grant access.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {selected.approverName  && <p className="text-xs" style={{ color: "var(--canvas-text-2)" }}><strong>Approver:</strong> {selected.approverName}</p>}
+                    {selected.approverRole  && <p className="text-xs" style={{ color: "var(--canvas-text-2)" }}><strong>Title:</strong> {selected.approverRole}</p>}
+                    {selected.approverEmail && (
+                      <p className="text-xs" style={{ color: "var(--canvas-text-2)" }}>
+                        <strong>Email:</strong>{" "}
+                        <a href={`mailto:${selected.approverEmail}`} style={{ color: "var(--blue)", textDecoration: "underline" }}>{selected.approverEmail}</a>
+                        {" · "}
+                        <button type="button"
+                          onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/intake/i/new?email=${encodeURIComponent(selected.approverEmail ?? "")}`).catch(() => null); }}
+                          className="text-xs underline" style={{ color: "var(--blue)", background: "none", border: "none", cursor: "pointer" }}>
+                          Copy invite link for approver
+                        </button>
+                      </p>
+                    )}
+                    {!selected.approverName && <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>Approver details not collected yet. Create an invite link and send it manually.</p>}
+                  </div>
+                )}
               </div>
             )}
 

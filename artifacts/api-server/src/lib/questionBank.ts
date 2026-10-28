@@ -21,6 +21,8 @@ export interface Question {
   core: boolean;
   /** If this is answered, which IDs are especially relevant next? */
   followUpIds?: string[];
+  /** Returns true if this question should be skipped given current answers. */
+  skip?: (data: Partial<Record<string, unknown>>) => boolean;
 }
 
 export const QUESTION_BANK: Question[] = [
@@ -52,6 +54,52 @@ export const QUESTION_BANK: Question[] = [
     text: "What's your role at the company?",
     type: "text",
     core: true,
+  },
+  {
+    id: "decision_authority",
+    category: "authority",
+    text: "Are you the decision-maker for this project?",
+    type: "choice",
+    options: [
+      "Yes — I can approve it and grant access to the systems involved",
+      "Partial — I can approve some of it (e.g. my own email or CRM) but not company systems",
+      "No — someone else gives final approval",
+    ],
+    core: true,
+    followUpIds: ["approver_name", "approver_email", "approver_role"],
+  },
+  {
+    id: "approver_name",
+    category: "authority",
+    text: "What's the approver's name? (You can fill this in later if needed)",
+    type: "text",
+    core: false,
+    skip: (data) => {
+      const auth = (data as Record<string, string>).decision_authority;
+      return auth === "Yes — I can approve it and grant access to the systems involved";
+    },
+  },
+  {
+    id: "approver_email",
+    category: "authority",
+    text: "What's the approver's email address? (Optional — helps Shea prepare the right paperwork)",
+    type: "text",
+    core: false,
+    skip: (data) => {
+      const auth = (data as Record<string, string>).decision_authority;
+      return auth === "Yes — I can approve it and grant access to the systems involved";
+    },
+  },
+  {
+    id: "approver_role",
+    category: "authority",
+    text: "What's the approver's role or title?",
+    type: "text",
+    core: false,
+    skip: (data) => {
+      const auth = (data as Record<string, string>).decision_authority;
+      return auth === "Yes — I can approve it and grant access to the systems involved";
+    },
   },
   {
     id: "business_type",
@@ -388,6 +436,9 @@ export const FALLBACK_ORDER: string[] = [
   "contact_email",
   "company_name",
   "role",
+  "decision_authority",   // required early — determines signature block and access flow
+  "approver_name",        // only asked if authority is partial or none
+  "approver_email",
   "business_type",
   "team_size",
   "top_problems",
@@ -415,6 +466,7 @@ export const QUESTION_MAP = Object.fromEntries(QUESTION_BANK.map((q) => [q.id, q
 export const CATEGORY_LABELS: Record<string, string> = {
   contact:            "Contact details",
   company:            "Company & role",
+  authority:          "Decision authority",
   systems:            "Systems & ERP",
   alerts:             "Alerts & exceptions",
   sales:              "Sales & prospecting",
