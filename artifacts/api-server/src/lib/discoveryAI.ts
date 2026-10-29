@@ -6,13 +6,13 @@
  * generateReportDraft()— create a tailored report draft (Grok, admin-only)
  *
  * Cost controls:
- *   AI_CAP_INTAKE — per-session token cap (default 60 000)
- *   global AI_ASSIST_ENABLED kill switch respected
+ *   AI_CAP_INTAKE — per-session token cap (default 60 000), defined in grokClient
+ *   AI_ASSIST_ENABLED kill switch (default on; "false" turns every Grok call off)
  *   rate limiting is handled at the route level
  */
 
 import OpenAI from "openai";
-import { getGrokClient, GROK_MODEL, GROK_VISION_MODEL, logFallback } from "./grokClient";
+import { getGrokClient, GROK_MODEL, GROK_VISION_MODEL, logFallback, isAiEnabled, AI_CAP_INTAKE } from "./grokClient";
 import {
   QUESTION_BANK, CORE_QUESTIONS, FALLBACK_ORDER, CATEGORY_LABELS,
   QUESTION_MAP, type Question,
@@ -57,15 +57,12 @@ export interface ReportDraft {
   nextSteps: string[];
 }
 
-const AI_CAP_INTAKE = parseInt(process.env.AI_CAP_INTAKE ?? "60000", 10);
-
 function getClient(): OpenAI | null {
-  
   return getGrokClient();
 }
 
 function isEnabled(): boolean {
-  return process.env.AI_ASSIST_ENABLED !== "false"; // default on for discovery
+  return isAiEnabled();
 }
 
 // ── Coverage map ──────────────────────────────────────────────────────────────

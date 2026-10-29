@@ -13,7 +13,7 @@
  *   per pain point with plain-English explanations. Marks gaps.
  */
 
-import { getGrokClient, GROK_MODEL, logFallback } from "./grokClient";
+import { getGrokClient, GROK_MODEL, EMBEDDING_MODEL, logFallback } from "./grokClient";
 
 // ── Pain taxonomy ─────────────────────────────────────────────────────────────
 
@@ -97,15 +97,23 @@ Return ONLY valid JSON:
 
 export async function embedText(text: string): Promise<number[] | null> {
   const llm = getGrokClient();
-  if (!llm) return null;
+  if (!llm) {
+    logFallback("embedText", "no_api_key");
+    return null;
+  }
   try {
     const resp = await llm.embeddings.create({
-      model: "text-embedding-3-small", // xAI-compatible embedding model
-      input: text.slice(0, 8000),
+      model: EMBEDDING_MODEL,
+      input: `passage: ${text.slice(0, 8000)}`,
     });
-    return resp.data[0]?.embedding ?? null;
-  } catch {
-    // Embeddings may not be available — fall back to keyword scoring
+    const embedding = resp.data[0]?.embedding;
+    if (!Array.isArray(embedding) || embedding.length === 0 || typeof embedding[0] !== "number") {
+      logFallback("embedText", "unexpected_embedding_shape", `model=${EMBEDDING_MODEL}`);
+      return null;
+    }
+    return embedding;
+  } catch (err) {
+    logFallback("embedText", "embedding_error", err instanceof Error ? err.message : String(err));
     return null;
   }
 }

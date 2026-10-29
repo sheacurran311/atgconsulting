@@ -33,6 +33,42 @@ test("blog HTML injection includes title, Open Graph, canonical, and JSON-LD", a
   assert.match(post, /inbox-triage/);
 });
 
+test("production prerender writes blog index and post heads from the shell HTML", async () => {
+  const { renderPrerenderedBlog } = await import("./lib/seo.js");
+  const html = `<!DOCTYPE html><html><head><title>Home</title></head><body><div id="root"></div></body></html>`;
+  const rendered = renderPrerenderedBlog(html, "https://atgconsulting.io", [
+    { slug: "inbox-triage", title: "Inbox triage", description: "Sort the inbox.", publishedAt: null },
+  ]);
+  assert.match(rendered.index, /<title>ATG Consulting Blog/);
+  assert.equal(rendered.posts.length, 1);
+  assert.match(rendered.posts[0]!.html, /Inbox triage — ATG Consulting/);
+  assert.match(rendered.posts[0]!.html, /id="root"/);
+});
+
+test("Grok base URL stays on api.x.ai in production", async () => {
+  const { resolveGrokBaseUrl, EMBEDDING_MODEL, isAiEnabled } = await import("./lib/grokClient.js");
+  assert.equal(resolveGrokBaseUrl({ NODE_ENV: "production", LLM_BASE_URL: "https://example.test/v1" }), "https://api.x.ai/v1");
+  assert.equal(resolveGrokBaseUrl({ NODE_ENV: "development", LLM_BASE_URL: "https://example.test/v1" }), "https://example.test/v1");
+  assert.equal(EMBEDDING_MODEL, process.env.XAI_EMBEDDING_MODEL ?? "v1");
+  const saved = process.env.AI_ASSIST_ENABLED;
+  delete process.env.AI_ASSIST_ENABLED;
+  assert.equal(isAiEnabled(), true);
+  process.env.AI_ASSIST_ENABLED = "false";
+  assert.equal(isAiEnabled(), false);
+  if (saved === undefined) delete process.env.AI_ASSIST_ENABLED;
+  else process.env.AI_ASSIST_ENABLED = saved;
+});
+
+test("weekly topic filter drops used slugs and statistic angles", async () => {
+  const { topicsNotYetUsed } = await import("./lib/contentAI.js");
+  const fresh = topicsNotYetUsed([
+    { topic: "already-used", angle: "A practical note." },
+    { topic: "new-topic", angle: "A practical note with no numbers." },
+    { topic: "bad-stat", angle: "This cuts calls in half." },
+  ], new Set(["already-used"]));
+  assert.deepEqual(fresh.map((row) => row.topic), ["new-topic"]);
+});
+
 test("sitemap and robots include the blog and a sitemap pointer", async () => {
   const { sitemapXml, robotsTxt } = await import("./lib/seo.js");
   const xml = sitemapXml("https://atgconsulting.io", [
