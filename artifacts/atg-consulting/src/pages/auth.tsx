@@ -11,7 +11,7 @@ function AuthShell({ children }: { children: React.ReactNode }) {
       </div>
       {children}
       <p className="mt-7 text-center text-sm text-canvas-text">
-        Just looking for a free plan? <a href={`${basePath}/start`} className="font-semibold text-canvas-text underline">No account needed.</a>
+        <a href={`${basePath}/intake`} className="font-semibold text-canvas-text underline">Start with the intake</a> if you have not sent one yet.
       </p>
     </main>
   );

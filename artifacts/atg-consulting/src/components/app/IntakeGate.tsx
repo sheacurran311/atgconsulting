@@ -25,7 +25,11 @@ export function usePortal(): PortalCtx | null {
   return useContext(PortalContext);
 }
 
-interface Props { children: React.ReactNode }
+interface Props {
+  children: React.ReactNode;
+  /** Proposal page stays reachable before an intake is linked. */
+  allowWithoutIntake?: boolean;
+}
 
 export function NeedsIntake() {
   return (
@@ -49,7 +53,7 @@ function LoadingScreen() {
   );
 }
 
-export default function IntakeGate({ children }: Props) {
+export default function IntakeGate({ children, allowWithoutIntake = false }: Props) {
   const { isLoaded, isSignedIn, user } = useUser();
   const { account, loading: accountLoading } = useAccount();
   const [status, setStatus] = useState<PortalStatus | null>(null);
@@ -97,8 +101,9 @@ export default function IntakeGate({ children }: Props) {
 
   if (loading) return <LoadingScreen />;
 
-  // User has signed in but has no client profile or intake linked to their account
-  if (status && (!status.hasClient || !status.hasIntake)) {
+  // User has signed in but has no client profile or intake linked to their account.
+  // The proposal page is the exception: it explains the empty and pending states itself.
+  if (status && (!status.hasClient || !status.hasIntake) && !allowWithoutIntake) {
     const { email, name } = status.intakePrefill;
     const params = new URLSearchParams();
     if (email) params.set("email", email);
@@ -123,9 +128,9 @@ export default function IntakeGate({ children }: Props) {
             style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}
           >
             <p className="font-mono text-2xs mb-4" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>
-              {email ? `Pre-filled with ${email}` : "Free · no payment needed"}
+              {email ? `Pre-filled with ${email}` : "Uses the email on your account"}
             </p>
-            <Link to={`/start?${params.toString()}`}>
+            <Link to={`/intake?${params.toString()}`}>
               <span
                 className="btn-primary w-full justify-center"
                 style={{ display: "flex", fontSize: "15px", padding: "13px 24px" }}
@@ -133,7 +138,12 @@ export default function IntakeGate({ children }: Props) {
                 Start the intake →
               </span>
             </Link>
-            <p className="text-xs mt-4" style={{ color: "var(--canvas-text-3)" }}>Takes about 2 minutes. Nothing is charged.</p>
+            <p className="text-xs mt-4" style={{ color: "var(--canvas-text-3)" }}>Takes about 2 minutes.</p>
+            <Link to="/app/proposal">
+              <span className="inline-block mt-3 text-sm font-semibold underline" style={{ color: "var(--blue)" }}>
+                View your proposal
+              </span>
+            </Link>
           </div>
         </div>
       </div>

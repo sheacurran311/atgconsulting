@@ -8,7 +8,7 @@ const faqs = [
   },
   {
     q: "What is the Self-serve tier?",
-    a: "Complete the intake and get your personalised report immediately — no waiting for a human review. The report includes a diagnosis of your situation, a recommended tool stack, step-by-step setup guides for your AI platform (Grok Bot, Claude, or ChatGPT), and the workflows to install first as SKILL.md files. You also get access to all 10 ready-made workflows in the ATG Workbench app, plus email support within 2 business days.",
+    a: "Complete the intake. Grok drafts a diagnosis of your situation, a recommended tool stack, step-by-step setup guides for your AI platform (Grok Bot, Claude, or ChatGPT), and the workflows to install first as SKILL.md files. Shea reviews that draft before it reaches you. You also get access to all 10 ready-made workflows in the ATG Workbench app, plus email support within 2 business days.",
   },
   {
     q: "What does the Guided tier include?",
