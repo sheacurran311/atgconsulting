@@ -1,29 +1,61 @@
 /**
  * Shared Grok (xAI) client module.
  *
- * Production environment provides ONLY:
- *   XAI_API_KEY      — required (xAI API key)
- *   AI_MODEL_DEFAULT — model for all text calls (default: grok-4.7)
- *   AI_MODEL_VISION  — model for vision/image calls (default: grok-4.7)
- *   AI_ASSIST_ENABLED — global kill switch
+ * One kill switch for every Grok call (intake, coach, content, catalog):
+ *   AI_ASSIST_ENABLED — unset or any value other than "false" means on.
+ *                       Set to "false" to turn all AI features off.
  *
- * No OPENAI_API_KEY, LLM_BASE_URL, or LLM_MODEL are read anywhere.
- * The xAI base URL is hardcoded; it can be overridden by LLM_BASE_URL
- * for local development only — not needed in production.
+ * Caps (the only token budgets):
+ *   AI_CAP_INTAKE     — tokens per discovery session (default 60 000)
+ *   AI_CAP_SELF_SERVE — monthly assist cap (default 250 000)
+ *   AI_CAP_GUIDED     — monthly assist cap (default 750 000)
+ *   AI_CAP_DFY        — monthly assist cap (default 2 000 000)
+ *
+ * Production reads XAI_API_KEY, AI_MODEL_DEFAULT, AI_MODEL_VISION,
+ * and optionally XAI_EMBEDDING_MODEL. The API host is https://api.x.ai/v1.
+ * LLM_BASE_URL is ignored when NODE_ENV is production. It is a local-dev
+ * override only. OPENAI_API_KEY is never read.
  */
 
 import OpenAI from "openai";
 
-const XAI_BASE_URL = "https://api.x.ai/v1";
+export const XAI_BASE_URL = "https://api.x.ai/v1";
 
 export const GROK_MODEL        = process.env.AI_MODEL_DEFAULT ?? "grok-4.7";
 export const GROK_VISION_MODEL = process.env.AI_MODEL_VISION  ?? "grok-4.7";
+/** xAI embeddings model. Docs use id "v1" at POST /v1/embeddings. */
+export const EMBEDDING_MODEL   = process.env.XAI_EMBEDDING_MODEL ?? "v1";
+
+export const AI_CAP_INTAKE = parseInt(process.env.AI_CAP_INTAKE ?? "60000", 10);
+
+const MONTHLY_CAP: Record<string, number> = {
+  SELF_SERVE:  parseInt(process.env.AI_CAP_SELF_SERVE ?? "250000", 10),
+  GUIDED:      parseInt(process.env.AI_CAP_GUIDED ?? "750000", 10),
+  WHITE_GLOVE: parseInt(process.env.AI_CAP_DFY ?? "2000000", 10),
+  NONE:        parseInt(process.env.AI_CAP_SELF_SERVE ?? "250000", 10),
+};
+
+export function monthlyTokenCap(tier: string): number {
+  return MONTHLY_CAP[tier] ?? MONTHLY_CAP.NONE!;
+}
+
+/** True unless AI_ASSIST_ENABLED is exactly "false". */
+export function isAiEnabled(): boolean {
+  return process.env.AI_ASSIST_ENABLED !== "false";
+}
+
+export const isGrokEnabled = isAiEnabled;
+
+export function resolveGrokBaseUrl(env: { NODE_ENV?: string; LLM_BASE_URL?: string } = process.env): string {
+  const override = env.LLM_BASE_URL?.trim();
+  if (override && env.NODE_ENV !== "production") return override;
+  return XAI_BASE_URL;
+}
 
 /** Returns the xAI client, or null if XAI_API_KEY is not set. */
 export function getGrokClient(): OpenAI | null {
   const apiKey = process.env.XAI_API_KEY;
   if (!apiKey) {
-    // Log once per process, not per request
     if (!getGrokClient._warned) {
       console.warn("[grok] XAI_API_KEY is not set — all AI features will use template fallbacks.");
       getGrokClient._warned = true;
@@ -32,17 +64,11 @@ export function getGrokClient(): OpenAI | null {
   }
   return new OpenAI({
     apiKey,
-    // Use the override only for local dev; production hardcodes xAI
-    baseURL: process.env.LLM_BASE_URL ?? XAI_BASE_URL,
+    baseURL: resolveGrokBaseUrl(),
     timeout: 25_000,
   });
 }
 getGrokClient._warned = false;
-
-/** True when AI features are enabled (global kill switch). */
-export function isGrokEnabled(): boolean {
-  return process.env.AI_ASSIST_ENABLED !== "false";
-}
 
 export interface FallbackEvent {
   at: string;

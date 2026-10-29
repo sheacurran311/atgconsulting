@@ -74,7 +74,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
     }),
     // Content drafts awaiting approval
     prisma.content.findMany({
-      where: { status: { in: ["draft", "approved"] } },
+      where: { status: { in: ["queued", "draft", "approved"] } },
       select: { id: true, title: true, slug: true, status: true, source: true, createdAt: true },
       orderBy: { createdAt: "desc" },
       take: 20,
@@ -129,11 +129,11 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       createdAt: p.createdAt,
     }))),
     contentDrafts: visible(contentDrafts.map((c) => ({
-      type: c.status === "draft" ? "content_draft" : "content_publish",
+      type: c.status === "queued" ? "content_topic" : c.status === "draft" ? "content_draft" : "content_publish",
       id: c.id,
       label: c.title,
       url: `/admin/content`,
-      meta: c.status === "approved" ? "Ready to publish" : `Source: ${c.source}`,
+      meta: c.status === "approved" ? "Ready to publish" : c.status === "queued" ? "Topic queued for a draft" : `Source: ${c.source}`,
       createdAt: c.createdAt,
     }))),
     catalogQueue: visible(catalogQueue.map((item) => ({

@@ -3,9 +3,9 @@
  * and Report Refresh.
  *
  * COST CONTROLS (all configurable via env):
- *   AI_ASSIST_ENABLED        — "true" to enable; default off in production until Shea sets it
- *   AI_MODEL_DEFAULT         — model for text features (default: grok-3-mini-latest)
- *   AI_MODEL_VISION          — model for vision/image (default: grok-2-vision-preview)
+ *   AI_ASSIST_ENABLED        — global kill switch (see grokClient). Default on.
+ *   AI_MODEL_DEFAULT         — model for text features (default: grok-4.7)
+ *   AI_MODEL_VISION          — model for vision/image (default: grok-4.7)
  *   AI_CAP_SELF_SERVE        — monthly token cap for Self-serve clients (default: 250 000)
  *   AI_CAP_GUIDED            — monthly token cap for Guided clients (default: 750 000)
  *   AI_CAP_DFY               — monthly token cap for DFY clients (default: 2 000 000)
@@ -26,12 +26,12 @@
 import OpenAI from "openai";
 import { createHash } from "crypto";
 import { prisma } from "./db";
-import { getGrokClient, GROK_MODEL, GROK_VISION_MODEL, logFallback } from "./grokClient";
+import { getGrokClient, GROK_MODEL, GROK_VISION_MODEL, isAiEnabled, monthlyTokenCap, logFallback } from "./grokClient";
 
 // ── Env helpers ───────────────────────────────────────────────────────────────
 
 export function isEnabled(): boolean {
-  return process.env.AI_ASSIST_ENABLED === "true";
+  return isAiEnabled();
 }
 
 export const DEFAULT_MODEL    = GROK_MODEL;
@@ -40,10 +40,10 @@ const RATE_LIMIT_PER_MIN      = parseInt(process.env.AI_RATE_LIMIT_PER_MIN ?? "5
 const RETENTION_DAYS          = parseInt(process.env.AI_CHAT_LOG_RETENTION_DAYS ?? "30", 10);
 
 const CAP: Record<string, number> = {
-  SELF_SERVE:  parseInt(process.env.AI_CAP_SELF_SERVE ?? "250000",  10),
-  GUIDED:      parseInt(process.env.AI_CAP_GUIDED     ?? "750000", 10),
-  WHITE_GLOVE: parseInt(process.env.AI_CAP_DFY        ?? "2000000", 10),
-  NONE:        parseInt(process.env.AI_CAP_SELF_SERVE ?? "250000", 10), // test mode = self-serve cap
+  SELF_SERVE:  monthlyTokenCap("SELF_SERVE"),
+  GUIDED:      monthlyTokenCap("GUIDED"),
+  WHITE_GLOVE: monthlyTokenCap("WHITE_GLOVE"),
+  NONE:        monthlyTokenCap("NONE"),
 };
 
 export const TOKEN_PRICE_INPUT  = parseFloat(process.env.AI_TOKEN_PRICE_INPUT  ?? "0.002");
@@ -259,7 +259,12 @@ export async function callAssist(opts: {
 }): Promise<AssistResult> {
   const model = opts.model ?? DEFAULT_MODEL;
   const llm = getClient();
-  if (!llm) throw new Error("No AI API key configured (set XAI_API_KEY).");
+  if (!llm) {
+    logFallback("callAssist", "no_api_key");
+    const err = new Error("No AI API key configured (set XAI_API_KEY).");
+    err.name = "AiUnavailableError";
+    throw err;
+  }
 
   // Check cache for simple (no-image, no-history) requests
   if (!opts.imageBase64 && opts.history.length === 0) {
