@@ -36,43 +36,7 @@ router.get("/portal/status", withUser, requireAuth, async (req, res) => {
     } catch { /* non-fatal */ }
   }
 
-  // Attempt to auto-link any anonymous intake by email if still unlinked
-  if (user.email && !user.clientId && isEmailVerified) {
-    const latestIntake = await prisma.intake.findFirst({
-      where: { email: user.email.toLowerCase(), clientId: null },
-      orderBy: { createdAt: "desc" },
-    });
-    if (latestIntake) {
-      // Claim it — creates the Client row if absent
-      const age = Date.now() - latestIntake.createdAt.getTime();
-      const within7d = age < 7 * 24 * 60 * 60 * 1000;
-      if (within7d) {
-        // reuse the plan-claim logic — create Client and link
-        let client = await prisma.client.findFirst({ where: { userId: user.id } });
-        if (!client) {
-          const answers = latestIntake.answers
-            ? (() => { try { return JSON.parse(latestIntake.answers) as Record<string, string>; } catch { return null; } })()
-            : null;
-          client = await prisma.client.create({
-            data: {
-              userId: user.id,
-              industry:  answers?.industry ?? null,
-              roleTitle: answers?.role ?? null,
-              size:      typeof answers?.bizSize === "string" ? answers.bizSize : null,
-              aiLevel:   latestIntake.aiComfort,
-              areas:     latestIntake.areas,
-              helpStyle: latestIntake.helpStyle,
-              tier: "NONE",
-              status: "PROSPECT",
-            },
-          });
-          await prisma.intake.update({ where: { id: latestIntake.id }, data: { clientId: client.id, status: "CONVERTED" } });
-          await personalizeClientWorkspace(client.id).catch(console.error);
-          await ensureDayProfile(client.id).catch(console.error);
-        }
-      }
-    }
-  }
+  // Legacy intake auto-link removed (Intake table dropped)
 
   // Auto-link DiscoveryIntake records when verified email matches (on any sign-in).
   // Only link if email is Clerk-verified. Never link on unverified emails.
@@ -104,11 +68,13 @@ router.get("/portal/status", withUser, requireAuth, async (req, res) => {
   const client = user.clientId
     ? await prisma.client.findUnique({
         where: { id: user.clientId },
-        include: { intakes: { orderBy: { createdAt: "desc" }, take: 1 } },
       })
-    : await prisma.client.findFirst({ where: { userId: user.id }, include: { intakes: { orderBy: { createdAt: "desc" }, take: 1 } } });
+    : await prisma.client.findFirst({ where: { userId: user.id }, });
 
-  const hasIntake = (client?.intakes?.length ?? 0) > 0;
+  // Check if there's at least one DiscoveryIntake for this client
+  const hasIntake = client?.id
+    ? (await prisma.discoveryIntake.count({ where: { clientId: client.id } })) > 0
+    : false;
   const personalizedSlugs = extractPersonalizedSlugs(client?.notes ?? null);
 
   // Check for an approved discovery proposal linked to this client via intake

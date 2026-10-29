@@ -44,16 +44,50 @@ export function isGrokEnabled(): boolean {
   return process.env.AI_ASSIST_ENABLED !== "false";
 }
 
+export interface FallbackEvent {
+  at: string;
+  feature: string;
+  reason: string;
+  detail?: string;
+}
+
+export interface GrokHealth {
+  ok: boolean;
+  model: string;
+  latencyMs?: number;
+  error?: string;
+  checkedAt: string;
+}
+
+const FALLBACK_LIMIT = 40;
+const fallbackEvents: FallbackEvent[] = [];
+let cachedHealth: GrokHealth | null = null;
+
+/** Recent fallback events, newest first. In-memory for this process. */
+export function recentFallbacks(): FallbackEvent[] {
+  return [...fallbackEvents].reverse();
+}
+
+export function getCachedHealth(): GrokHealth | null {
+  return cachedHealth;
+}
+
 /** Log an AI fallback event with a reason. */
 export function logFallback(feature: string, reason: string, detail?: string): void {
   const msg = `[grok fallback] feature=${feature} reason=${reason}${detail ? ` detail=${detail}` : ""}`;
   console.warn(msg);
+  fallbackEvents.push({ at: new Date().toISOString(), feature, reason, ...(detail ? { detail } : {}) });
+  if (fallbackEvents.length > FALLBACK_LIMIT) fallbackEvents.splice(0, fallbackEvents.length - FALLBACK_LIMIT);
 }
 
 /** Simple health check — makes a minimal call and returns ok or the error. */
-export async function grokHealthCheck(): Promise<{ ok: boolean; model: string; latencyMs?: number; error?: string }> {
+export async function grokHealthCheck(): Promise<GrokHealth> {
   const client = getGrokClient();
-  if (!client) return { ok: false, model: GROK_MODEL, error: "XAI_API_KEY is not set" };
+  const checkedAt = new Date().toISOString();
+  if (!client) {
+    cachedHealth = { ok: false, model: GROK_MODEL, error: "XAI_API_KEY is not set", checkedAt };
+    return cachedHealth;
+  }
   const t0 = Date.now();
   try {
     await client.chat.completions.create({
@@ -62,8 +96,15 @@ export async function grokHealthCheck(): Promise<{ ok: boolean; model: string; l
       max_tokens: 5,
       temperature: 0,
     });
-    return { ok: true, model: GROK_MODEL, latencyMs: Date.now() - t0 };
+    cachedHealth = { ok: true, model: GROK_MODEL, latencyMs: Date.now() - t0, checkedAt };
+    return cachedHealth;
   } catch (err) {
-    return { ok: false, model: GROK_MODEL, error: err instanceof Error ? err.message : String(err) };
+    cachedHealth = {
+      ok: false,
+      model: GROK_MODEL,
+      error: err instanceof Error ? err.message : String(err),
+      checkedAt,
+    };
+    return cachedHealth;
   }
 }

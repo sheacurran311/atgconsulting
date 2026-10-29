@@ -27,6 +27,8 @@ import impersonateRouter from "./impersonate";
 import discoveryRouter from "./discovery";
 import engagementRouter from "./engagement";
 import catalogRouter from "./catalog";
+import contentRouter from "./content";
+import adminTodayRouter from "./adminToday";
 import { blockIfImpersonating } from "../lib/impersonate";
 
 const router: IRouter = Router();
@@ -67,5 +69,7 @@ router.use(impersonateRouter);
 router.use(discoveryRouter);
 router.use(engagementRouter);
 router.use(catalogRouter);
+router.use(contentRouter);
+router.use(adminTodayRouter);
 
 export default router;

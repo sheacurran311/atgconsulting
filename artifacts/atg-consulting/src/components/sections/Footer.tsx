@@ -34,6 +34,7 @@ export default function Footer() {
             {[
               { href: import.meta.env.VITE_LINKEDIN_URL ?? "[LinkedIn]", label: "LinkedIn", external: true },
               { href: "/brand/ATG_Consulting_OnePager.pdf", label: "One-pager", download: true },
+              { href: "/blog", label: "Blog", external: false },
               { href: "/privacy", label: "Privacy", external: false },
               { href: "/terms", label: "Terms", external: false },
               { href: "/refunds", label: "Refunds", external: false },

@@ -231,29 +231,64 @@ router.patch("/client/account", async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Intake summary for account page ──────────────────────────────────────────
+// ── Intake summary — now served from DiscoveryIntake ─────────────────────────
 
 router.get("/client/intake/latest", requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   if (!user.clientId) { res.json(null); return; }
-  const intake = await prisma.intake.findFirst({
+  const intake = await prisma.discoveryIntake.findFirst({
     where: { clientId: user.clientId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, createdAt: true, aiComfort: true, hoursLost: true, helpStyle: true, areas: true, answers: true },
+    select: { id: true, createdAt: true, decisionAuthority: true, contactEmail: true, answers: true },
   });
-  res.json(intake ?? null);
+  if (!intake) { res.json(null); return; }
+  // Parse answers to extract legacy-compatible fields
+  const answers: Record<string, unknown> = (() => { try { return JSON.parse(intake.answers) as Record<string, unknown>; } catch { return {}; } })();
+  const findAns = (id: string) => (answers as Record<string, {answer?: string}>)[id]?.answer
+    ?? (Array.isArray(answers) ? (answers as Array<{id?: string; answer?: string}>).find((a) => a.id === id)?.answer : undefined);
+  res.json({
+    id: intake.id,
+    createdAt: intake.createdAt,
+    aiComfort: parseInt(findAns("aiComfort") ?? "1", 10) || 1,
+    hoursLost: parseInt(findAns("hoursLost") ?? "10", 10) || 10,
+    helpStyle: findAns("preferredHelp") ?? "not_sure",
+    areas: JSON.stringify([]),
+    answers: intake.answers,
+  });
 });
 
 router.get("/client/intake/history", requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   if (!user.clientId) { res.json([]); return; }
-  const intakes = await prisma.intake.findMany({
+  const intakes = await prisma.discoveryIntake.findMany({
     where: { clientId: user.clientId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, createdAt: true, helpStyle: true },
+    select: { id: true, createdAt: true, decisionAuthority: true },
     take: 20,
   });
-  res.json(intakes);
+  res.json(intakes.map((i) => ({ id: i.id, createdAt: i.createdAt, helpStyle: i.decisionAuthority ?? "not_sure" })));
+});
+
+// ── Intake prefill for adaptive edit flow ─────────────────────────────────────
+
+router.get("/client/intake/prefill", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).atgUser!;
+  if (!user.clientId) { res.json({ answers: [], sessionId: null }); return; }
+
+  // First: try DiscoveryIntake (the adaptive intake)
+  const discovery = await prisma.discoveryIntake.findFirst({
+    where: { clientId: user.clientId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, answers: true, contactEmail: true, contactName: true },
+  });
+
+  if (discovery) {
+    const answers: unknown[] = (() => { try { return JSON.parse(discovery.answers) as unknown[]; } catch { return []; } })();
+    res.json({ answers, sessionId: discovery.id, source: "discovery" });
+    return;
+  }
+
+  res.json({ answers: [], sessionId: null });
 });
 
 export default router;

@@ -5,8 +5,6 @@ import { clerkPubKey, clerkProxyUrl, clerkAppearance, basePath, stripBase } from
 import Nav from "@/components/Nav";
 import CommandPalette from "@/components/CommandPalette";
 import HomePage from "@/pages/home";
-import StartPage from "@/pages/start";
-import PlanResultPage from "@/pages/plan-result";
 import NotFound from "@/pages/not-found";
 import { PrivacyPage, TermsPage } from "@/pages/legal";
 import RefundsPage from "@/pages/refunds";
@@ -25,7 +23,6 @@ import AppAccountPage from "@/pages/app/account";
 
 // Admin pages
 import AdminClientsPage from "@/pages/admin/clients";
-import AdminIntakesPage from "@/pages/admin/intakes";
 import AdminReportsPage from "@/pages/admin/reports";
 import AdminContentPage from "@/pages/admin/content";
 import AdminAuditPage from "@/pages/admin/audit";
@@ -37,12 +34,15 @@ import AdminAIUsagePage from "@/pages/admin/ai-usage";
 import AdminDiscoveryPage from "@/pages/admin/discovery";
 import AdminEngagementsPage from "@/pages/admin/engagements";
 import AdminCatalogPage from "@/pages/admin/catalog";
+import AdminTodayPage from "@/pages/admin/today";
+import BlogPage from "@/pages/blog";
+import BlogPostPage from "@/pages/blog-post";
 
 function Metadata() {
   const [location] = useLocation();
   useEffect(() => {
-    const intake = location.replace(/\/$/, "") === "/start";
-    const isResult = location.startsWith("/start/result");
+    const intake = location.replace(/\/$/, "") === "/intake";
+    const isResult = false;
     const isApp = location.startsWith("/app");
     const isAdmin = location.startsWith("/admin");
     const title =
@@ -111,15 +111,17 @@ function AuthenticatedApp() {
         <Route path="/intake" component={IntakeDiscoveryPage} />
         <Route path="/intake/i/:token" component={IntakeDiscoveryPage} />
         <Route path="/intake/e/:token" component={IntakeDiscoveryPage} />
-        {/* /start is now /intake — redirect preserving query params */}
+        {/* /start and /start/result/* redirect to /intake */}
         <Route path="/start">
           {() => {
             const search = typeof window !== "undefined" ? window.location.search : "";
-            const next = "/intake" + search.replace("?tier=", "?tier=");
-            return <Redirect to={next} />;
+            return <Redirect to={"/intake" + search} />;
           }}
         </Route>
-        <Route path="/start/result/:intakeId" component={PlanResultPage} />
+        <Route path="/start/result/:id">
+          {() => <Redirect to="/intake" />}
+        </Route>
+        {/* /start/result/* — legacy plan result removed; redirect to discovery inbox */}
         <Route path="/privacy" component={PrivacyPage} />
         <Route path="/terms" component={TermsPage} />
         <Route path="/refunds" component={RefundsPage} />
@@ -141,7 +143,6 @@ function AuthenticatedApp() {
         <Route path="/admin" component={() => <Redirect to="/admin/clients" />} />
         <Route path="/admin/clients/:id/:tab?" component={AdminClientsPage} />
         <Route path="/admin/clients" component={AdminClientsPage} />
-        <Route path="/admin/intakes" component={AdminIntakesPage} />
         <Route path="/admin/reports" component={AdminReportsPage} />
         <Route path="/admin/content" component={AdminContentPage} />
         <Route path="/admin/audit" component={AdminAuditPage} />
@@ -153,6 +154,9 @@ function AuthenticatedApp() {
         <Route path="/admin/discovery" component={AdminDiscoveryPage} />
         <Route path="/admin/engagements" component={AdminEngagementsPage} />
         <Route path="/admin/catalog" component={AdminCatalogPage} />
+        <Route path="/admin/today" component={AdminTodayPage} />
+        <Route path="/blog" component={BlogPage} />
+        <Route path="/blog/:slug" component={BlogPostPage} />
 
         {/* Legacy */}
         <Route path="/user-portal" component={() => <Redirect to="/app" />} />

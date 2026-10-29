@@ -276,43 +276,52 @@ router.post("/ai-assist/report-refresh", async (req, res) => {
     where: { id: clientId },
     include: {
       user: { select: { name: true } },
-      intakes: { orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
   if (!client) { res.status(404).json({ error: "No client profile." }); return; }
-  const intake = client.intakes[0];
-  if (!intake) { res.status(404).json({ error: "No intake on file. Complete the intake first." }); return; }
+  const intake = await prisma.discoveryIntake.findFirst({
+    where: { clientId },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!intake) { res.status(404).json({ error: "No intake on file. Complete the assessment first." }); return; }
 
   refreshCooldown.set(clientId, Date.now());
 
+  // DiscoveryIntake stores all fields in answers JSON
   const answers: Record<string, unknown> = (() => { try { return JSON.parse(intake.answers ?? "{}") as Record<string, unknown>; } catch { return {}; } })();
-  const areas: string[] = (() => { try { return JSON.parse(intake.areas ?? "[]") as string[]; } catch { return []; } })();
+  const findAns = (id: string): string | undefined => {
+    if (typeof answers[id] === "string") return answers[id] as string;
+    if (Array.isArray(answers)) { const f = (answers as Array<{id?: string; answer?: string}>).find((a) => a.id === id); return f?.answer; }
+    return undefined;
+  };
+  const areas: string[] = (() => { const a = findAns("areas"); if (!a) return []; try { return JSON.parse(a) as string[]; } catch { return []; } })();
+  const aiComfort = parseInt(findAns("aiComfort") ?? "1", 10) || 1;
 
   const [{ clientSnapshot, adminReport }, toolPlanOutput] = await Promise.all([
     generateBothOutputs({
-      name: client.user?.name ?? intake.name,
-      email: intake.email,
-      industry: (answers.industry as string | undefined) ?? client.industry ?? "unknown",
+      name: client.user?.name ?? intake.contactName ?? "Client",
+      email: intake.contactEmail ?? "",
+      industry: findAns("business_type") ?? client.industry ?? "unknown",
       areas,
-      aiComfort: intake.aiComfort,
-      helpStyle: intake.helpStyle ?? "not_sure",
-      hoursLost: intake.hoursLost ?? 10,
-      timeSinks: Array.isArray(answers.timeSinks) ? (answers.timeSinks as string[]) : [],
-      role: (answers.role as string | undefined) ?? client.roleTitle ?? "Business owner",
-      bizSize: (answers.bizSize as string | undefined) ?? client.size ?? "solo",
-      tools: Array.isArray(answers.tools) ? (answers.tools as string[]) : [],
-      automateFirst: typeof answers.automateFirst === "string" ? answers.automateFirst : undefined,
-      freeText: typeof answers.freeText === "string" ? answers.freeText : undefined,
+      aiComfort,
+      helpStyle: findAns("preferredHelp") ?? "not_sure",
+      hoursLost: parseInt(findAns("hoursLost") ?? "10", 10) || 10,
+      timeSinks: (() => { const t = findAns("timeSinks"); if (!t) return []; try { return JSON.parse(t) as string[]; } catch { return []; } })(),
+      role: findAns("role") ?? client.roleTitle ?? "Business owner",
+      bizSize: findAns("team_size") ?? client.size ?? "solo",
+      tools: [],
+      automateFirst: findAns("top_problems") ?? undefined,
+      freeText: undefined,
     }),
     generateToolPlan({
-      industry: (answers.industry as string | undefined) ?? client.industry ?? "unknown",
+      industry: findAns("business_type") ?? client.industry ?? "unknown",
       areas,
-      aiComfort: intake.aiComfort,
-      toolBudget: intake.toolBudget ?? undefined,
-      currentSoftware: intake.currentSoftware ?? undefined,
-      weeklyVolumes: intake.weeklyVolumes ?? undefined,
-      timeSinks: Array.isArray(answers.timeSinks) ? (answers.timeSinks as string[]) : [],
-      aiPlatforms: Array.isArray(answers.aiPlatforms) ? (answers.aiPlatforms as string[]) : [],
+      aiComfort,
+      toolBudget: findAns("toolBudget"),
+      currentSoftware: findAns("currentSoftware"),
+      weeklyVolumes: findAns("weeklyVolumes"),
+      timeSinks: (() => { const t = findAns("timeSinks"); if (!t) return []; try { return JSON.parse(t) as string[]; } catch { return []; } })(),
+      aiPlatforms: (() => { const a = findAns("aiPlatforms"); if (!a) return []; try { return JSON.parse(a) as string[]; } catch { return []; } })(),
     }),
   ]);
 

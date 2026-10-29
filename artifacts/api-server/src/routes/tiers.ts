@@ -68,7 +68,7 @@ router.post("/tool-plan/generate", withUser, requireAuth, async (req, res) => {
 
   // Load latest intake for this client to build context
   const client = await prisma.client.findUnique({ where: { id: clientId } });
-  const intake = await prisma.intake.findFirst({
+  const intake = await prisma.discoveryIntake.findFirst({
     where: { clientId },
     orderBy: { createdAt: "desc" },
   });
@@ -77,9 +77,9 @@ router.post("/tool-plan/generate", withUser, requireAuth, async (req, res) => {
     industry:        intake?.answers ? (() => { try { return (JSON.parse(intake.answers) as Record<string, string>).industry ?? client?.industry ?? "unknown"; } catch { return client?.industry ?? "unknown"; } })() : (client?.industry ?? "unknown"),
     areas:           (() => { try { return JSON.parse(client?.areas ?? "[]") as string[]; } catch { return []; } })(),
     aiComfort:       client?.aiLevel ?? 1,
-    toolBudget:      intake?.toolBudget ?? undefined,
-    currentSoftware: intake?.currentSoftware ? sanitiseText(intake.currentSoftware, 200) : undefined,
-    weeklyVolumes:   intake?.weeklyVolumes ?? undefined,
+    toolBudget:      undefined,
+    currentSoftware: undefined,
+    weeklyVolumes:   undefined,
     timeSinks:       intake?.answers ? (() => { try { return (JSON.parse(intake.answers) as Record<string, unknown>).timeSinks as string[] ?? []; } catch { return []; } })() : [],
   };
 
@@ -131,7 +131,7 @@ router.post("/dfy/apply", withUser, requireAuth, async (req, res) => {
   if (!clientId) return;
   const existing = await prisma.dfyApplication.findUnique({ where: { clientId } });
   if (existing) { res.json({ ...existing, alreadyApplied: true }); return; }
-  const intake = await prisma.intake.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" } });
+  const intake = await prisma.discoveryIntake.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" } });
   const app = await prisma.dfyApplication.create({ data: { clientId, intakeId: intake?.id ?? null } });
   res.status(201).json(app);
 });
