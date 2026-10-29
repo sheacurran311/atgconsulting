@@ -9,7 +9,7 @@ import { useUser, useClerk } from "@clerk/react";
 import { Link } from "wouter";
 import AppShell from "@/components/app/AppShell";
 import { useAccount } from "@/lib/useAccount";
-import { api, clientIntakeApi, type IntakeSummary, billing } from "@/lib/api";
+import { api, clientIntakeApi, portalApi, type IntakeSummary, billing } from "@/lib/api";
 import DaySetup from "@/components/day/DaySetup";
 
 const TIER_LABELS: Record<string, string> = {
@@ -50,6 +50,7 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [billingEnabled] = useState(typeof window !== "undefined" && import.meta.env.VITE_BILLING_ENABLED === "true");
+  const [adminTestMode, setAdminTestMode] = useState(false);
 
   const tier = account?.tier ?? "NONE";
 
@@ -67,6 +68,10 @@ export default function AccountPage() {
   useEffect(() => {
     if (account) setDigestOptIn(account.digestEmailOptIn);
   }, [account]);
+
+  useEffect(() => {
+    portalApi.status().then((s) => setAdminTestMode(s.testMode)).catch(() => setAdminTestMode(false));
+  }, []);
 
   async function saveDigest(val: boolean) {
     setSaving(true);
@@ -135,15 +140,20 @@ export default function AccountPage() {
         )}
 
         {/* Plan / tier */}
-        <Section title="Your plan" badge={billingEnabled ? "BILLING ACTIVE" : "TEST MODE"}>
+        <Section title="Your plan" badge={adminTestMode ? "ADMIN TEST MODE" : billingEnabled ? "BILLING ACTIVE" : undefined}>
           <div className="flex items-center justify-between gap-4 mb-3">
             <div>
               <p className="font-extrabold text-2xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.03em" }}>
                 {TIER_LABELS[tier] ?? tier}
               </p>
-              {!billingEnabled && (
+              {adminTestMode && (
                 <p className="text-xs mt-0.5" style={{ color: "var(--canvas-text-3)" }}>
-                  BILLING_ENABLED is not set — all workflows unlocked for testing.
+                  Admin test mode is on. Every enabled workflow is unlocked.
+                </p>
+              )}
+              {!adminTestMode && (
+                <p className="text-xs mt-0.5" style={{ color: "var(--canvas-text-3)" }}>
+                  Workflow access follows this plan.
                 </p>
               )}
             </div>

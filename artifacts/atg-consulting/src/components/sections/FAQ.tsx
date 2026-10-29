@@ -4,11 +4,11 @@ import { useState } from "react";
 const faqs = [
   {
     q: "Do I need to know anything about AI or software?",
-    a: "No. If you can use email, you can use ATG. Shea handles all the technical setup. You review what comes out and decide what to send.",
+    a: "No. If you can use email, you can use ATG. On Self-serve you follow the setup guides yourself. On Guided, Shea walks through setup with you on a call. On Done-for-you, she does the setup. You review what comes out and decide what to send.",
   },
   {
     q: "What is the Self-serve tier?",
-    a: "Complete the intake. Grok drafts a diagnosis of your situation, a recommended tool stack, step-by-step setup guides for your AI platform (Grok Bot, Claude, or ChatGPT), and the workflows to install first as SKILL.md files. Shea reviews that draft before it reaches you. You also get access to all 10 ready-made workflows in the ATG Workbench app, plus email support within 2 business days.",
+    a: "Complete the intake. Grok drafts a diagnosis of your situation, a recommended tool stack, step-by-step setup guides for your AI platform (Grok Bot, Claude, or ChatGPT), and the workflows to install first as SKILL.md files. Shea reviews that draft before it reaches you. Self-serve includes the starter workflows in the Workbench: lead follow-up, inbox triage, review requests, social calendar, and SEO audit. Email support replies within 2 business days.",
   },
   {
     q: "What does the Guided tier include?",

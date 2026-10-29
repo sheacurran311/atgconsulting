@@ -113,8 +113,24 @@ router.post("/discovery/start", async (req, res) => {
   }
 
   const expires = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
+  const startBody = z.object({
+    requestedTier: z.enum(["self_serve", "guided", "done_for_you"]).optional(),
+    requestedSessions: z.union([z.literal(3), z.literal(5), z.literal("3"), z.literal("5")]).optional(),
+  }).safeParse(req.body ?? {});
+  const tierMap = { self_serve: "SELF_SERVE", guided: "GUIDED", done_for_you: "WHITE_GLOVE" } as const;
+  const requestedTier = startBody.success && startBody.data.requestedTier
+    ? tierMap[startBody.data.requestedTier]
+    : null;
+  const rawSessions = startBody.success ? startBody.data.requestedSessions : undefined;
+  const requestedSessions = requestedTier === "GUIDED"
+    ? (Number(rawSessions) === 5 ? 5 : 3)
+    : null;
   const intake = await prisma.discoveryIntake.create({
-    data: { ipHash: hashIpDiscovery(ip), expiresAt: expires },
+    data: {
+      ipHash: hashIpDiscovery(ip),
+      expiresAt: expires,
+      ...(requestedTier ? { requestedTier, requestedSessions } : {}),
+    },
   });
 
   // First two questions: name then email (required + validated server-side on submit)
@@ -1158,7 +1174,7 @@ ${milestones.length > 0 ? `
 
 <!-- Footer -->
 <div class="footer">
-  <div class="footer-logo">ATG Consulting LTD · CO · USA · shea@atgconsulting.io</div>
+  <div class="footer-logo">ATG Consulting LTD · Colorado, USA · shea@atgconsulting.io</div>
   <div class="footer-links">
     <a href="https://atgconsulting.io/terms">Terms</a>
     <a href="https://atgconsulting.io/privacy">Privacy</a>

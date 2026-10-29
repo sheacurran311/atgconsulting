@@ -1,5 +1,5 @@
 /**
- * Services — "The Workbench: 10 workflows, grouped by what they do for your business."
+ * Services — ready-made workflows, grouped by what they do for a business.
  * Each card shows the workflow name, plain-English description, and what you get.
  * Approval-first and portable-as-skills angles emphasized throughout.
  * No invented stats, no testimonials, no specific pricing.
@@ -159,14 +159,14 @@ export default function Services() {
       <div className="max-w-wide mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10">
           <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
-            ATG WORKBENCH · 10 WORKFLOWS
+            ATG WORKBENCH · 11 WORKFLOWS
           </p>
           <h2 id="services-heading" className="display-lg mb-4" style={{ color: "var(--canvas-text)", letterSpacing: "-0.03em" }}>
             Ready-made workflows for{" "}
             <span style={{ color: "var(--blue)" }}>your kind of business</span>
           </h2>
           <p className="text-md mx-auto" style={{ color: "var(--canvas-text-2)", maxWidth: "520px" }}>
-            Every workflow is designed and tuned by Shea for your specific situation.
+            Ready-made workflows you can try in the Workbench. Higher plans add live setup or Done-for-you operation.
             You review before anything leaves your system. Nothing runs automatically.
           </p>
           <div className="flex flex-wrap justify-center gap-3 mt-5">

@@ -152,6 +152,8 @@ model WorkflowItem {
   order     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([clientId])
 }
 
 // ── Consultations ─────────────────────────────────────────────────────────────
@@ -170,6 +172,8 @@ model Consultation {
   updatedAt     DateTime     @updatedAt
 
   actionItems   ActionItem[]
+
+  @@index([clientId])
 }
 
 model ActionItem {
@@ -843,6 +847,11 @@ model DiscoveryIntake {
   /// JSON: Grok-classified pain taxonomy {departments, tasks, industries, severity}
   painClassification String?
 
+  /// SELF_SERVE | GUIDED | WHITE_GLOVE — the tier the prospect chose on the way in
+  requestedTier     String?
+  /// 3 or 5 when they chose a Guided package. Not a payment record.
+  requestedSessions Int?
+
   /// full | partial | none — from the decision-authority question
   decisionAuthority String?
   /// Approver details (collected when authority is partial or none)
@@ -870,6 +879,7 @@ model DiscoveryIntake {
   @@index([contactEmail])
   @@index([status, createdAt])
   @@index([expiresAt])
+  @@index([clientId])
 }
 
 // ── Discovery invite links ────────────────────────────────────────────────────

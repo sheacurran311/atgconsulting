@@ -14,7 +14,7 @@ import { Router } from "express";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { personalizeClientWorkspace, extractPersonalizedSlugs } from "../lib/personalization";
-import { billingActive } from "../lib/access";
+import { adminTestMode } from "../lib/access";
 import { clientProposalState, toClientProposal } from "../lib/clientProposal";
 
 const router = Router();
@@ -60,8 +60,8 @@ router.get("/portal/status", withUser, requireAuth, async (req, res) => {
     hasIntake,
     clientId:   client?.id ?? null,
     tier:       client?.tier ?? "NONE",
-    /** If true, all workflow tiers are unlocked (BILLING_ENABLED not set to "true"). */
-    testMode:   !billingActive(),
+    /** True only when ADMIN_TEST_MODE=true. Billing does not unlock workflows. */
+    testMode:   adminTestMode(),
     personalizedSlugs: personalizedSlugs ?? [],
     intakePrefill: {
       email: user.email,
