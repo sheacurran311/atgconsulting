@@ -135,12 +135,18 @@ async function readDayPayload(cid: string): Promise<{
     include: {
       dayProfile: true,
       declaredAccounts: { orderBy: { createdAt: "asc" } },
-      intakes: { orderBy: { createdAt: "desc" }, take: 1 },
+// intakes include removed
     },
   });
   if (!client) return null;
 
-  const answers = parseIntakeAnswers(client.intakes[0]?.answers);
+  // Fetch answers from DiscoveryIntake (old Intake table dropped)
+  const discoveryForDay = await prisma.discoveryIntake.findFirst({
+    where: { clientId: cid },
+    orderBy: { createdAt: "desc" },
+    select: { answers: true },
+  });
+  const answers = parseIntakeAnswers(discoveryForDay?.answers);
   const bizSize = (typeof answers?.bizSize === "string" ? answers.bizSize : null) ?? client.size;
   const timezone = client.dayProfile && isValidTimeZone(client.dayProfile.timezone)
     ? client.dayProfile.timezone
@@ -369,13 +375,19 @@ router.put("/day/profile", async (req, res) => {
 
   const client = await prisma.client.findUnique({
     where: { id: cid },
-    include: { intakes: { orderBy: { createdAt: "desc" }, take: 1 } },
+
   });
   if (!client) {
     res.status(404).json({ error: "No client profile. Complete the intake first." });
     return;
   }
-  const answers = parseIntakeAnswers(client.intakes[0]?.answers);
+  // Fetch answers from DiscoveryIntake (old Intake table dropped)
+  const discoveryForDay = await prisma.discoveryIntake.findFirst({
+    where: { clientId: cid },
+    orderBy: { createdAt: "desc" },
+    select: { answers: true },
+  });
+  const answers = parseIntakeAnswers(discoveryForDay?.answers);
   const bizSize = (typeof answers?.bizSize === "string" ? answers.bizSize : null) ?? client.size;
   const profile = profileFromAnswers({
     timezone: parsed.data.timezone,

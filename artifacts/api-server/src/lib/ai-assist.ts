@@ -171,13 +171,14 @@ export async function buildClientContext(clientId: string): Promise<ClientContex
 
   // Fetch intake and tool plan separately
   const [intake, toolPlan] = await Promise.all([
-    prisma.intake.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" }, select: { answers: true, areas: true, aiComfort: true } }),
+    prisma.discoveryIntake.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" }, select: { answers: true } }),
     prisma.toolPlan.findFirst({ where: { clientId, status: { in: ["approved", "draft"] } }, orderBy: { createdAt: "desc" }, select: { toolsJson: true } }),
   ]);
 
   const answers: Record<string, unknown> = (() => { try { return JSON.parse(intake?.answers ?? "{}") as Record<string, unknown>; } catch { return {}; } })();
   const aiPlatforms: string[] = Array.isArray(answers.aiPlatforms) ? (answers.aiPlatforms as string[]).filter((p) => p !== "none" && p !== "not_sure") : [];
-  const areas: string[] = (() => { try { return JSON.parse(intake?.areas ?? "[]") as string[]; } catch { return []; } })();
+  // areas now come from the JSON answers blob (DiscoveryIntake has no dedicated areas field)
+  const areas: string[] = (() => { try { return Array.isArray(answers.areas) ? (answers.areas as string[]) : JSON.parse(String(answers.areas ?? "[]")) as string[]; } catch { return []; } })();
 
   // Compressed tool plan
   let toolPlanSummary = "";
@@ -212,7 +213,7 @@ export async function buildClientContext(clientId: string): Promise<ClientContex
     name: (client as { user?: { name: string | null } | null }).user?.name ?? "there",
     tier: client.tier,
     industry: client.industry,
-    aiComfort: intake?.aiComfort ?? client.aiLevel ?? 1,
+    aiComfort: (typeof answers.aiComfort === "number" ? answers.aiComfort : null) ?? client.aiLevel ?? 1,
     areas,
     aiPlatforms,
     toolPlanSummary,

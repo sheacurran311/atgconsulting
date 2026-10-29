@@ -231,29 +231,42 @@ router.patch("/client/account", async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Intake summary for account page ──────────────────────────────────────────
+// ── Intake summary — now served from DiscoveryIntake ─────────────────────────
 
 router.get("/client/intake/latest", requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   if (!user.clientId) { res.json(null); return; }
-  const intake = await prisma.intake.findFirst({
+  const intake = await prisma.discoveryIntake.findFirst({
     where: { clientId: user.clientId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, createdAt: true, aiComfort: true, hoursLost: true, helpStyle: true, areas: true, answers: true },
+    select: { id: true, createdAt: true, decisionAuthority: true, contactEmail: true, answers: true },
   });
-  res.json(intake ?? null);
+  if (!intake) { res.json(null); return; }
+  // Parse answers to extract legacy-compatible fields
+  const answers: Record<string, unknown> = (() => { try { return JSON.parse(intake.answers) as Record<string, unknown>; } catch { return {}; } })();
+  const findAns = (id: string) => (answers as Record<string, {answer?: string}>)[id]?.answer
+    ?? (Array.isArray(answers) ? (answers as Array<{id?: string; answer?: string}>).find((a) => a.id === id)?.answer : undefined);
+  res.json({
+    id: intake.id,
+    createdAt: intake.createdAt,
+    aiComfort: parseInt(findAns("aiComfort") ?? "1", 10) || 1,
+    hoursLost: parseInt(findAns("hoursLost") ?? "10", 10) || 10,
+    helpStyle: findAns("preferredHelp") ?? "not_sure",
+    areas: JSON.stringify([]),
+    answers: intake.answers,
+  });
 });
 
 router.get("/client/intake/history", requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   if (!user.clientId) { res.json([]); return; }
-  const intakes = await prisma.intake.findMany({
+  const intakes = await prisma.discoveryIntake.findMany({
     where: { clientId: user.clientId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, createdAt: true, helpStyle: true },
+    select: { id: true, createdAt: true, decisionAuthority: true },
     take: 20,
   });
-  res.json(intakes);
+  res.json(intakes.map((i) => ({ id: i.id, createdAt: i.createdAt, helpStyle: i.decisionAuthority ?? "not_sure" })));
 });
 
 // ── Intake prefill for adaptive edit flow ─────────────────────────────────────
@@ -275,27 +288,7 @@ router.get("/client/intake/prefill", requireAuth, async (req, res) => {
     return;
   }
 
-  // Fallback: legacy Intake answers → convert to Q&A format
-  const legacy = await prisma.intake.findFirst({
-    where: { clientId: user.clientId },
-    orderBy: { createdAt: "desc" },
-  });
-  if (!legacy) { res.json({ answers: [], sessionId: null }); return; }
-
-  const legacyAnswers: Array<{ id: string; category: string; question: string; answer: string }> = [];
-  if (legacy.name)      legacyAnswers.push({ id: "contact_name", category: "contact", question: "What's your name?", answer: legacy.name });
-  if (legacy.email)     legacyAnswers.push({ id: "contact_email", category: "contact", question: "What's your email?", answer: legacy.email });
-  if (legacy.helpStyle) legacyAnswers.push({ id: "preferredHelp", category: "goals", question: "How do you prefer to get help?", answer: legacy.helpStyle });
-
-  const legacyAnswersJSON: Record<string, unknown> = (() => { try { return JSON.parse(legacy.answers ?? "{}") as Record<string, unknown>; } catch { return {}; } })();
-  if (legacyAnswersJSON.industry) legacyAnswers.push({ id: "business_type", category: "company", question: "What type of business?", answer: legacyAnswersJSON.industry as string });
-  if (legacyAnswersJSON.role)     legacyAnswers.push({ id: "role", category: "company", question: "What's your role?", answer: legacyAnswersJSON.role as string });
-  if (legacy.areas) {
-    const areas: string[] = (() => { try { return JSON.parse(legacy.areas) as string[]; } catch { return []; } })();
-    if (areas.length > 0) legacyAnswers.push({ id: "top_problems", category: "company", question: "Describe what eats your time.", answer: `Focus areas: ${areas.join(", ")}` });
-  }
-
-  res.json({ answers: legacyAnswers, sessionId: null, source: "legacy" });
+  res.json({ answers: [], sessionId: null });
 });
 
 export default router;

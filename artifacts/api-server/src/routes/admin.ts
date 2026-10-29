@@ -44,7 +44,6 @@ router.get("/admin/clients/:id", async (req, res) => {
     where: { id: req.params.id },
     include: {
       user: true,
-      intakes: { orderBy: { createdAt: "desc" }, take: 5 },
       plans: { orderBy: { createdAt: "desc" }, take: 3 },
       workflowItems: { orderBy: [{ done: "asc" }, { order: "asc" }] },
       consultations: {
@@ -66,22 +65,27 @@ router.get("/admin/clients/:id/prep", async (req, res) => {
     where: { id: req.params.id },
     include: {
       user: true,
-      intakes: { orderBy: { createdAt: "desc" }, take: 1 },
       plans: { orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
   if (!client) { res.status(404).json({ error: "Not found." }); return; }
 
-  const intake = client.intakes[0];
+  // Look up latest DiscoveryIntake for this client
+  const discoveryIntake = await prisma.discoveryIntake.findFirst({
+    where: { clientId: client.id },
+    orderBy: { createdAt: "desc" },
+    select: { answers: true, decisionAuthority: true },
+  });
+  const intake = discoveryIntake;
   const plan = client.plans[0];
   const answers = intake ? (() => { try { return JSON.parse(intake.answers); } catch { return null; } })() : null;
 
   // Generate talking points from plan + intake
   const talkingPoints: string[] = [];
   if (answers) {
-    talkingPoints.push(`Ask about their ${answers.role ?? "role"} in ${answers.industry ?? "their industry"}.`);
-    if (answers.automateFirst) talkingPoints.push(`They said they'd automate: "${answers.automateFirst}" — explore why.`);
-    talkingPoints.push(`They lose ~${intake?.hoursLost ?? "?"} hrs/week to repetitive work — quantify the cost.`);
+    talkingPoints.push(`Ask about their role and what a typical week looks like for them.`);
+    if (answers.top_problems ?? answers.automateFirst) talkingPoints.push(`They described: "${answers.top_problems ?? answers.automateFirst}" — explore why.`);
+    talkingPoints.push(`Explore how much time repetitive tasks cost them — get a specific number.`);
   }
   if (plan) {
     const focusAreas: { area: string; name: string }[] = (() => { try { return JSON.parse(plan.focusAreas) as { area: string; name: string }[]; } catch { return []; } })();
@@ -183,31 +187,7 @@ router.patch("/admin/consultations/:id", async (req, res) => {
 
 // ── Intakes inbox ─────────────────────────────────────────────────────────────
 
-router.get("/admin/intakes", async (req, res) => {
-  const { status } = req.query as { status?: string };
-  const intakes = await prisma.intake.findMany({
-    where: status ? { status } : {},
-    include: { plans: { take: 1, orderBy: { createdAt: "desc" } }, client: { include: { user: true } } },
-    orderBy: { createdAt: "desc" },
-  });
-  res.json(intakes);
-});
 
-const IntakeStatusSchema = z.object({
-  status: z.enum(["NEW", "REVIEWED", "CONVERTED", "SPAM"]),
-});
-
-router.patch("/admin/intakes/:id/status", async (req, res) => {
-  const actor = (req as AuthedRequest).atgUser!;
-  const parsed = IntakeStatusSchema.safeParse(req.body);
-  if (!parsed.success) { res.status(422).json({ error: "status must be NEW, REVIEWED, CONVERTED, or SPAM." }); return; }
-  const { status } = parsed.data;
-  const intake = await prisma.intake.update({ where: { id: req.params.id as string }, data: { status } });
-  await audit({ actorUserId: actor.id, action: "INTAKE_STATUS_CHANGE", entity: "Intake", entityId: req.params.id as string, meta: { status }, ip: req.ip });
-  res.json(intake);
-});
-
-// ── Reports queue ─────────────────────────────────────────────────────────────
 
 router.get("/admin/reports", async (req, res) => {
   const { status } = req.query as { status?: string };

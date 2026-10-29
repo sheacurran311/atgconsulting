@@ -52,16 +52,16 @@ router.get("/knowledge", withUser, requireAuth, async (req, res) => {
   const client = user.clientId
     ? await prisma.client.findUnique({
         where: { id: user.clientId },
-        select: { tier: true, industry: true, intakes: { orderBy: { createdAt: "desc" }, take: 1, select: { answers: true } } },
+        select: { tier: true, industry: true },
       })
     : null;
 
   const clientTier = client?.tier ?? "NONE";
   const clientVertical = client?.industry ?? null;
-  const answers = (() => {
-    try { return JSON.parse(client?.intakes[0]?.answers ?? "{}") as Record<string, unknown>; }
-    catch { return {}; }
-  })();
+  const _discoveryForKnowledge = user.clientId
+    ? await prisma.discoveryIntake.findFirst({ where: { clientId: user.clientId }, orderBy: { createdAt: "desc" }, select: { answers: true } })
+    : null;
+  const answers: Record<string, unknown> = (() => { try { return JSON.parse(_discoveryForKnowledge?.answers ?? "{}") as Record<string, unknown>; } catch { return {}; } })();
   const clientPlatforms: string[] = Array.isArray(answers.aiPlatforms) ? (answers.aiPlatforms as string[]) : [];
 
   const articles = await prisma.knowledgeArticle.findMany({
@@ -155,7 +155,7 @@ router.get("/resources/platform-guides", withUser, requireAuth, async (req, res)
   // Determine client's preferred platforms from intake
   let platforms: string[] = [];
   if (user.clientId) {
-    const intake = await prisma.intake.findFirst({
+    const intake = await prisma.discoveryIntake.findFirst({
       where: { clientId: user.clientId },
       orderBy: { createdAt: "desc" },
       select: { answers: true },

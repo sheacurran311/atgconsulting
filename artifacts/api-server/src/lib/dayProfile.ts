@@ -31,13 +31,16 @@ export function toProfileData(profile: DayProfileInput) {
 }
 
 export async function ensureDayProfile(clientId: string): Promise<void> {
-  const client = await prisma.client.findUnique({
-    where: { id: clientId },
-    include: { intakes: { orderBy: { createdAt: "desc" }, take: 1 } },
-  });
+  const client = await prisma.client.findUnique({ where: { id: clientId } });
   if (!client) return;
 
-  const answers = parseIntakeAnswers(client.intakes[0]?.answers);
+  // Pull latest answers from DiscoveryIntake (new system)
+  const latestDiscovery = await prisma.discoveryIntake.findFirst({
+    where: { clientId },
+    orderBy: { createdAt: "desc" },
+    select: { answers: true },
+  });
+  const answers = parseIntakeAnswers(latestDiscovery?.answers);
   const bizSize = typeof answers?.bizSize === "string" ? answers.bizSize : null;
   if (bizSize && !client.size) {
     await prisma.client.update({ where: { id: clientId }, data: { size: bizSize } });

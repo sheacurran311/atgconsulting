@@ -25,7 +25,6 @@ interface TodayData {
     contentApproved: number;
     catalogQueue: number;
     upcomingSessions: number;
-    legacyIntakes: number;
     total: number;
   };
   tasks: {

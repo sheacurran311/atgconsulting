@@ -30,7 +30,6 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
     catalogQueue,
     upcomingSessions,
     dfyAccessClients,
-    legacyIntakeCount,
     contentPublishable,
   ] = await Promise.all([
     // New intake submissions needing review
@@ -80,7 +79,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       take: 20,
     }),
     // Legacy intake count
-    prisma.intake.count(),
+    Promise.resolve(0), // legacy intake table dropped
     // Content approved but not yet published (ready to publish)
     prisma.content.count({ where: { status: "approved" } }),
   ]);
@@ -93,7 +92,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
     contentApproved:  contentPublishable,
     catalogQueue:     catalogQueue.length,
     upcomingSessions: upcomingSessions.length,
-    legacyIntakes:    legacyIntakeCount,
+    legacyIntakes:    0, // table dropped
     total: intakeReviews.length + proposalDrafts.length + contentDrafts.filter((c) => c.status === "draft").length + catalogQueue.length,
   };
 

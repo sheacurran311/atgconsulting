@@ -32,8 +32,8 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
   if (!client) return null;
 
   const intake = intakeId
-    ? await prisma.intake.findUnique({ where: { id: intakeId } })
-    : await prisma.intake.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" } });
+    ? await prisma.discoveryIntake.findFirst({ where: { id: intakeId ?? "" } })
+    : await prisma.discoveryIntake.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" } });
 
   const answers: Record<string, unknown> = intake?.answers
     ? (() => { try { return JSON.parse(intake.answers) as Record<string, unknown>; } catch { return {}; } })()
@@ -61,17 +61,17 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
   }).filter(Boolean) as SessionSummarySnippet[];
 
   return {
-    clientName: client.user.name ?? intake?.name ?? "Client",
+    clientName: client.user.name ?? intake?.contactName ?? "Client",
     role:       sanitiseShortText(String(answers.role ?? client.roleTitle ?? "business owner")),
     industry:   sanitiseShortText(String(answers.industry ?? client.industry ?? "unknown")),
     bizSize:    String(answers.bizSize ?? client.size ?? "solo"),
     areas:      (() => { try { return JSON.parse(client.areas) as string[]; } catch { return []; } })(),
-    aiComfort:  intake?.aiComfort ?? client.aiLevel ?? 1,
-    hoursLost:  intake?.hoursLost ?? 10,
-    helpStyle:  intake?.helpStyle ?? client.helpStyle ?? "not_sure",
-    toolBudget: intake?.toolBudget ?? undefined,
-    currentSoftware: intake?.currentSoftware ? sanitiseText(intake.currentSoftware, 300) : undefined,
-    weeklyVolumes: intake?.weeklyVolumes ?? undefined,
+    aiComfort:  (() => { try { const a = JSON.parse((intake as { answers: string } | null)?.answers ?? "{}"); const ac = (a as Record<string, unknown>).aiComfort; return typeof ac === "number" ? ac : 1; } catch { return client.aiLevel ?? 1; } })(),
+    hoursLost:  10, // DiscoveryIntake stores hours in answers JSON; default
+    helpStyle:  client.helpStyle ?? "not_sure",
+    toolBudget: undefined, // now stored in DiscoveryIntake.answers
+    currentSoftware: undefined,
+    weeklyVolumes: undefined,
     timeSinks:  (() => { try { return JSON.parse(String(answers.timeSinks ?? "[]")) as string[]; } catch { return []; } })(),
     automateFirst: answers.automateFirst ? sanitiseShortText(String(answers.automateFirst)) : undefined,
     freeText:   answers.freeText ? sanitiseText(String(answers.freeText)) : undefined,
@@ -127,7 +127,7 @@ router.post("/admin/clients/:id/playbook", async (req, res) => {
 
 // Generate from intake context
 router.post("/admin/intakes/:id/playbook", async (req, res) => {
-  const intake = await prisma.intake.findUnique({ where: { id: req.params.id as string } });
+  const intake = await prisma.discoveryIntake.findFirst({ where: { id: req.params.id as string } });
   if (!intake) { res.status(404).json({ error: "Intake not found." }); return; }
   if (!intake.clientId) { res.status(422).json({ error: "Intake has not been claimed to a client yet." }); return; }
 

@@ -72,7 +72,6 @@ model Client {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  intakes           Intake[]
   plans             Plan[]
   workflowItems     WorkflowItem[]
   consultations     Consultation[]
@@ -100,42 +99,12 @@ model Client {
 
 // ── Intake ─────────────────────────────────────────────────────────────────────
 
-model Intake {
-  id          String   @id @default(cuid())
-  email       String
-  name        String
-  answers     String   // JSON (versioned intake payload)
-  areas       String   // JSON array
-  aiComfort   Int
-  hoursLost   Int
-  helpStyle   String
-
-  // ── New intake fields (nullable for backward compat) ────────────────────────
-  /// Monthly tool budget range, e.g. "<$50/mo"
-  toolBudget       String?
-  /// Current software by name (free text, optional)
-  currentSoftware  String?
-  /// Weekly volumes, e.g. "10-50/wk"
-  weeklyVolumes    String?
-
-  ipHash      String?
-  userAgent   String?
-  status      String   @default("NEW") // NEW|REVIEWED|CONVERTED|SPAM
-  clientId    String?
-  client      Client?  @relation(fields: [clientId], references: [id])
-  createdAt   DateTime @default(now())
-
-  plans       Plan[]
-  toolPlans   ToolPlan[]
-  playbooks   ClientPlaybook[]
-}
 
 // ── Plan ──────────────────────────────────────────────────────────────────────
 
 model Plan {
   id                String   @id @default(cuid())
-  intakeId          String
-  intake            Intake   @relation(fields: [intakeId], references: [id])
+  intakeId          String?
   clientId          String?
   client            Client?  @relation(fields: [clientId], references: [id])
 
@@ -292,34 +261,6 @@ model PromptTemplate {
   @@unique([key, version])
 }
 
-// ── Intake (legacy: keep existing IntakeSubmission for backward compat) ────────
-
-/// Original intake submission table from PR #1 — kept for backward compatibility.
-/// New submissions use Intake + Plan models above.
-model IntakeSubmission {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  name          String
-  email         String
-  role          String
-  industry      String
-  bizSize       String
-  areas         String
-  aiComfort     Int
-  tools         String
-  timeSinks     String
-  automateFirst String?
-  hoursLost     Int
-  preferredHelp String
-  freeText      String?
-  honeypot      String  @default("")
-  ipHash        String?
-  llmResponse   String?
-  responseType  String?
-  emailSent     Boolean @default(false)
-}
 
 // ── Audit log ─────────────────────────────────────────────────────────────────
 
@@ -422,7 +363,6 @@ model ToolPlan {
   clientId     String
   client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   intakeId     String?
-  intake       Intake?   @relation(fields: [intakeId], references: [id])
 
   status       String    @default("draft") // draft|approved
 
@@ -480,7 +420,6 @@ model ClientPlaybook {
   clientId     String
   client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   intakeId     String?
-  intake       Intake?   @relation(fields: [intakeId], references: [id])
 
   version      Int       @default(1)
   status       String    @default("draft") // draft|final

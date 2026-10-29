@@ -227,22 +227,6 @@ router.post("/admin/test-client", async (req, res) => {
     },
   });
 
-  await prisma.intake.create({
-    data: {
-      clientId: testClient.id,
-      name: (answers as Record<string, string>).name,
-      email: (answers as Record<string, string>).email,
-      areas: JSON.stringify((answers as Record<string, unknown>).areas),
-      aiComfort: (answers as Record<string, number>).aiComfort,
-      hoursLost: (answers as Record<string, number>).hoursLost,
-      helpStyle: (answers as Record<string, string>).helpStyle,
-      toolBudget: (answers as Record<string, string>).toolBudget,
-      currentSoftware: (answers as Record<string, string>).currentSoftware,
-      weeklyVolumes: (answers as Record<string, string>).weeklyVolumes,
-      answers: JSON.stringify(answers),
-      status: "CONVERTED",
-    },
-  });
 
   const token = createImpToken(testClient.id, actor.id, false);
   setImpCookie(res, token);
