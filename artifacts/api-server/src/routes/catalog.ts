@@ -13,6 +13,7 @@
  *   POST   /api/admin/catalog/import     — bulk import (CSV string or JSON array)
  *   POST   /api/admin/catalog/import-url — fetch a URL and extract metadata
  *   GET    /api/admin/catalog/queue      — review queue (pending items)
+ *   POST   /api/admin/catalog/verify-batch — verify link-checked pending items
  *   POST   /api/admin/catalog/:id/verify — mark verified
  *   POST   /api/admin/catalog/:id/reject — reject with note
  *
@@ -209,6 +210,40 @@ router.get("/admin/catalog/queue", withUser, requireAdmin, async (_req, res) => 
     take: 100,
   });
   res.json(items);
+});
+
+router.post("/admin/catalog/verify-batch", withUser, requireAdmin, async (req, res) => {
+  const actor = (req as AuthedRequest).atgUser!;
+  const ids = Array.isArray(req.body?.ids) ? (req.body.ids as unknown[]).filter((id): id is string => typeof id === "string") : null;
+  const pending = await prisma.catalogItem.findMany({
+    where: {
+      reviewStatus: "pending",
+      verified: false,
+      enabled: true,
+      sourceUrl: { not: "" },
+      lastCheckedAt: { not: null },
+      ...(ids ? { id: { in: ids } } : {}),
+    },
+    select: { id: true, name: true, sourceType: true },
+    take: 100,
+  });
+  if (pending.length === 0) {
+    res.json({ verified: 0, items: [] });
+    return;
+  }
+  const now = new Date();
+  await prisma.catalogItem.updateMany({
+    where: { id: { in: pending.map((item) => item.id) } },
+    data: { verified: true, verifiedAt: now, verifiedBy: actor.email, reviewStatus: "approved" },
+  });
+  await audit({
+    actorUserId: actor.id,
+    action: "CATALOG_VERIFIED_BATCH",
+    entity: "CatalogItem",
+    entityId: pending[0]!.id,
+    meta: { count: pending.length },
+  });
+  res.json({ verified: pending.length, items: pending });
 });
 
 router.post("/admin/catalog/:id/verify", withUser, requireAdmin, async (req, res) => {

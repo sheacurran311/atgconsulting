@@ -93,6 +93,37 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
   };
 }
 
+/** Draft a playbook the first time a report is approved. Shea still marks it final. */
+export async function draftPlaybookIfMissing(clientId: string, intakeId?: string): Promise<boolean> {
+  const existing = await prisma.clientPlaybook.findFirst({ where: { clientId }, select: { id: true } });
+  if (existing) return false;
+  const input = await buildPlaybookInput(clientId, intakeId);
+  if (!input) return false;
+  const content = await generateClientPlaybook(input);
+  const latestVersion = await prisma.clientPlaybook.findFirst({
+    where: { clientId },
+    orderBy: { version: "desc" },
+    select: { version: true },
+  });
+  await prisma.clientPlaybook.create({
+    data: {
+      clientId,
+      intakeId: intakeId ?? null,
+      version: (latestVersion?.version ?? 0) + 1,
+      status: "draft",
+      content: JSON.stringify(content),
+      source: content.source,
+    },
+  });
+  return true;
+}
+
+const SECRET_IN_NOTES = /password\s*[:=]|api[_-]?key\s*[:=]|secret\s*[:=]|bearer\s+[a-z0-9]|token\s*[:=]/i;
+
+function notesLookLikeCredentials(notes: string | undefined): boolean {
+  return Boolean(notes && SECRET_IN_NOTES.test(notes));
+}
+
 // ── Generate playbook ─────────────────────────────────────────────────────────
 
 router.post("/admin/clients/:id/playbook", async (req, res) => {
@@ -242,6 +273,10 @@ router.post("/admin/clients/:id/access-log", async (req, res) => {
   if (!client) { res.status(404).json({ error: "Client not found." }); return; }
   const parsed = AccessLogBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
+  if (notesLookLikeCredentials(parsed.data.notes)) {
+    res.status(422).json({ error: "Do not store passwords, tokens, or API keys in the access log." });
+    return;
+  }
   const entry = await prisma.clientAccessLog.create({
     data: {
       clientId,
@@ -262,6 +297,10 @@ router.patch("/admin/clients/:id/access-log/:entryId", async (req, res) => {
   if (!entry) { res.status(404).json({ error: "Access log entry not found." }); return; }
   const parsed = AccessLogBody.partial().safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
+  if (notesLookLikeCredentials(parsed.data.notes)) {
+    res.status(422).json({ error: "Do not store passwords, tokens, or API keys in the access log." });
+    return;
+  }
   const updated = await prisma.clientAccessLog.update({
     where: { id: entry.id },
     data: {

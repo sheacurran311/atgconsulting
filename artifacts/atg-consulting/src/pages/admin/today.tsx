@@ -42,6 +42,9 @@ interface TodayData {
     catalogQueue: TodayTask[];
     upcomingSessions: TodayTask[];
     dfyAccess: TodayTask[];
+    supportTickets?: TodayTask[];
+    clientMessages?: TodayTask[];
+    workflowRequests?: TodayTask[];
   };
   ai?: {
     enabled: boolean;
@@ -147,6 +150,9 @@ export default function AdminTodayPage() {
         catalogQueue: drop(current.tasks.catalogQueue),
         upcomingSessions: drop(current.tasks.upcomingSessions),
         dfyAccess: drop(current.tasks.dfyAccess),
+        supportTickets: drop(current.tasks.supportTickets ?? []),
+        clientMessages: drop(current.tasks.clientMessages ?? []),
+        workflowRequests: drop(current.tasks.workflowRequests ?? []),
       };
       return {
         ...current,
@@ -158,7 +164,7 @@ export default function AdminTodayPage() {
           contentDrafts: tasks.contentDrafts.filter((item) => item.type === "content_draft").length,
           catalogQueue: tasks.catalogQueue.length,
           upcomingSessions: tasks.upcomingSessions.length,
-          total: tasks.intakeReviews.length + tasks.proposalDrafts.length + tasks.contentDrafts.filter((item) => item.type === "content_draft").length + tasks.catalogQueue.length,
+          total: tasks.intakeReviews.length + tasks.proposalDrafts.length + tasks.contentDrafts.filter((item) => item.type === "content_draft").length + tasks.catalogQueue.length + tasks.supportTickets.length + tasks.clientMessages.length + tasks.workflowRequests.length,
         },
       };
     });
@@ -180,6 +186,9 @@ export default function AdminTodayPage() {
     ...data.tasks.catalogQueue,
     ...data.tasks.upcomingSessions,
     ...data.tasks.dfyAccess,
+    ...(data.tasks.supportTickets ?? []),
+    ...(data.tasks.clientMessages ?? []),
+    ...(data.tasks.workflowRequests ?? []),
   ] : [];
 
   return (

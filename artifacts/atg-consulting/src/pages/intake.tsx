@@ -88,6 +88,7 @@ export default function IntakePage() {
   const [contactEmail, setContactEmail] = useState("");
   const [consentGiven, setConsentGiven] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [approverInviteUrl, setApproverInviteUrl] = useState<string | null>(null);
   const [saved, setSaved] = useState<SavedProgress | null>(null);
 
   // Prefilled from invite
@@ -319,6 +320,8 @@ export default function IntakePage() {
     }).catch(() => null);
 
     if (!r?.ok) { setError("Could not submit. Please try again."); setSubmitting(false); return; }
+    const submitted = await r.json().catch(() => ({})) as { approverInviteUrl?: string | null };
+    setApproverInviteUrl(submitted.approverInviteUrl ?? null);
 
     // Mark invite as submitted
     if (currentInviteToken.current) {
@@ -674,7 +677,7 @@ export default function IntakePage() {
                 Almost done.
               </h2>
               <p className="text-sm mb-6" style={{ color: "var(--ink-text-2)", lineHeight: 1.6 }}>
-                We'll save your answers so Shea can review them. No automated emails — you'll hear from Shea directly.
+                We'll save your answers so Shea can review them. You will not get an automated email.
               </p>
 
               <div className="space-y-4 mb-5">
@@ -797,8 +800,15 @@ export default function IntakePage() {
                 Received. Shea will review personally.
               </h2>
               <p className="text-sm mb-6" style={{ color: "var(--ink-text-2)", lineHeight: 1.65, maxWidth: "360px", margin: "0 auto 24px" }}>
-                No automated emails. Shea will review your answers and reach out directly when a tailored proposal is ready.
+                Shea is notified to review your answers. You and your team are not emailed. She will reach out when a proposal is ready.
               </p>
+              {approverInviteUrl && (
+                <div style={{ display: "block", padding: "12px 16px", borderRadius: "10px", background: "var(--ink-2)", border: "1px solid var(--ink-border)", margin: "0 auto 16px", maxWidth: "420px", textAlign: "left" }}>
+                  <p style={{ color: "var(--ink-text)", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>Share this link with the person who needs to approve.</p>
+                  <p style={{ color: "var(--ink-text-2)", fontSize: "12px", lineHeight: 1.5, wordBreak: "break-all" }}>{approverInviteUrl}</p>
+                  <p style={{ color: "var(--ink-text-3)", fontSize: "12px", marginTop: "6px" }}>We do not email them. Shea also has this link.</p>
+                </div>
+              )}
               {contactEmail && (
                 <div style={{ display: "inline-block", padding: "12px 16px", borderRadius: "10px", background: "rgba(59,107,255,0.1)", border: "1px solid rgba(59,107,255,0.25)", margin: "0 auto 16px", maxWidth: "380px" }}>
                   <p style={{ color: "var(--blue)", fontSize: "13px", fontWeight: 600, marginBottom: "2px" }}>When your proposal is ready:</p>

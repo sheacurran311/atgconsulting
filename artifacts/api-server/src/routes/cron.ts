@@ -12,6 +12,8 @@ import { pruneOldChatLogs } from "../lib/ai-assist";
 import { generateWeeklyContent } from "../lib/contentAI";
 import { getGrokClient, GROK_MODEL, logFallback } from "../lib/grokClient";
 import { harvestCatalogNow } from "../lib/catalogHarvest";
+import { publishApprovedContent } from "../lib/contentPublish";
+import { notifyShea } from "../lib/email";
 
 const router = Router();
 
@@ -57,6 +59,14 @@ router.post("/cron/daily-reports", async (req, res) => {
 
   // Prune old AI chat logs after daily reports
   pruneOldChatLogs().catch(console.error);
+
+  // Posts Shea already approved go live. Drafts stay drafts. Nobody is emailed.
+  publishApprovedContent().then((count) => {
+    if (count > 0) {
+      console.info(`[content] Published ${count} approved post(s)`);
+      notifyShea("Approved posts published", `${count} approved post(s) are now live on the blog.`).catch(console.error);
+    }
+  }).catch(console.error);
 
   // Weekly content: generate new drafts (every 7 calls ~ weekly when cron runs daily)
   const dayOfWeek = new Date().getDay();

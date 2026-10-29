@@ -23,6 +23,9 @@
  */
 
 import { Router } from "express";
+import { notifyShea } from "../lib/email";
+import { ensureApproverInvite } from "../lib/approverInvite";
+import { maybeDraftMergedReview } from "../lib/engagementMerge";
 import { z } from "zod";
 import multer from "multer";
 import { createHash } from "crypto";
@@ -316,7 +319,35 @@ router.post("/discovery/submit", async (req, res) => {
     }
   }
 
-  res.json({ ok: true, sessionId: session.id });
+  let approverInviteUrl: string | null = null;
+  let engagementId: string | null = null;
+  try {
+    const invite = await ensureApproverInvite(session.id);
+    approverInviteUrl = invite.inviteUrl;
+    engagementId = invite.engagementId;
+  } catch (err) {
+    console.error("[intake] approver invite failed", err);
+  }
+
+  if (engagementId) {
+    maybeDraftMergedReview(engagementId).catch((err) => console.error("[engagement] merge draft failed", err));
+  }
+
+  const reviewUrl = `${process.env.APP_URL ?? "https://atgconsulting.io"}/admin/discovery`;
+  notifyShea(
+    `New intake${name ? ` from ${name}` : ""}`,
+    [
+      "A new intake is waiting for review.",
+      name ? `Name: ${name}` : null,
+      finalEmail ? `Email: ${finalEmail}` : null,
+      authorityLevel ? `Decision authority: ${authorityLevel}` : null,
+      approverInviteUrl ? `Approver link (not emailed to them): ${approverInviteUrl}` : null,
+      `Review: ${reviewUrl}`,
+      `Intake ID: ${session.id}`,
+    ].filter(Boolean).join("\n"),
+  ).catch((err) => console.error("[email] intake notice failed", err));
+
+  res.json({ ok: true, sessionId: session.id, approverInviteUrl });
 });
 
 // ── POST /api/discovery/extract — parse pasted text or PDF ───────────────────
@@ -460,6 +491,11 @@ router.post("/admin/discovery/:id/approve", withUser, requireAdmin, async (req, 
     where: { id: intake.id },
     data:  { reportApprovedAt: new Date(), status: "report_sent" },
   });
+
+  if (intake.clientId) {
+    const { draftPlaybookIfMissing } = await import("./playbook");
+    draftPlaybookIfMissing(intake.clientId, intake.id).catch((err) => console.error("[playbook] draft failed", err));
+  }
 
   await audit({
     actorUserId: actor.id,
