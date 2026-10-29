@@ -18,6 +18,7 @@ import { getAuth, clerkClient } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
 import { prisma } from "./db";
 import { IMP_COOKIE } from "./impersonate";
+import { ensureClientForVerifiedUser } from "./clientProvision";
 
 export interface ATGUser {
   id: string;          // our internal User.id (cuid)
@@ -52,9 +53,9 @@ export async function resolveUser(req: Request): Promise<ATGUser | null> {
   if (!clerkId) return null;
 
   const clerkUser = await clerkClient.users.getUser(clerkId);
-  const email =
-    clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId)
-      ?.emailAddress?.toLowerCase() ?? null;
+  const primaryEmail = clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId);
+  const email = primaryEmail?.emailAddress?.toLowerCase() ?? null;
+  const emailVerified = primaryEmail?.verification?.status === "verified";
   const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
   const imageUrl = clerkUser.imageUrl ?? null;
   const role = isAdminEmail(email) ? "ADMIN" : "CLIENT";
@@ -98,11 +99,21 @@ export async function resolveUser(req: Request): Promise<ATGUser | null> {
 
   const user = identity.user;
   // The relation include can miss a Client row created earlier in a parallel
-  // request (portal status auto-links during sign-in). Re-read before giving up.
+  // request. Re-read before giving up.
   let clientId = user.client?.id ?? null;
   if (!clientId) {
     const row = await prisma.client.findUnique({ where: { userId: user.id }, select: { id: true } });
     clientId = row?.id ?? null;
+  }
+
+  // Verified email: create a prospect Client if needed, and link matching intakes.
+  // Unverified addresses are never used to attach someone else's intake.
+  if (email && emailVerified) {
+    try {
+      clientId = await ensureClientForVerifiedUser(user.id, email, clientId);
+    } catch (err) {
+      console.error("[auth] client provision failed", err);
+    }
   }
 
   const baseUser: ATGUser = {

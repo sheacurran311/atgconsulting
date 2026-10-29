@@ -20,6 +20,7 @@ import DocumentsPage from "@/pages/app/documents";
 import ReportsPage from "@/pages/app/reports";
 import LearnPage from "@/pages/app/learn";
 import AppAccountPage from "@/pages/app/account";
+import ProposalPage from "@/pages/app/proposal";
 
 // Admin pages
 import AdminClientsPage from "@/pages/admin/clients";
@@ -138,9 +139,10 @@ function AuthenticatedApp() {
         <Route path="/app/learn/:slug" component={LearnPage} />
         <Route path="/app/learn" component={LearnPage} />
         <Route path="/app/account" component={AppAccountPage} />
+        <Route path="/app/proposal" component={ProposalPage} />
 
         {/* Admin */}
-        <Route path="/admin" component={() => <Redirect to="/admin/clients" />} />
+        <Route path="/admin" component={() => <Redirect to="/admin/today" />} />
         <Route path="/admin/clients/:id/:tab?" component={AdminClientsPage} />
         <Route path="/admin/clients" component={AdminClientsPage} />
         <Route path="/admin/reports" component={AdminReportsPage} />

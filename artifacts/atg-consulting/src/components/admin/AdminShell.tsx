@@ -28,7 +28,6 @@ const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Plans & DFY", to: "/admin/tiers",              icon: Layers },
   { label: "Messages",    to: "/admin/messages",           icon: MessageSquare },
   { label: "Reports",     to: "/admin/reports",            icon: BarChart3 },
-  { label: "Content",     to: "/admin/content",            icon: BookOpen },
   { label: "Templates",   to: "/admin/workflow-templates", icon: Workflow },
   { label: "Tools",       to: "/admin/tools",              icon: Wrench },
   { label: "AI usage",    to: "/admin/ai-usage",           icon: Sparkles },
@@ -99,7 +98,7 @@ export default function AdminShell({ children }: Props) {
 
       {/* Mobile top tabs */}
       <div
-        className="md:hidden fixed top-14 left-0 right-0 z-40 flex"
+        className="md:hidden fixed top-0 left-0 right-0 z-40 flex"
         style={{ background: "var(--ink)", borderBottom: "1px solid var(--ink-border)", overflowX: "auto", overflowY: "hidden" }}
       >
         <div className="flex-shrink-0 px-2 py-1.5 flex items-center">

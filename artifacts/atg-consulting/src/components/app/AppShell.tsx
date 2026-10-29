@@ -5,6 +5,7 @@ import {
   CalendarCheck,
   FileText,
   GraduationCap,
+  ScrollText,
   LayoutDashboard,
   Map,
   MessagesSquare,
@@ -23,6 +24,7 @@ import { clearClientView } from "@/lib/viewMode";
 
 const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Dashboard",     to: "/app",               icon: LayoutDashboard },
+  { label: "Proposal",      to: "/app/proposal",      icon: ScrollText },
   { label: "My plan",       to: "/app/plan",          icon: Map },
   { label: "Sessions",      to: "/app/sessions",      icon: CalendarCheck },
   { label: "Consultations", to: "/app/consultations", icon: MessagesSquare },
@@ -32,9 +34,9 @@ const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Account",       to: "/app/account",       icon: UserRound },
 ];
 
-interface Props { children: React.ReactNode; wide?: boolean }
+interface Props { children: React.ReactNode; wide?: boolean; allowWithoutIntake?: boolean }
 
-export default function AppShell({ children, wide = false }: Props) {
+export default function AppShell({ children, wide = false, allowWithoutIntake = false }: Props) {
   const { isLoaded, isSignedIn } = useUser();
   const { account } = useAccount();
   const [location, setLocation] = useLocation();
@@ -57,7 +59,7 @@ export default function AppShell({ children, wide = false }: Props) {
   if (!isSignedIn) return <Redirect to="/sign-in" />;
 
   return (
-    <IntakeGate>
+    <IntakeGate allowWithoutIntake={allowWithoutIntake}>
     <ImpersonationBanner />
     <div className="min-h-screen flex" style={{ background: "var(--canvas)" }}>
 

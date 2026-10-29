@@ -152,8 +152,6 @@ export const api = {
     updateClient: (id: string, body: unknown) => patch<ClientAdmin>(`/admin/clients/${id}`, body),
     createConsultation: (clientId: string, body: unknown) => post<Consultation>(`/admin/clients/${clientId}/consultations`, body),
     updateConsultation: (id: string, body: unknown) => patch<Consultation>(`/admin/consultations/${id}`, body),
-    intakes: (status?: string) => get<IntakeRecord[]>(`/admin/intakes${status ? `?status=${status}` : ""}`),
-    updateIntakeStatus: (id: string, status: string) => patch<IntakeRecord>(`/admin/intakes/${id}/status`, { status }),
     reports: (status?: string) => get<Report[]>(`/admin/reports${status ? `?status=${status}` : ""}`),
     publishReport: (id: string) => post<Report>(`/admin/reports/${id}/publish`),
     updateReport: (id: string, body: { contentMarkdown: string }) => patch<Report>(`/admin/reports/${id}`, body),
@@ -458,10 +456,30 @@ export interface PortalStatus {
   testMode:          boolean;
   personalizedSlugs: string[];
   intakePrefill:     { email: string | null; name: string | null };
+  discoveryProposal: { id: string; status: string; approvedAt: string | null } | null;
 }
+
+export interface ClientProposal {
+  id: string;
+  status: string;
+  approvedAt: string | null;
+  execSummary: string;
+  understanding: string;
+  scope: string;
+  howWeConnect: string;
+  milestones: { label: string; description: string }[];
+  investment: { tier?: string; price?: string; care?: string; notes?: string };
+  acceptanceClause: string;
+  contactName: string | null;
+}
+
+export type PortalProposal =
+  | { state: "empty" | "pending"; proposal?: undefined }
+  | { state: "ready"; proposal: ClientProposal };
 
 export const portalApi = {
   status:      () => get<PortalStatus>("/portal/status"),
+  proposal:    () => get<PortalProposal>("/portal/proposal"),
   personalize: () => post<{ ok: boolean }>("/portal/personalize", {}),
 };
 

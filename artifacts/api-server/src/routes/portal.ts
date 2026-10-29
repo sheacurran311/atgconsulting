@@ -2,18 +2,20 @@
  * Portal onboarding and personalization routes.
  *
  * GET  /api/portal/status           — intake-gate check for the client portal
+ * GET  /api/portal/proposal         — approved proposal for the signed-in client
  * POST /api/portal/personalize      — re-run workspace personalization
  * POST /api/admin/clients/:id/personalize — admin triggers personalization
+ *
+ * Client creation and intake linking happen in resolveUser for a
+ * Clerk-verified email. This router only reads the result.
  */
 
 import { Router } from "express";
-import { getAuth, clerkClient } from "@clerk/express";
-import type { Request } from "express";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { personalizeClientWorkspace, extractPersonalizedSlugs } from "../lib/personalization";
-import { ensureDayProfile } from "../lib/dayProfile";
 import { billingActive } from "../lib/access";
+import { clientProposalState, toClientProposal } from "../lib/clientProposal";
 
 const router = Router();
 
@@ -22,49 +24,6 @@ const router = Router();
 router.get("/portal/status", withUser, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
 
-  // Verify the Clerk primary email is confirmed before using it for linking.
-  // We check this here (not in resolveUser) to avoid an extra Clerk API call on every request.
-  let isEmailVerified = false;
-  if (user.email) {
-    try {
-      const { userId: clerkId } = getAuth(req as Request);
-      if (clerkId) {
-        const clerkUser = await clerkClient.users.getUser(clerkId);
-        const primary = clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId);
-        isEmailVerified = primary?.verification?.status === "verified";
-      }
-    } catch { /* non-fatal */ }
-  }
-
-  // Legacy intake auto-link removed (Intake table dropped)
-
-  // Auto-link DiscoveryIntake records when verified email matches (on any sign-in).
-  // Only link if email is Clerk-verified. Never link on unverified emails.
-  if (user.email && isEmailVerified) {
-    const resolvedClientId = user.clientId
-      ?? (await prisma.client.findFirst({ where: { userId: user.id }, select: { id: true } }))?.id;
-
-    if (resolvedClientId) {
-      // Find unlinked DiscoveryIntakes with matching email (case-insensitive)
-      const unlinked = await prisma.discoveryIntake.findMany({
-        where: {
-          contactEmail: { equals: user.email, mode: "insensitive" },
-          clientId: null,
-          status: { not: "converted" },
-        },
-        select: { id: true },
-        take: 5,
-      });
-      for (const di of unlinked) {
-        await prisma.discoveryIntake.update({
-          where: { id: di.id },
-          data: { clientId: resolvedClientId, status: "converted" },
-        }).catch(console.error);
-      }
-    }
-  }
-
-  // Re-resolve after potential auto-link
   const client = user.clientId
     ? await prisma.client.findUnique({
         where: { id: user.clientId },
@@ -112,6 +71,50 @@ router.get("/portal/status", withUser, requireAuth, async (req, res) => {
     discoveryProposal: discoveryProposal
       ? { id: discoveryProposal.id, status: discoveryProposal.status, approvedAt: discoveryProposal.approvedAt }
       : null,
+  });
+});
+
+// ── Approved proposal ─────────────────────────────────────────────────────────
+// Drafts and Shea's internal review notes are not returned.
+
+router.get("/portal/proposal", withUser, requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).atgUser!;
+  if (!user.clientId) {
+    res.json({ state: clientProposalState({ clientId: null, intakeCount: 0, hasApproved: false }) });
+    return;
+  }
+
+  const intakes = await prisma.discoveryIntake.findMany({
+    where: { clientId: user.clientId },
+    select: { id: true, contactName: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const proposal = intakes.length === 0
+    ? null
+    : await prisma.discoveryProposal.findFirst({
+        where: {
+          discoveryIntakeId: { in: intakes.map((i) => i.id) },
+          status: { in: ["approved", "portal_published"] },
+        },
+        orderBy: { approvedAt: "desc" },
+      });
+
+  const state = clientProposalState({
+    clientId: user.clientId,
+    intakeCount: intakes.length,
+    hasApproved: !!proposal,
+  });
+
+  if (!proposal || state !== "ready") {
+    res.json({ state });
+    return;
+  }
+
+  const intake = intakes.find((i) => i.id === proposal.discoveryIntakeId);
+  res.json({
+    state,
+    proposal: toClientProposal(proposal, intake?.contactName ?? null),
   });
 });
 
