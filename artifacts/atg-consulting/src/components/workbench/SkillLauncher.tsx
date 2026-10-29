@@ -1,8 +1,8 @@
 /**
  * Unified skill launcher with tier-aware gating and personalized ordering.
  *
- * When BILLING_ENABLED is not "true" (test mode), ALL workflows are unlocked
- * and a banner says so. This matches the server-side bypass in lib/access.ts.
+ * ADMIN_TEST_MODE (portal status testMode) unlocks every enabled workflow
+ * and shows a labeled banner. Billing being off does not unlock workflows.
  *
  * Personalized slugs (from intake personalization) are featured first.
  * Locked workflows show with sufficient contrast (canvas-text-2, not text-3).
@@ -22,6 +22,7 @@ interface SkillButton {
 }
 
 const ALL_SKILL_BUTTONS: SkillButton[] = [
+  { slug: "follow-up",         label: "Lead follow-up",    icon: "✉️", minTier: "SELF_SERVE" },
   { slug: "inbox-triage",      label: "Inbox triage",       icon: "📥", minTier: "SELF_SERVE" },
   { slug: "review-request",    label: "Review requests",    icon: "⭐", minTier: "SELF_SERVE" },
   { slug: "social-calendar",   label: "Social calendar",    icon: "📅", minTier: "SELF_SERVE" },
@@ -86,8 +87,8 @@ export default function SkillLauncher({
       {testMode && (
         <div className="rounded-lg px-3 py-1.5 mb-3 text-xs flex items-center gap-2"
           style={{ background: "rgba(59,107,255,0.08)", border: "1px solid rgba(59,107,255,0.2)", color: "var(--blue-btn)" }}>
-          <span className="font-mono font-bold" style={{ letterSpacing: "0.06em" }}>TEST MODE</span>
-          <span>All workflows unlocked — set BILLING_ENABLED=true in production to enforce tier gating.</span>
+          <span className="font-mono font-bold" style={{ letterSpacing: "0.06em" }}>ADMIN TEST MODE</span>
+          <span>All workflows unlocked. Turn off ADMIN_TEST_MODE to use plan gating.</span>
         </div>
       )}
 

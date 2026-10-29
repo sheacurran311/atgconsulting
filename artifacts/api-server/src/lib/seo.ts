@@ -16,7 +16,6 @@ export const BLOG_DESCRIPTION =
 
 export const PUBLIC_PATHS: { path: string; changefreq: string; priority: string }[] = [
   { path: "/", changefreq: "weekly", priority: "1.0" },
-  { path: "/intake", changefreq: "monthly", priority: "0.9" },
   { path: "/blog", changefreq: "daily", priority: "0.8" },
   { path: "/terms", changefreq: "yearly", priority: "0.3" },
   { path: "/privacy", changefreq: "yearly", priority: "0.3" },

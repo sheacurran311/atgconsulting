@@ -16,7 +16,7 @@ export default function CTA() {
       <div className="absolute inset-0 bg-dot-dark pointer-events-none" aria-hidden="true" />
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 60% 80% at 50% 100%, rgba(249,115,22,0.08) 0%, transparent 60%)" }}
+        style={{ background: "radial-gradient(ellipse 60% 80% at 50% 100%, rgba(59,107,255,0.08) 0%, transparent 60%)" }}
         aria-hidden="true"
       />
 
@@ -61,6 +61,9 @@ export default function CTA() {
             </span>
           </Link>
         </div>
+        <p className="mt-3 text-xs" style={{ color: "var(--ink-text-3)" }}>
+          Booking opens an external page.
+        </p>
 
         <p className="mt-8 text-sm" style={{ color: "var(--ink-text-3)" }}>
           Prefer to read first?{" "}

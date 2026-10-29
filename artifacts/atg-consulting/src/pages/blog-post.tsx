@@ -118,7 +118,7 @@ export default function BlogPostPage() {
 
       <footer style={{ borderTop: "1px solid var(--canvas-border)", background: "var(--canvas-1)", marginTop: "48px" }}>
         <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-wrap gap-4 items-center justify-between">
-          <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>© ATG Consulting LTD · CO · USA</p>
+          <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>© ATG Consulting LTD · Colorado, USA</p>
           <div className="flex gap-4">
             {[["Blog", "/blog"], ["Terms", "/terms"], ["Privacy", "/privacy"]].map(([l, t]) => (
               <Link key={t} to={t!}><span className="text-xs hover:underline" style={{ color: "var(--canvas-text-3)" }}>{l}</span></Link>

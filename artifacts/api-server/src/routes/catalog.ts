@@ -320,7 +320,7 @@ router.get("/client/catalog-matches", withUser, requireAuth, async (req, res) =>
   if (!intake) { res.json([]); return; }
 
   const matches = await prisma.catalogMatch.findMany({
-    where: { intakeId: intake.id },
+    where: { intakeId: intake.id, catalogItem: { verified: true, enabled: true } },
     include: { catalogItem: { select: { name: true, sourceType: true, sourceUrl: true, howItHelps: true, tierFit: true } } },
     orderBy: { score: "desc" },
   });

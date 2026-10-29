@@ -28,6 +28,27 @@ test("tier recommendation: not_sure + high comfort → self_serve", async () => 
   assert.equal(recommendTier({ helpStyle: "not_sure", aiComfort: 4, hoursLost: 40 }), "self_serve");
 });
 
+test("admin test mode is off unless ADMIN_TEST_MODE=true", async () => {
+  const savedAdmin = process.env.ADMIN_TEST_MODE;
+  const savedBilling = process.env.BILLING_ENABLED;
+  delete process.env.ADMIN_TEST_MODE;
+  delete process.env.BILLING_ENABLED;
+  try {
+    const { adminTestMode, billingActive } = await import("./lib/access");
+    assert.equal(adminTestMode(), false);
+    assert.equal(billingActive(), false);
+    process.env.BILLING_ENABLED = "false";
+    assert.equal(adminTestMode(), false, "billing off does not unlock workflows");
+    process.env.ADMIN_TEST_MODE = "true";
+    assert.equal(adminTestMode(), true);
+  } finally {
+    if (savedAdmin === undefined) delete process.env.ADMIN_TEST_MODE;
+    else process.env.ADMIN_TEST_MODE = savedAdmin;
+    if (savedBilling === undefined) delete process.env.BILLING_ENABLED;
+    else process.env.BILLING_ENABLED = savedBilling;
+  }
+});
+
 test("tier recommendation: not_sure + mid comfort → guided", async () => {
   const { recommendTier } = await import("./lib/llm");
   assert.equal(recommendTier({ helpStyle: "not_sure", aiComfort: 2, hoursLost: 8 }), "guided");

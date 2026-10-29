@@ -348,16 +348,16 @@ export default function AdminDiscoveryPage() {
                 {proposal && proposal.status === "draft" && (
                   <>
                     <a href={`/api/admin/discovery/${selected.id}/proposal.html`} target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
-                      Preview proposal →
+                      Print view
                     </a>
                     <button type="button" onClick={() => approveProposal(false)} disabled={approving} className="btn-primary text-sm" style={{ padding: "7px 14px", background: "#16A34A" }}>
-                      {approving ? "…" : "Approve & export PDF"}
+                      {approving ? "…" : "Approve"}
                     </button>
                   </>
                 )}
                 {proposal && proposal.status !== "draft" && (
                   <a href={`/api/admin/discovery/${selected.id}/proposal.html`} target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
-                    Open proposal PDF →
+                    Print view
                   </a>
                 )}
                 {!selected.clientId && (
