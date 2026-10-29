@@ -51,6 +51,7 @@ export default function AccountPage() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [billingEnabled] = useState(typeof window !== "undefined" && import.meta.env.VITE_BILLING_ENABLED === "true");
   const [accessLog, setAccessLog] = useState<AccessLogEntry[] | null>(null);
+  const [adminTestMode, setAdminTestMode] = useState(false);
 
   const tier = account?.tier ?? "NONE";
 
@@ -71,6 +72,7 @@ export default function AccountPage() {
 
   useEffect(() => {
     portalApi.accessLog().then(setAccessLog).catch(() => setAccessLog([]));
+    portalApi.status().then((s) => setAdminTestMode(s.testMode)).catch(() => setAdminTestMode(false));
   }, []);
 
   async function saveDigest(val: boolean) {
@@ -140,15 +142,20 @@ export default function AccountPage() {
         )}
 
         {/* Plan / tier */}
-        <Section title="Your plan" badge={billingEnabled ? "BILLING ACTIVE" : "TEST MODE"}>
+        <Section title="Your plan" badge={adminTestMode ? "ADMIN TEST MODE" : billingEnabled ? "BILLING ACTIVE" : undefined}>
           <div className="flex items-center justify-between gap-4 mb-3">
             <div>
               <p className="font-extrabold text-2xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.03em" }}>
                 {TIER_LABELS[tier] ?? tier}
               </p>
-              {!billingEnabled && (
+              {adminTestMode && (
                 <p className="text-xs mt-0.5" style={{ color: "var(--canvas-text-3)" }}>
-                  BILLING_ENABLED is not set — all workflows unlocked for testing.
+                  Admin test mode is on. Every enabled workflow is unlocked.
+                </p>
+              )}
+              {!adminTestMode && (
+                <p className="text-xs mt-0.5" style={{ color: "var(--canvas-text-3)" }}>
+                  Workflow access follows this plan.
                 </p>
               )}
             </div>

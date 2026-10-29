@@ -9,7 +9,7 @@ import { Router } from "express";
 import { prisma } from "../lib/db";
 import { generateDailyReport } from "../lib/reports";
 import { pruneOldChatLogs } from "../lib/ai-assist";
-import { generateWeeklyContent } from "../lib/contentAI";
+import { generateWeeklyContent, proposeContentTopics } from "../lib/contentAI";
 import { getGrokClient, GROK_MODEL, logFallback } from "../lib/grokClient";
 import { harvestCatalogNow } from "../lib/catalogHarvest";
 import { publishApprovedContent } from "../lib/contentPublish";
@@ -68,7 +68,9 @@ router.post("/cron/daily-reports", async (req, res) => {
     }
   }).catch(console.error);
 
-  // Weekly content: generate new drafts (every 7 calls ~ weekly when cron runs daily)
+  // Keep a queue of Grok topic ideas. Monday turns the oldest into drafts.
+  proposeContentTopics(4).catch(console.error);
+
   const dayOfWeek = new Date().getDay();
   if (dayOfWeek === 1) { // Monday
     generateWeeklyContent().then(({ created, tokensUsed }) => {

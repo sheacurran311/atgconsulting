@@ -13,8 +13,6 @@ const TIERS = [
     sheaRole: "You get Shea's expertise as a deliverable.",
     sheaDetail: "Complete the intake. Grok drafts a diagnosis of your situation — a recommended tool stack, setup guides for your AI platform (Grok Bot, Claude, or ChatGPT), and the workflows to install first. Shea reviews that draft before it reaches you. Email support within 2 business days.",
     price: "$197",
-    priceNote: "Founding price",
-    priceStrike: "$297",
     cta: "Get started",
     ctaHref: "/intake?tier=self_serve",
     external: false,
@@ -23,7 +21,7 @@ const TIERS = [
       "Personalised tool plan — which tools to use and why, for your specific business",
       "Platform setup guides (Grok Bot, Claude, or ChatGPT) with exact steps",
       "Recommended workflows to install first, as SKILL.md files",
-      "Access to all 10 ready-made workflows in the ATG Workbench app",
+      "Self-serve workflows in the Workbench: lead follow-up, inbox triage, review requests, social calendar, and SEO audit",
       "Email support — replies within 2 business days",
     ],
     notIncluded: ["1:1 calls with Shea", "Shea sets up or runs your workflows for you"],
@@ -42,7 +40,6 @@ const TIERS = [
     ctaHref: BOOKING_URL,
     external: true,
     featured: true,
-    badge: "Most popular",
     includes: [
       "Everything in Self-serve, including the diagnosis Shea reviews",
       "3 × 90-min 1:1 sessions with Shea (or 5 × for $1,497)",
@@ -171,14 +168,29 @@ export default function Tiers() {
                 </ul>
 
                 {t.external ? (
-                  <a
-                    href={t.ctaHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-primary w-full justify-center text-sm"
-                  >
-                    {t.cta}
-                  </a>
+                  <div>
+                    <a
+                      href={t.ctaHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary w-full justify-center text-sm"
+                    >
+                      {t.cta}
+                    </a>
+                    <p className="text-xs mt-2 text-center" style={{ color: t.featured ? "rgba(255,255,255,0.6)" : "var(--canvas-text-3)" }}>
+                      Opens Shea's booking page outside this site.
+                    </p>
+                    <Link to="/intake?tier=guided&sessions=3">
+                      <span className="block text-center text-xs mt-2 underline" style={{ color: "var(--blue)" }}>
+                        Or start a Guided intake (3 sessions)
+                      </span>
+                    </Link>
+                    <Link to="/intake?tier=guided&sessions=5">
+                      <span className="block text-center text-xs mt-1 underline" style={{ color: "var(--blue)" }}>
+                        Start a Guided intake (5 sessions)
+                      </span>
+                    </Link>
+                  </div>
                 ) : (
                   <Link to={t.ctaHref}>
                     <span className="btn-primary w-full justify-center text-sm" style={!t.featured ? { background: "var(--canvas-text)", color: "var(--canvas-1)" } : {}}>

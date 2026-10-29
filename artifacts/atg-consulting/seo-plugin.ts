@@ -12,6 +12,7 @@ import {
   injectDocumentHead,
   originFromHost,
   robotsTxt,
+  renderPrerenderedBlog,
   sitemapXml,
   type HeadInput,
   type SitemapPost,
@@ -150,9 +151,39 @@ async function handle(
   }
 }
 
+async function prerenderBuiltBlog(outDir: string): Promise<void> {
+  const indexPath = path.join(outDir, "index.html");
+  if (!fs.existsSync(indexPath)) return;
+  const indexHtml = fs.readFileSync(indexPath, "utf8");
+  const origin = (process.env.APP_URL ?? "https://atgconsulting.io").replace(/\/$/, "");
+  const posts: { slug: string; title: string; description: string; publishedAt: string | null }[] = [];
+  const listed = await loadPosts();
+  for (const row of listed) {
+    const post = await loadPost(row.slug);
+    if (!post || post === "missing") continue;
+    posts.push({ slug: row.slug, title: post.title, description: post.description, publishedAt: post.publishedAt });
+  }
+  const rendered = renderPrerenderedBlog(indexHtml, origin, posts);
+  const blogDir = path.join(outDir, "blog");
+  fs.mkdirSync(blogDir, { recursive: true });
+  fs.writeFileSync(path.join(blogDir, "index.html"), rendered.index);
+  for (const post of rendered.posts) {
+    const dir = path.join(blogDir, post.slug);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "index.html"), post.html);
+  }
+}
+
 export function seoPlugin(): Plugin {
+  let outDir = "";
   return {
     name: "atg-blog-seo",
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    async closeBundle() {
+      if (outDir) await prerenderBuiltBlog(outDir);
+    },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         void handle(req, res, next, async (url) => {

@@ -44,7 +44,7 @@ export default function SheaOperator() {
           {/* Left: identity */}
           <div>
             <p className="font-mono text-2xs mb-6" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
-              YOUR OPERATOR
+              WHO YOU WORK WITH
             </p>
 
             <div className="flex items-start gap-5 mb-6">
@@ -90,12 +90,15 @@ export default function SheaOperator() {
                 </span>
               </Link>
             </div>
+            <p className="text-xs mt-3" style={{ color: "var(--ink-text-3)" }}>
+              Opens an external booking page.
+            </p>
           </div>
 
           {/* Right: what Shea does */}
           <div>
             <p className="font-mono text-2xs mb-6" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
-              WHAT SHEA PERSONALLY DOES
+              WHAT CHANGES BY PLAN
             </p>
 
             <div className="space-y-0">
@@ -129,7 +132,7 @@ export default function SheaOperator() {
                 ATG Workbench = the workflows <span style={{ color: "var(--blue)" }}>+</span> Shea
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--ink-text-2)" }}>
-                The software runs the work. Shea designs it, tunes it, and stays accountable for the results.
+                The software drafts the work. You approve it. Shea&apos;s role follows the plan you choose.
               </p>
             </div>
           </div>

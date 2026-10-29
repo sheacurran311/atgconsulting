@@ -70,6 +70,8 @@ export default function IntakePage() {
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const resumeId = searchParams.get("resume");
   const editMode  = searchParams.get("edit") === "true";
+  const requestedTier = searchParams.get("tier");
+  const requestedSessions = searchParams.get("sessions");
   const inviteToken = matchInvite ? paramsInvite?.token : null;
   const engMemberToken = matchEngMember ? paramsEngMember?.token : null;
 
@@ -187,6 +189,8 @@ export default function IntakePage() {
       body: JSON.stringify({
         inviteToken: currentInviteToken.current,
         engMemberToken: currentEngMemberToken.current,
+        ...(requestedTier ? { requestedTier } : {}),
+        ...(requestedSessions ? { requestedSessions: Number(requestedSessions) } : {}),
       }),
     }).catch(() => null);
 

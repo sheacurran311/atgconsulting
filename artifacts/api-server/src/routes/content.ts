@@ -166,7 +166,7 @@ router.post("/admin/content/:id/approve", withUser, requireAdmin, async (req, re
 router.post("/admin/content/:id/publish", withUser, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const existing = await prisma.content.findUnique({ where: { id: req.params.id as string } });
-  if (!existing) { res.status(404).json({ error: "Not found." }); return; }
+  if (!existing) { res.status(404).json({ error: "Post not found." }); return; }
   if (existing.status !== "approved") {
     res.status(409).json({ error: "Approve the draft before publishing." });
     return;

@@ -8,6 +8,7 @@ import { Link } from "wouter";
 interface Post { id: string; topic: string; slug: string; title: string; status: string; source: string; tokensUsed: number; updatedAt: string }
 
 const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
+  queued:    { label: "Queued topic", color: "#6B6B6E", bg: "var(--canvas-2)" },
   draft:     { label: "Draft",     color: "#D97706", bg: "rgba(217,119,6,0.08)" },
   approved:  { label: "Approved",  color: "#3B6BFF", bg: "rgba(59,107,255,0.08)" },
   published: { label: "Published", color: "#16A34A", bg: "rgba(22,163,74,0.08)" },
@@ -69,7 +70,7 @@ export default function AdminContentPage() {
 
         {/* Status filter */}
         <div className="flex gap-1.5">
-          {["draft","approved","published",""].map((s) => (
+          {["queued","draft","approved","published",""].map((s) => (
             <button key={s} type="button" onClick={() => setFilter(s)}
               className="px-3 py-1.5 text-xs font-semibold rounded-md capitalize"
               style={{ background: filter === s ? "var(--blue)" : "var(--canvas-2)", color: filter === s ? "#fff" : "var(--canvas-text-2)", border: "none", cursor: "pointer" }}>
@@ -108,6 +109,10 @@ export default function AdminContentPage() {
                       <p className="font-mono text-xs" style={{ color: "var(--canvas-text-3)" }}>/blog/{post.slug} · {post.source} · {post.tokensUsed} tokens</p>
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
+                      {post.status === "queued" && (
+                        <button type="button" onClick={() => fetch(`/api/admin/content/${post.id}`, { method: "DELETE", credentials: "include" }).then(load)}
+                          className="btn-secondary text-xs" style={{ padding: "5px 10px" }}>Skip</button>
+                      )}
                       {post.status === "draft" && (
                         <button type="button" onClick={() => act(post.id, "approve")} disabled={acting === post.id}
                           className="btn-secondary text-xs" style={{ padding: "5px 10px" }}>Approve</button>

@@ -1,6 +1,9 @@
 /**
  * Pure HTML / sitemap helpers for the public blog.
- * The Vite server injects these into the initial index.html for /blog routes.
+ * Dev and preview servers inject these into the initial HTML for /blog routes.
+ * The production build also writes dist/public/blog/index.html and, when the
+ * content API is reachable, dist/public/blog/<slug>/index.html so a static
+ * host serves the tags without running Vite.
  * The API also serves /sitemap.xml and /robots.txt at the site root.
  */
 
@@ -13,7 +16,6 @@ export const BLOG_DESCRIPTION =
 
 export const PUBLIC_PATHS: { path: string; changefreq: string; priority: string }[] = [
   { path: "/", changefreq: "weekly", priority: "1.0" },
-  { path: "/intake", changefreq: "monthly", priority: "0.9" },
   { path: "/blog", changefreq: "daily", priority: "0.8" },
   { path: "/terms", changefreq: "yearly", priority: "0.3" },
   { path: "/privacy", changefreq: "yearly", priority: "0.3" },
@@ -132,6 +134,20 @@ export function injectDocumentHead(html: string, input: HeadInput): string {
     next = next.replace("</head>", `    ${ld}\n  </head>`);
   }
   return next;
+}
+
+export function renderPrerenderedBlog(
+  indexHtml: string,
+  origin: string,
+  posts: Array<{ slug: string; title: string; description: string; publishedAt?: string | null }>,
+): { index: string; posts: Array<{ slug: string; html: string }> } {
+  return {
+    index: injectDocumentHead(indexHtml, blogIndexHead(origin)),
+    posts: posts.map((post) => ({
+      slug: post.slug,
+      html: injectDocumentHead(indexHtml, articleHead(origin, post)),
+    })),
+  };
 }
 
 export function sitemapXml(origin: string, posts: SitemapPost[]): string {

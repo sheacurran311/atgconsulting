@@ -35,7 +35,7 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 function gateEnabled(res: Parameters<typeof requireAuth>[1]): boolean {
   if (!isEnabled()) {
     (res as import("express").Response).status(503).json({
-      error: "AI Assist is not enabled. Set AI_ASSIST_ENABLED=true in Replit Secrets.",
+      error: "AI is turned off. Set AI_ASSIST_ENABLED to anything other than false.",
     });
     return false;
   }
@@ -106,7 +106,8 @@ router.post("/ai-assist/coach", async (req, res) => {
   const user = sanitiseText(parsed.data.message, 1000);
 
   const result = await callAssist({ system, history, user, maxTokens: 500, model: DEFAULT_MODEL }).catch((err) => {
-    res.status(500).json({ error: err instanceof Error ? err.message : "AI call failed." });
+    const unavailable = err instanceof Error && err.name === "AiUnavailableError";
+    res.status(unavailable ? 503 : 500).json({ error: err instanceof Error ? err.message : "AI call failed." });
     return null;
   });
   if (!result) return;
@@ -189,7 +190,8 @@ router.post("/ai-assist/customize-skill", async (req, res) => {
     maxTokens: 1200,
     model: DEFAULT_MODEL,
   }).catch((err) => {
-    res.status(500).json({ error: err instanceof Error ? err.message : "AI call failed." });
+    const unavailable = err instanceof Error && err.name === "AiUnavailableError";
+    res.status(unavailable ? 503 : 500).json({ error: err instanceof Error ? err.message : "AI call failed." });
     return null;
   });
   if (!result) return;
@@ -242,7 +244,8 @@ router.post("/ai-assist/troubleshoot", async (req, res) => {
     imageBase64: parsed.data.imageBase64,
     imageMime:   parsed.data.imageMime,
   }).catch((err) => {
-    res.status(500).json({ error: err instanceof Error ? err.message : "AI call failed." });
+    const unavailable = err instanceof Error && err.name === "AiUnavailableError";
+    res.status(unavailable ? 503 : 500).json({ error: err instanceof Error ? err.message : "AI call failed." });
     return null;
   });
   if (!result) return;

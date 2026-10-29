@@ -45,5 +45,48 @@ export async function ensureClientForVerifiedUser(
     data: { clientId },
   });
 
+  await applyRequestedTier(clientId);
+
   return clientId;
+}
+
+const TIER_FROM_REQUEST: Record<string, string> = {
+  SELF_SERVE: "SELF_SERVE",
+  GUIDED: "GUIDED",
+};
+
+/** Copy a prospect's chosen Self-serve or Guided tier onto a still-unset client. */
+async function applyRequestedTier(clientId: string): Promise<void> {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { tier: true, guidedSessionsTotal: true },
+  });
+  if (!client || client.tier !== "NONE") return;
+
+  const intake = await prisma.discoveryIntake.findFirst({
+    where: { clientId, requestedTier: { not: null } },
+    orderBy: { createdAt: "desc" },
+    select: { requestedTier: true, requestedSessions: true },
+  });
+  if (!intake?.requestedTier) return;
+
+  if (intake.requestedTier === "WHITE_GLOVE") {
+    await prisma.client.update({
+      where: { id: clientId },
+      data: { helpStyle: "done_for_you" },
+    });
+    return;
+  }
+
+  const tier = TIER_FROM_REQUEST[intake.requestedTier];
+  if (!tier) return;
+  const sessions = intake.requestedSessions === 5 ? 5 : 3;
+  await prisma.client.update({
+    where: { id: clientId },
+    data: {
+      tier,
+      helpStyle: tier === "GUIDED" ? "guided" : "self_serve",
+      ...(tier === "GUIDED" && client.guidedSessionsTotal == null ? { guidedSessionsTotal: sessions } : {}),
+    },
+  });
 }

@@ -56,7 +56,7 @@ export const clerkAppearance = {
     logoBox: { marginBottom: "1.25rem" },
     logoImage: { width: "180px", height: "auto" },
     socialButtonsBlockButton: { background: "#ffffff", border: "1px solid #d9e1ed" },
-    formButtonPrimary: { background: "#0A0A0B", color: "#ffffff", minHeight: "44px" },
+    formButtonPrimary: { background: "#2557E8", color: "#ffffff", minHeight: "44px" },
     formFieldInput: { background: "#ffffff", color: "#0A0A0B", border: "1px solid #b3c3da", minHeight: "44px" },
     footerAction: { background: "#f0f3f8" },
     dividerLine: { background: "#d9e1ed" },

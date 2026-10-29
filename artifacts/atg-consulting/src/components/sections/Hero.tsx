@@ -1,6 +1,6 @@
 /**
  * Hero — "We build the AI workflows. You get the hours back."
- * Shows the shipped product: 10 workflows across all business types.
+ * Shows the shipped product: ready-made workflows across business types.
  * Grouped by business need; approval-first; portable as skills.
  * Shea is visibly the operator. No invented stats or testimonials.
  */
@@ -44,9 +44,9 @@ export default function Hero() {
         {/* Eyebrow */}
         <div className="flex items-center gap-3 mb-8">
           <LogoMark variant="dark" size={18} aria-hidden blink />
-          <span className="font-mono text-2xs" style={{ color: "var(--ink-text-3)", letterSpacing: "0.08em" }}>ATG CONSULTING · CO · USA</span>
+          <span className="font-mono text-2xs" style={{ color: "var(--ink-text-3)", letterSpacing: "0.08em" }}>ATG CONSULTING · Colorado, USA</span>
           <span className="w-px h-3" style={{ background: "var(--ink-border)" }} aria-hidden="true" />
-          <span className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>10 WORKFLOWS · DONE FOR YOU</span>
+          <span className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>YOU APPROVE WHAT GOES OUT</span>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12 items-start">
@@ -58,16 +58,16 @@ export default function Hero() {
             </h1>
 
             <p className="text-md leading-relaxed mb-4" style={{ color: "var(--ink-text-2)", maxWidth: "480px" }}>
-              Shea designs and runs AI workflows tailored to your specific business — across admin,
-              marketing, sales, and customer support. You review and approve the output.
-              Nothing is sent automatically.
+              Shea designs AI workflows for your business — admin, marketing, sales, and customer support.
+              Self-serve means you install them from a diagnosis she reviews. Guided means she joins you on calls.
+              Done-for-you means she runs them. You approve the output. Nothing is sent automatically.
             </p>
 
             <div className="space-y-2 mb-7">
               {[
                 "Approval-first — every output lands in your inbox for review",
                 "Portable — take any workflow as a skill into Grok Bot or Claude",
-                "Human-led — Shea designs, tunes, and runs it",
+                "Three ways to work — run it yourself, build it with Shea, or have her run it",
               ].map((point) => (
                 <p key={point} className="flex gap-2 text-sm" style={{ color: "var(--ink-text-2)" }}>
                   <span style={{ color: "var(--blue)" }}>›</span>

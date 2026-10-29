@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation, Redirect } from "wouter";
 import {
   BarChart3,
@@ -34,11 +35,17 @@ const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Audit log",   to: "/admin/audit",              icon: ScrollText },
 ];
 
+const MOBILE_PRIMARY = new Set(["/admin/today", "/admin/discovery", "/admin/clients"]);
+
 interface Props { children: React.ReactNode }
 
 export default function AdminShell({ children }: Props) {
   const { account, loading } = useAccount();
   const [location] = useLocation();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const mobilePrimary = navItems.filter((item) => MOBILE_PRIMARY.has(item.to));
+  const mobileMore = navItems.filter((item) => !MOBILE_PRIMARY.has(item.to));
+  const moreActive = mobileMore.some((item) => location.startsWith(item.to));
 
   if (loading) {
     return (
@@ -96,25 +103,53 @@ export default function AdminShell({ children }: Props) {
         </div>
       </aside>
 
-      {/* Mobile top tabs */}
+      {/* Mobile top tabs — Today, Intakes, Clients, and the rest under More */}
       <div
-        className="md:hidden fixed top-0 left-0 right-0 z-40 flex"
-        style={{ background: "var(--ink)", borderBottom: "1px solid var(--ink-border)", overflowX: "auto", overflowY: "hidden" }}
+        className="md:hidden fixed top-0 left-0 right-0 z-40"
+        style={{ background: "var(--ink)", borderBottom: "1px solid var(--ink-border)" }}
       >
-        <div className="flex-shrink-0 px-2 py-1.5 flex items-center">
-          <AdminSwitcher variant="compact" />
+        <div className="flex items-center">
+          <div className="flex-shrink-0 px-2 py-1.5 flex items-center">
+            <AdminSwitcher variant="compact" />
+          </div>
+          {mobilePrimary.map((item) => (
+            <Link key={item.to} to={item.to}>
+              <span
+                className="flex items-center gap-1.5 flex-shrink-0 px-3 py-2.5 text-xs font-semibold whitespace-nowrap cursor-pointer"
+                style={{ color: "#FFFFFF" }}
+                onClick={() => setMoreOpen(false)}
+              >
+                <item.icon className="w-3.5 h-3.5" aria-hidden="true" strokeWidth={1.75} style={{ color: location.startsWith(item.to) ? "var(--blue)" : "#FFFFFF" }} />
+                {item.label}
+              </span>
+            </Link>
+          ))}
+          <button
+            type="button"
+            className="flex items-center gap-1.5 flex-shrink-0 px-3 py-2.5 text-xs font-semibold whitespace-nowrap"
+            style={{ color: moreActive || moreOpen ? "var(--blue)" : "#FFFFFF", background: "transparent", border: 0 }}
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((open) => !open)}
+          >
+            More
+          </button>
         </div>
-        {navItems.map((item) => (
-          <Link key={item.to} to={item.to}>
-            <span
-              className="flex items-center gap-1.5 flex-shrink-0 px-4 py-2.5 text-xs font-semibold whitespace-nowrap cursor-pointer"
-              style={{ color: "#FFFFFF" }}
-            >
-              <item.icon className="w-3.5 h-3.5" aria-hidden="true" strokeWidth={1.75} style={{ color: location.startsWith(item.to) ? "var(--blue)" : "#FFFFFF" }} />
-              {item.label}
-            </span>
-          </Link>
-        ))}
+        {moreOpen && (
+          <div className="grid grid-cols-2 gap-1 px-2 pb-2" style={{ borderTop: "1px solid var(--ink-border)" }}>
+            {mobileMore.map((item) => (
+              <Link key={item.to} to={item.to}>
+                <span
+                  className="flex items-center gap-1.5 px-2 py-2 text-xs font-semibold cursor-pointer"
+                  style={{ color: "#FFFFFF" }}
+                  onClick={() => setMoreOpen(false)}
+                >
+                  <item.icon className="w-3.5 h-3.5" aria-hidden="true" strokeWidth={1.75} style={{ color: location.startsWith(item.to) ? "var(--blue)" : "#FFFFFF" }} />
+                  {item.label}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Main */}
