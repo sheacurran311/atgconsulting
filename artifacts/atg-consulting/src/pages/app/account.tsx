@@ -201,11 +201,11 @@ export default function AccountPage() {
                 ))}
               </div>
               <div className="flex items-center gap-3">
-                <Link to="/intake">
+                <Link to="/intake?edit=true">
                   <span className="btn-secondary text-sm py-2 px-3">Edit my intake →</span>
                 </Link>
                 <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
-                  Submitting a new intake re-personalises your Workbench.
+                  Your existing answers are pre-filled. Submitting re-personalises your Workbench.
                 </p>
               </div>
             </div>

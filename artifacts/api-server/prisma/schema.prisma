@@ -1118,3 +1118,31 @@ model CatalogMatch {
   @@index([intakeId])
   @@index([catalogItemId])
 }
+
+// ── Content / Blog engine ────────────────────────────────────────────────────
+
+/// Blog post or content piece. Grok generates drafts; Shea approves.
+/// Published posts appear at /blog/:slug. No invented stats or testimonials.
+model Content {
+  id                  String    @id @default(cuid())
+  topic               String    // short internal topic label
+  slug                String    @unique
+  title               String
+  metaDescription     String    @default("")
+  body                String    @default("")   // markdown
+  /// draft | approved | published
+  status              String    @default("draft")
+  publishAt           DateTime?
+  /// JSON array of tag strings
+  tags                String    @default("[]")
+  /// JSON array of CatalogItem IDs for internal linking
+  linkedCatalogItems  String    @default("[]")
+  /// grok | manual
+  source              String    @default("grok")
+  tokensUsed          Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([status, publishAt])
+  @@index([slug])
+}

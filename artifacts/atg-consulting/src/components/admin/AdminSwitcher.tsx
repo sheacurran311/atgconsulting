@@ -74,26 +74,31 @@ export default function AdminSwitcher() {
 
   async function startImpersonation(clientId: string) {
     setStarting(true);
-    await fetch("/api/admin/impersonate", {
+    const r = await fetch("/api/admin/impersonate", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ clientId }),
     });
     setStarting(false);
     setOpen(false);
-    setLocation("/app");
+    if (r.ok) {
+      // Full navigation so the impersonation cookie is picked up by the server
+      window.location.href = "/app";
+    }
   }
 
   async function startTestClient(tier: TestTier) {
     setStarting(true);
-    await fetch("/api/admin/test-client", {
+    const r = await fetch("/api/admin/test-client", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tier }),
     });
     setStarting(false);
     setOpen(false);
-    setLocation("/app");
+    if (r.ok) {
+      window.location.href = "/app";
+    }
   }
 
   const TIER_LABELS: Record<string, string> = {

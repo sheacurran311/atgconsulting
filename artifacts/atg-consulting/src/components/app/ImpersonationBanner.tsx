@@ -36,7 +36,7 @@ export default function ImpersonationBanner() {
   async function exit() {
     setExiting(true);
     await fetch("/api/admin/impersonate", { method: "DELETE", credentials: "include" });
-    setLocation("/admin/clients");
+    window.location.href = "/admin/clients";
   }
 
   async function toggleEdits() {

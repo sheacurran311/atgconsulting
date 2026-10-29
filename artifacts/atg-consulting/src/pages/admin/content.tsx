@@ -1,73 +1,133 @@
+/**
+ * Admin content page — list and approve/publish blog drafts.
+ */
 import { useState, useEffect } from "react";
 import AdminShell from "@/components/admin/AdminShell";
-import { api, type Module } from "@/lib/api";
+import { Link } from "wouter";
 
-const TIER_OPTIONS = ["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"];
+interface Post { id: string; topic: string; slug: string; title: string; status: string; source: string; tokensUsed: number; updatedAt: string }
+
+const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
+  draft:     { label: "Draft",     color: "#D97706", bg: "rgba(217,119,6,0.08)" },
+  approved:  { label: "Approved",  color: "#3B6BFF", bg: "rgba(59,107,255,0.08)" },
+  published: { label: "Published", color: "#16A34A", bg: "rgba(22,163,74,0.08)" },
+  archived:  { label: "Archived",  color: "var(--canvas-text-3)", bg: "var(--canvas-2)" },
+};
 
 export default function AdminContentPage() {
-  const [modules, setModules] = useState<Module[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ slug: "", title: "", description: "", minTier: "NONE", body: "", status: "DRAFT" as "DRAFT" | "PUBLISHED", order: 0 });
+  const [filter, setFilter] = useState("draft");
+  const [acting, setActing] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [genTopic, setGenTopic] = useState("");
+  const [genAngle, setGenAngle] = useState("");
+  const [genMsg, setGenMsg] = useState<string | null>(null);
 
-  useEffect(() => { api.admin.modules.list().then(setModules).finally(() => setLoading(false)); }, []);
-
-  async function createModule() {
-    setCreating(true);
-    const m = await api.admin.modules.create(form).catch(() => null);
-    if (m) setModules((prev) => [...prev, m]);
-    setForm({ slug: "", title: "", description: "", minTier: "NONE", body: "", status: "DRAFT", order: 0 });
-    setCreating(false);
+  function load() {
+    setLoading(true);
+    fetch(`/api/admin/content${filter ? `?status=${filter}` : ""}`, { credentials: "include" })
+      .then((r) => r.json() as Promise<Post[]>).then(setPosts).catch(() => null).finally(() => setLoading(false));
   }
 
-  async function toggleStatus(m: Module) {
-    const newStatus = m.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
-    const updated = await api.admin.modules.update(m.id, { status: newStatus }).catch(() => null);
-    if (updated) setModules((prev) => prev.map((x) => x.id === m.id ? updated : x));
+  useEffect(() => { load(); }, [filter]);
+
+  async function act(id: string, action: "approve" | "publish") {
+    setActing(id);
+    await fetch(`/api/admin/content/${id}/${action}`, { method: "POST", credentials: "include" });
+    setActing(null);
+    load();
+  }
+
+  async function generate() {
+    if (!genTopic.trim()) return;
+    setGenerating(true);
+    const r = await fetch("/api/admin/content/generate", {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic: genTopic, angle: genAngle || `Practical guide to ${genTopic} for small businesses` }),
+    });
+    const d = await r.json() as { title?: string; error?: string };
+    setGenMsg(d.title ? `✓ Created: "${d.title}"` : d.error ?? "Done");
+    setGenTopic(""); setGenAngle("");
+    setGenerating(false);
+    load();
   }
 
   return (
     <AdminShell>
-      <div className="max-w-4xl mx-auto space-y-8">
-        <h1 className="text-2xl font-extrabold text-canvas-text">Content manager</h1>
-
-        {/* Create module */}
-        <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-6">
-          <p className="font-bold text-canvas-text mb-4">Add module</p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="slug (e.g. intro-to-ai)" className="rounded-xl border border-canvas-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue" />
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Title" className="rounded-xl border border-canvas-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue" />
-            <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Short description" className="rounded-xl border border-canvas-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue sm:col-span-2" />
-            <select value={form.minTier} onChange={(e) => setForm({ ...form, minTier: e.target.value })} className="rounded-xl border border-canvas-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue">
-              {TIER_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as "DRAFT" | "PUBLISHED" })} className="rounded-xl border border-canvas-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue">
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published</option>
-            </select>
+      <div className="max-w-content mx-auto space-y-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>CONTENT ENGINE</p>
+            <h1 className="font-extrabold text-2xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.025em" }}>{posts.length} post{posts.length !== 1 ? "s" : ""}</h1>
           </div>
-          <textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={4} placeholder="Module body (markdown)" className="w-full mt-3 rounded-xl border border-canvas-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue resize-none" />
-          <button onClick={createModule} disabled={creating || !form.slug || !form.title} className="btn-primary text-sm mt-3">Add module</button>
+          <div className="flex gap-2">
+            <Link to="/blog" target="_blank"><span className="btn-secondary text-sm" style={{ padding: "7px 12px" }}>View blog ↗</span></Link>
+          </div>
         </div>
 
-        {/* Module list */}
-        <div className="space-y-3">
-          <p className="font-bold text-canvas-text">Published modules ({modules.filter((m) => m.status === "PUBLISHED").length}) · Drafts ({modules.filter((m) => m.status === "DRAFT").length})</p>
-          {loading ? <p className="text-canvas-text">Loading…</p> : modules.map((m) => (
-            <div key={m.id} className="rounded-2xl border border-canvas-border bg-canvas-1 p-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold text-canvas-text text-sm">{m.title}</p>
-                <p className="text-canvas-text text-xs">{m.slug} · Min tier: {m.minTier} · Order: {m.order}</p>
-              </div>
-              <div className="flex gap-2 items-center">
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${m.status === "PUBLISHED" ? "bg-green-50 text-green-700" : "bg-canvas-2 text-canvas-text"}`}>{m.status.toLowerCase()}</span>
-                <button onClick={() => toggleStatus(m)} className="btn-ghost text-xs py-1 px-2">
-                  {m.status === "PUBLISHED" ? "Unpublish" : "Publish"}
-                </button>
-              </div>
-            </div>
+        {/* Status filter */}
+        <div className="flex gap-1.5">
+          {["draft","approved","published",""].map((s) => (
+            <button key={s} type="button" onClick={() => setFilter(s)}
+              className="px-3 py-1.5 text-xs font-semibold rounded-md capitalize"
+              style={{ background: filter === s ? "var(--blue)" : "var(--canvas-2)", color: filter === s ? "#fff" : "var(--canvas-text-2)", border: "none", cursor: "pointer" }}>
+              {s || "All"}
+            </button>
           ))}
         </div>
+
+        {/* Generate */}
+        <div className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+          <p className="font-mono text-2xs mb-2" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>GENERATE NEW DRAFT</p>
+          <div className="flex gap-2 mb-2">
+            <input className="field-input text-sm flex-1" placeholder="Topic slug (e.g. invoice-follow-up)" value={genTopic} onChange={(e) => setGenTopic(e.target.value)} />
+            <input className="field-input text-sm flex-1" placeholder="Angle (optional)" value={genAngle} onChange={(e) => setGenAngle(e.target.value)} />
+            <button type="button" onClick={generate} disabled={generating || !genTopic.trim()} className="btn-primary text-sm" style={{ padding: "7px 14px", flexShrink: 0 }}>
+              {generating ? "Generating…" : "Generate"}
+            </button>
+          </div>
+          {genMsg && <p className="text-xs" style={{ color: "#16A34A" }}>{genMsg}</p>}
+        </div>
+
+        {loading ? <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
+        : posts.length === 0 ? <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>No {filter || "posts"} yet.</p>
+        : (
+          <div className="space-y-3">
+            {posts.map((post) => {
+              const st = STATUS_STYLES[post.status] ?? STATUS_STYLES.draft!;
+              return (
+                <div key={post.id} className="rounded-xl p-4" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="font-semibold text-sm truncate" style={{ color: "var(--canvas-text)" }}>{post.title}</p>
+                        <span className="font-mono text-2xs px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: st.bg, color: st.color }}>{st.label}</span>
+                      </div>
+                      <p className="font-mono text-xs" style={{ color: "var(--canvas-text-3)" }}>/blog/{post.slug} · {post.source} · {post.tokensUsed} tokens</p>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      {post.status === "draft" && (
+                        <button type="button" onClick={() => act(post.id, "approve")} disabled={acting === post.id}
+                          className="btn-secondary text-xs" style={{ padding: "5px 10px" }}>Approve</button>
+                      )}
+                      {post.status === "approved" && (
+                        <button type="button" onClick={() => act(post.id, "publish")} disabled={acting === post.id}
+                          className="btn-primary text-xs" style={{ padding: "5px 10px" }}>Publish</button>
+                      )}
+                      {post.status === "published" && (
+                        <Link to={`/blog/${post.slug}`} target="_blank">
+                          <span className="text-xs underline" style={{ color: "var(--blue)" }}>View ↗</span>
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </AdminShell>
   );

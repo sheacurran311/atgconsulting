@@ -289,3 +289,5 @@ Admin UI: "Re-run personalization" button on client detail page.
 `SkillLauncher.tsx` accepts `personalizedSlugs` and `testMode` from portal status.
 Featured slugs (top-3 from personalization) appear first with a ★ marker and blue border.
 Test mode shows a notice and unlocks all workflows.
+
+| **#37** | `cursor/admin-automation-c8a4` | Admin Today, content engine, blog, intake editing, View-as-client fix, catalog auto-check | **YES** (Content) | No |

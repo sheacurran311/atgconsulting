@@ -37,6 +37,9 @@ import AdminAIUsagePage from "@/pages/admin/ai-usage";
 import AdminDiscoveryPage from "@/pages/admin/discovery";
 import AdminEngagementsPage from "@/pages/admin/engagements";
 import AdminCatalogPage from "@/pages/admin/catalog";
+import AdminTodayPage from "@/pages/admin/today";
+import BlogPage from "@/pages/blog";
+import BlogPostPage from "@/pages/blog-post";
 
 function Metadata() {
   const [location] = useLocation();
@@ -153,6 +156,9 @@ function AuthenticatedApp() {
         <Route path="/admin/discovery" component={AdminDiscoveryPage} />
         <Route path="/admin/engagements" component={AdminEngagementsPage} />
         <Route path="/admin/catalog" component={AdminCatalogPage} />
+        <Route path="/admin/today" component={AdminTodayPage} />
+        <Route path="/blog" component={BlogPage} />
+        <Route path="/blog/:slug" component={BlogPostPage} />
 
         {/* Legacy */}
         <Route path="/user-portal" component={() => <Redirect to="/app" />} />

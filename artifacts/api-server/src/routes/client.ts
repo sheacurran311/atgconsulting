@@ -256,4 +256,46 @@ router.get("/client/intake/history", requireAuth, async (req, res) => {
   res.json(intakes);
 });
 
+// ── Intake prefill for adaptive edit flow ─────────────────────────────────────
+
+router.get("/client/intake/prefill", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).atgUser!;
+  if (!user.clientId) { res.json({ answers: [], sessionId: null }); return; }
+
+  // First: try DiscoveryIntake (the adaptive intake)
+  const discovery = await prisma.discoveryIntake.findFirst({
+    where: { clientId: user.clientId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, answers: true, contactEmail: true, contactName: true },
+  });
+
+  if (discovery) {
+    const answers: unknown[] = (() => { try { return JSON.parse(discovery.answers) as unknown[]; } catch { return []; } })();
+    res.json({ answers, sessionId: discovery.id, source: "discovery" });
+    return;
+  }
+
+  // Fallback: legacy Intake answers → convert to Q&A format
+  const legacy = await prisma.intake.findFirst({
+    where: { clientId: user.clientId },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!legacy) { res.json({ answers: [], sessionId: null }); return; }
+
+  const legacyAnswers: Array<{ id: string; category: string; question: string; answer: string }> = [];
+  if (legacy.name)      legacyAnswers.push({ id: "contact_name", category: "contact", question: "What's your name?", answer: legacy.name });
+  if (legacy.email)     legacyAnswers.push({ id: "contact_email", category: "contact", question: "What's your email?", answer: legacy.email });
+  if (legacy.helpStyle) legacyAnswers.push({ id: "preferredHelp", category: "goals", question: "How do you prefer to get help?", answer: legacy.helpStyle });
+
+  const legacyAnswersJSON: Record<string, unknown> = (() => { try { return JSON.parse(legacy.answers ?? "{}") as Record<string, unknown>; } catch { return {}; } })();
+  if (legacyAnswersJSON.industry) legacyAnswers.push({ id: "business_type", category: "company", question: "What type of business?", answer: legacyAnswersJSON.industry as string });
+  if (legacyAnswersJSON.role)     legacyAnswers.push({ id: "role", category: "company", question: "What's your role?", answer: legacyAnswersJSON.role as string });
+  if (legacy.areas) {
+    const areas: string[] = (() => { try { return JSON.parse(legacy.areas) as string[]; } catch { return []; } })();
+    if (areas.length > 0) legacyAnswers.push({ id: "top_problems", category: "company", question: "Describe what eats your time.", answer: `Focus areas: ${areas.join(", ")}` });
+  }
+
+  res.json({ answers: legacyAnswers, sessionId: null, source: "legacy" });
+});
+
 export default router;

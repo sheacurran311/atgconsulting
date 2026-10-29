@@ -69,6 +69,7 @@ export default function IntakePage() {
   // URL params for resume
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const resumeId = searchParams.get("resume");
+  const editMode  = searchParams.get("edit") === "true";
   const inviteToken = matchInvite ? paramsInvite?.token : null;
   const engMemberToken = matchEngMember ? paramsEngMember?.token : null;
 
@@ -224,6 +225,22 @@ export default function IntakePage() {
     }, 700);
     return () => clearTimeout(timer);
   }, [engMemberToken, prefilledEmail]);
+
+  // Edit mode: pre-fill from server and start a fresh adaptive session
+  useEffect(() => {
+    if (!editMode) return;
+    fetch("/api/client/intake/prefill", { credentials: "include" })
+      .then((r) => r.json() as Promise<{ answers: Array<{ id: string; category: string; question: string; answer: string }>; sessionId: string | null }>)
+      .then((d) => {
+        if (d.answers.length > 0) setAnswered(d.answers);
+        if (d.sessionId) {
+          startSession(d.sessionId); // resume from their latest discovery session
+        } else {
+          setPhase("email"); // start fresh but prefilled
+        }
+      })
+      .catch(() => setPhase("email"));
+  }, [editMode]);
 
   // Auto-start when arriving via personal invite link (go to email step first unless email is prefilled)
   useEffect(() => {

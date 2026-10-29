@@ -21,9 +21,11 @@ import AdminSwitcher from "@/components/admin/AdminSwitcher";
 import { markClientView } from "@/lib/viewMode";
 
 const navItems: { label: string; to: string; icon: LucideIcon }[] = [
+  { label: "Today",       to: "/admin/today",              icon: Sparkles },
   { label: "Discovery",   to: "/admin/discovery",          icon: Search },
   { label: "Engagements", to: "/admin/engagements",        icon: Users },
   { label: "Catalog",     to: "/admin/catalog",            icon: Search },
+  { label: "Content",     to: "/admin/content",            icon: BookOpen },
   { label: "Clients",     to: "/admin/clients",            icon: Contact },
   { label: "Intakes (legacy)",     to: "/admin/intakes",            icon: ClipboardList },
   { label: "Plans & DFY", to: "/admin/tiers",              icon: Layers },

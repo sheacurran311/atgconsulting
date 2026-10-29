@@ -3,6 +3,7 @@ import { TEMPLATE_SEEDS, PHASE2_SEEDS, PHASE3_SEEDS } from "./templates";
 import { seedTools } from "./toolSeeds";
 import { seedKnowledgeArticles } from "./knowledgeSeeds";
 import { seedCatalog } from "./catalogSeeds";
+import { seedInitialContent } from "./contentAI";
 
 // PrismaClient singleton — prevents multiple instances during hot reload in dev.
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
@@ -26,6 +27,7 @@ export async function initializeDatabase(): Promise<void> {
   await seedTools(prisma).catch(console.error);
   await seedKnowledgeArticles(prisma).catch(console.error);
   await seedCatalog(prisma).catch(console.error);
+  await seedInitialContent().catch(console.error);
 }
 
 async function seedWorkflowTemplates(): Promise<void> {
