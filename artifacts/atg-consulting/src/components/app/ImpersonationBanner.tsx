@@ -4,7 +4,7 @@
  * Blocks the viewport top; the rest of the portal scrolls below it.
  */
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { clearClientView } from "@/lib/viewMode";
 
 interface BannerState {
   active: boolean;
@@ -15,14 +15,13 @@ interface BannerState {
 }
 
 const TIER_LABELS: Record<string, string> = {
-  NONE: "No plan", SELF_SERVE: "Self-serve", GUIDED: "Guided", WHITE_GLOVE: "Done-for-you",
+  NONE: "No plan", SELF_SERVE: "Self-serve", GUIDED: "Guided", WHITE_GLOVE: "White Glove",
 };
 
 export default function ImpersonationBanner() {
   const [state, setState] = useState<BannerState | null>(null);
   const [togglingEdits, setTogglingEdits] = useState(false);
   const [exiting, setExiting] = useState(false);
-  const [, setLocation] = useLocation();
 
   useEffect(() => {
     fetch("/api/admin/impersonate/status", { credentials: "include" })
@@ -35,6 +34,7 @@ export default function ImpersonationBanner() {
 
   async function exit() {
     setExiting(true);
+    clearClientView();
     await fetch("/api/admin/impersonate", { method: "DELETE", credentials: "include" });
     window.location.href = "/admin/clients";
   }
@@ -67,10 +67,7 @@ export default function ImpersonationBanner() {
         ADMIN VIEW
       </span>
       <span className="font-semibold">
-        Viewing as {state.clientName}
-      </span>
-      <span className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ background: "rgba(255,255,255,0.2)", letterSpacing: "0.05em" }}>
-        {TIER_LABELS[state.clientTier] ?? state.clientTier}
+        Viewing as {state.clientName} ({TIER_LABELS[state.clientTier] ?? state.clientTier})
       </span>
 
       {state.allowEdits && (
@@ -94,7 +91,7 @@ export default function ImpersonationBanner() {
           className="text-xs font-semibold px-2.5 py-1 rounded"
           style={{ background: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", cursor: "pointer" }}
         >
-          {exiting ? "Exiting…" : "Exit to admin →"}
+          {exiting ? "Exiting…" : "Exit"}
         </button>
       </div>
     </div>

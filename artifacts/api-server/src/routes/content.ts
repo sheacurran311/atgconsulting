@@ -41,14 +41,6 @@ router.get("/content", async (_req, res) => {
   res.json(posts.map((p) => ({ ...p, tags: (() => { try { return JSON.parse(p.tags) as string[]; } catch { return []; } })() })));
 });
 
-router.get("/content/:slug", async (req, res) => {
-  const post = await prisma.content.findFirst({
-    where: { slug: req.params.slug as string, status: "published" },
-  });
-  if (!post) { res.status(404).json({ error: "Post not found." }); return; }
-  res.json({ ...post, tags: (() => { try { return JSON.parse(post.tags) as string[]; } catch { return []; } })() });
-});
-
 // ── Public: RSS feed ──────────────────────────────────────────────────────────
 
 router.get("/content/feed.rss", async (_req, res) => {
@@ -96,6 +88,19 @@ router.get("/content/sitemap.xml", async (_req, res) => {
   ).join("\n");
   res.setHeader("Content-Type", "application/xml");
   res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`);
+});
+
+router.get("/content/:slug", async (req, res) => {
+  const slug = req.params.slug as string;
+  if (slug === "feed.rss" || slug === "sitemap.xml") {
+    res.status(404).json({ error: "Post not found." });
+    return;
+  }
+  const post = await prisma.content.findFirst({
+    where: { slug, status: "published" },
+  });
+  if (!post) { res.status(404).json({ error: "Post not found." }); return; }
+  res.json({ ...post, tags: (() => { try { return JSON.parse(post.tags) as string[]; } catch { return []; } })() });
 });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────

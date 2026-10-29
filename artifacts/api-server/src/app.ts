@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
+import seoPublicRouter from "./routes/seoPublic";
 import { logger } from "./lib/logger";
 import { isIP } from "node:net";
 import { clerkMiddleware } from "@clerk/express";
@@ -85,6 +86,7 @@ app.use(
   })),
 );
 
+app.use(seoPublicRouter);
 app.use("/api", router);
 
 app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {

@@ -11,6 +11,7 @@ import { generateDailyReport } from "../lib/reports";
 import { pruneOldChatLogs } from "../lib/ai-assist";
 import { generateWeeklyContent } from "../lib/contentAI";
 import { getGrokClient, GROK_MODEL, logFallback } from "../lib/grokClient";
+import { harvestCatalogNow } from "../lib/catalogHarvest";
 
 const router = Router();
 
@@ -64,8 +65,9 @@ router.post("/cron/daily-reports", async (req, res) => {
       if (created > 0) console.info(`[content] Generated ${created} new draft(s), ${tokensUsed} tokens`);
     }).catch(console.error);
 
-    // Re-check catalog item URLs for dead links
+    // Re-check catalog item URLs for dead links, and pull new public listings.
     checkCatalogLinks().catch(console.error);
+    harvestCatalogNow(false).catch(console.error);
   }
 
   res.json({ ok: true, date: today, processed: results.length, results });

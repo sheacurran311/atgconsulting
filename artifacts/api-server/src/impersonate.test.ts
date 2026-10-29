@@ -81,6 +81,20 @@ test("POST /api/admin/test-client requires auth (not 200)", async () => {
   assert.ok(res.status >= 400, `expected 4xx or 5xx, got ${res.status}`);
 });
 
+test("POST /api/admin/impersonate/self requires auth (not 200)", async () => {
+  const { default: app } = await import("./app.js");
+  const res = await request(app).post("/api/admin/impersonate/self").send({});
+  assert.notEqual(res.status, 200, `unauthenticated POST should not be 200 (got ${res.status})`);
+  assert.ok(res.status >= 400, `expected 4xx or 5xx, got ${res.status}`);
+});
+
+test("POST /api/admin/today/action requires auth (not 200)", async () => {
+  const { default: app } = await import("./app.js");
+  const res = await request(app).post("/api/admin/today/action").send({ itemKey: "intake_review:abc", action: "done" });
+  assert.notEqual(res.status, 200, `unauthenticated POST should not be 200 (got ${res.status})`);
+  assert.ok(res.status >= 400, `expected 4xx or 5xx, got ${res.status}`);
+});
+
 // ── blockIfImpersonating middleware ───────────────────────────────────────────
 
 test("blockIfImpersonating blocks POST when impersonating without allowEdits", async () => {

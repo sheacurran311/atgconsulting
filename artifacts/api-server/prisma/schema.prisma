@@ -1085,3 +1085,22 @@ model Content {
   @@index([status, publishAt])
   @@index([slug])
 }
+
+// ── Admin Today actions ───────────────────────────────────────────────────────
+// Apply with: pnpm --filter @workspace/api-server db:push
+// Adds TodayItemAction only. No existing columns are dropped.
+
+/// Done / snooze state for one row on the admin Today list.
+/// itemKey is `${taskType}:${entityId}` so the same dismissal survives reloads.
+model TodayItemAction {
+  id          String    @id @default(cuid())
+  itemKey     String    @unique
+  /// done | snoozed
+  action      String
+  snoozeUntil DateTime?
+  actorUserId String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([action, snoozeUntil])
+}

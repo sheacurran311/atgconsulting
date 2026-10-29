@@ -6,6 +6,7 @@
  * PATCH  /api/admin/impersonate         — toggle allowEdits
  * GET    /api/admin/impersonate/status  — current impersonation state
  * POST   /api/admin/test-client         — create or retrieve a test client per tier
+ * POST   /api/admin/impersonate/self    — view the admin's own client profile
  *
  * All routes require admin auth. Non-admins get 403.
  * Impersonation events are written to AuditLog.
@@ -233,7 +234,42 @@ router.post("/admin/test-client", async (req, res) => {
 
   await audit({ action: "IMPERSONATE_START", entity: "Client", entityId: testClient.id, actorUserId: actor.id, meta: { adminEmail: actor.email, testClient: true, tier, isNew: true } });
 
-  res.status(201).json({ ok: true, clientId: testClient.id, clientName: testUser.name ?? "Test Client", isNew: true });
+  res.status(201).json({ ok: true, clientId: testClient.id, clientName: testUser.name ?? "Test Client", clientTier: tier, isNew: true });
+});
+
+// ── My account as client ──────────────────────────────────────────────────────
+
+router.post("/admin/impersonate/self", async (req, res) => {
+  const actor = (req as AuthedRequest).atgUser!;
+  const client = await prisma.client.findUnique({
+    where: { userId: actor.id },
+    include: { user: { select: { name: true, email: true } } },
+  });
+  if (!client) {
+    res.status(404).json({
+      error: "Your account has no client profile yet. Pick a test client or a real client.",
+    });
+    return;
+  }
+
+  const token = createImpToken(client.id, actor.id, false);
+  setImpCookie(res, token);
+  await audit({
+    action: "IMPERSONATE_START",
+    entity: "Client",
+    entityId: client.id,
+    actorUserId: actor.id,
+    meta: { adminEmail: actor.email, self: true, clientTier: client.tier },
+  });
+
+  const clientName = client.user?.name ?? actor.name ?? "My account";
+  res.json({
+    ok: true,
+    clientId: client.id,
+    clientName,
+    clientTier: client.tier,
+    message: `Now viewing as ${clientName} (${client.tier})`,
+  });
 });
 
 export default router;

@@ -1,6 +1,5 @@
 import { Link, useLocation, Redirect } from "wouter";
 import {
-  ArrowLeft,
   BarChart3,
   BookOpen,
   ClipboardList,
@@ -18,7 +17,6 @@ import {
 import { useAccount } from "@/lib/useAccount";
 import LogoLockup from "@/components/LogoLockup";
 import AdminSwitcher from "@/components/admin/AdminSwitcher";
-import { markClientView } from "@/lib/viewMode";
 
 const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Today",       to: "/admin/today",              icon: Sparkles },
@@ -67,11 +65,10 @@ export default function AdminShell({ children }: Props) {
           <Link to="/">
             <LogoLockup variant="dark" height={28} aria-label="ATG Consulting — home" />
           </Link>
-          <div className="mt-3 space-y-2">
+          <div className="mt-3">
             <span className="font-mono text-2xs block" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
               ADMIN CONSOLE
             </span>
-            <AdminSwitcher />
           </div>
         </div>
 
@@ -96,12 +93,7 @@ export default function AdminShell({ children }: Props) {
         </nav>
 
         <div className="p-2" style={{ borderTop: "1px solid var(--ink-border)" }}>
-          <Link to="/app" onClick={() => markClientView()}>
-            <span className="flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-md cursor-pointer" style={{ color: "#FFFFFF" }}>
-              <ArrowLeft className="w-4 h-4 flex-shrink-0" aria-hidden="true" strokeWidth={1.75} />
-              Client view
-            </span>
-          </Link>
+          <AdminSwitcher variant="sidebar" />
         </div>
       </aside>
 
@@ -110,6 +102,9 @@ export default function AdminShell({ children }: Props) {
         className="md:hidden fixed top-14 left-0 right-0 z-40 flex"
         style={{ background: "var(--ink)", borderBottom: "1px solid var(--ink-border)", overflowX: "auto", overflowY: "hidden" }}
       >
+        <div className="flex-shrink-0 px-2 py-1.5 flex items-center">
+          <AdminSwitcher variant="compact" />
+        </div>
         {navItems.map((item) => (
           <Link key={item.to} to={item.to}>
             <span
