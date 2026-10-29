@@ -57,6 +57,9 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
     upcomingSessions,
     dfyAccessClients,
     contentPublishable,
+    openTickets,
+    unreadMessages,
+    openRequests,
   ] = await Promise.all([
     // New intake submissions needing review
     prisma.discoveryIntake.findMany({
@@ -106,6 +109,24 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
     }),
     // Content approved but not yet published (ready to publish)
     prisma.content.count({ where: { status: "approved" } }),
+    prisma.supportTicket.findMany({
+      where: { status: "open" },
+      include: { client: { include: { user: { select: { name: true, email: true } } } } },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+    prisma.clientMessage.findMany({
+      where: { fromAdmin: false, readAt: null },
+      include: { client: { include: { user: { select: { name: true, email: true } } } } },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+    prisma.workflowRequest.findMany({
+      where: { status: "open" },
+      include: { client: { include: { user: { select: { name: true } } } } },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
   ]);
 
   const { hidden, actionsReady } = await hiddenItemKeys(now);
@@ -158,6 +179,30 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       url: `/admin/clients/${a.clientId}/access`,
       meta: `Granted: ${(a.grantedDate as Date).toLocaleDateString()}`,
     }))),
+    supportTickets: visible(openTickets.map((ticket) => ({
+      type: "support_ticket",
+      id: ticket.id,
+      label: `${ticket.client.user?.name ?? ticket.client.user?.email ?? "Client"} — ${ticket.subject}`,
+      url: `/admin/today`,
+      meta: ticket.message.slice(0, 140),
+      createdAt: ticket.createdAt,
+    }))),
+    clientMessages: visible(unreadMessages.map((message) => ({
+      type: "client_message",
+      id: message.id,
+      label: `${message.client.user?.name ?? "Client"} sent a message`,
+      url: `/admin/messages`,
+      meta: message.body.slice(0, 140),
+      createdAt: message.createdAt,
+    }))),
+    workflowRequests: visible(openRequests.map((request) => ({
+      type: "workflow_request",
+      id: request.id,
+      label: `${request.client.user?.name ?? "Client"} requested a workflow`,
+      url: `/admin/clients/${request.clientId}`,
+      meta: request.description.slice(0, 140),
+      createdAt: request.createdAt,
+    }))),
   };
 
   const counts = {
@@ -168,7 +213,10 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
     catalogQueue:     tasks.catalogQueue.length,
     upcomingSessions: tasks.upcomingSessions.length,
     legacyIntakes:    0,
-    total: tasks.intakeReviews.length + tasks.proposalDrafts.length + tasks.contentDrafts.filter((c) => c.type === "content_draft").length + tasks.catalogQueue.length,
+    supportTickets:   tasks.supportTickets.length,
+    clientMessages:   tasks.clientMessages.length,
+    workflowRequests: tasks.workflowRequests.length,
+    total: tasks.intakeReviews.length + tasks.proposalDrafts.length + tasks.contentDrafts.filter((c) => c.type === "content_draft").length + tasks.catalogQueue.length + tasks.supportTickets.length + tasks.clientMessages.length + tasks.workflowRequests.length,
   };
 
   res.json({

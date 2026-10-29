@@ -23,6 +23,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
+import { notifyShea } from "../lib/email";
 import { generateFollowUpDraft } from "../lib/llm";
 import { checkWorkflowAccess } from "../lib/access";
 
@@ -137,6 +138,11 @@ router.post("/workbench/messages", async (req, res) => {
   const parsed = MessageBodySchema.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "body is required (max 2000 chars)." }); return; }
   const msg = await prisma.clientMessage.create({ data: { clientId: cid, body: parsed.data.body, fromAdmin: false } });
+  const appUrl = process.env.APP_URL ?? "https://atgconsulting.io";
+  notifyShea(
+    "Client message",
+    `A client sent a message.\n\nClient ID: ${cid}\n\n${parsed.data.body.slice(0, 500)}\n\nReply: ${appUrl}/admin/messages`,
+  ).catch((err) => console.error("[email] message notice failed", err));
   res.status(201).json(msg);
 });
 
@@ -228,6 +234,11 @@ router.post("/workbench/requests", async (req, res) => {
   const parsed = WorkflowRequestSchema.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "description is required (max 1000 chars)." }); return; }
   const req2 = await prisma.workflowRequest.create({ data: { clientId: cid, description: parsed.data.description } });
+  const appUrl = process.env.APP_URL ?? "https://atgconsulting.io";
+  notifyShea(
+    "Workflow request",
+    `A client asked for a workflow.\n\nClient ID: ${cid}\n\n${parsed.data.description.slice(0, 500)}\n\nReview: ${appUrl}/admin/clients/${cid}`,
+  ).catch((err) => console.error("[email] request notice failed", err));
   res.status(201).json(req2);
 });
 

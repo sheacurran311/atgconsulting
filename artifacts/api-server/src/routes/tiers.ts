@@ -22,6 +22,7 @@
  */
 
 import { Router } from "express";
+import { notifyShea } from "../lib/email";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
@@ -121,6 +122,11 @@ router.post("/support", withUser, requireAuth, async (req, res) => {
   const ticket = await prisma.supportTicket.create({
     data: { clientId, subject: parsed.data.subject, message: sanitiseText(parsed.data.message) },
   });
+  const appUrl = process.env.APP_URL ?? "https://atgconsulting.io";
+  notifyShea(
+    `Support: ${parsed.data.subject}`,
+    `A support ticket is open.\n\nClient ID: ${clientId}\nSubject: ${parsed.data.subject}\n\n${parsed.data.message.slice(0, 800)}\n\nReview: ${appUrl}/admin/today`,
+  ).catch((err) => console.error("[email] support notice failed", err));
   res.status(201).json(ticket);
 });
 
@@ -133,6 +139,11 @@ router.post("/dfy/apply", withUser, requireAuth, async (req, res) => {
   if (existing) { res.json({ ...existing, alreadyApplied: true }); return; }
   const intake = await prisma.discoveryIntake.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" } });
   const app = await prisma.dfyApplication.create({ data: { clientId, intakeId: intake?.id ?? null } });
+  const appUrl = process.env.APP_URL ?? "https://atgconsulting.io";
+  notifyShea(
+    "Done-for-you application",
+    `A client applied for Done-for-you. Accepting it is still your decision.\n\nClient ID: ${clientId}\nReview: ${appUrl}/admin/tiers`,
+  ).catch((err) => console.error("[email] DFY notice failed", err));
   res.status(201).json(app);
 });
 

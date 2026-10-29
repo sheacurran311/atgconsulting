@@ -9,7 +9,7 @@ import { useUser, useClerk } from "@clerk/react";
 import { Link } from "wouter";
 import AppShell from "@/components/app/AppShell";
 import { useAccount } from "@/lib/useAccount";
-import { api, clientIntakeApi, portalApi, type IntakeSummary, billing } from "@/lib/api";
+import { api, clientIntakeApi, portalApi, type IntakeSummary, type AccessLogEntry, billing } from "@/lib/api";
 import DaySetup from "@/components/day/DaySetup";
 
 const TIER_LABELS: Record<string, string> = {
@@ -50,6 +50,7 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [billingEnabled] = useState(typeof window !== "undefined" && import.meta.env.VITE_BILLING_ENABLED === "true");
+  const [accessLog, setAccessLog] = useState<AccessLogEntry[] | null>(null);
   const [adminTestMode, setAdminTestMode] = useState(false);
 
   const tier = account?.tier ?? "NONE";
@@ -70,6 +71,7 @@ export default function AccountPage() {
   }, [account]);
 
   useEffect(() => {
+    portalApi.accessLog().then(setAccessLog).catch(() => setAccessLog([]));
     portalApi.status().then((s) => setAdminTestMode(s.testMode)).catch(() => setAdminTestMode(false));
   }, []);
 
@@ -232,7 +234,7 @@ export default function AccountPage() {
             <div>
               <p className="text-sm font-semibold" style={{ color: "var(--canvas-text)" }}>Daily digest emails</p>
               <p className="text-xs mt-0.5" style={{ color: "var(--canvas-text-2)" }}>
-                Receive your daily AI digest when Shea publishes it.
+                Saved on your account. Digests are not emailed.
               </p>
             </div>
             <button
@@ -279,6 +281,29 @@ export default function AccountPage() {
             </ul>
           </Section>
         )}
+
+        <Section title="Access Shea holds">
+          {accessLog === null ? (
+            <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
+          ) : accessLog.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>
+              No access is recorded on this account. This log never includes passwords or tokens.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {accessLog.map((entry) => (
+                <li key={entry.id}>
+                  <p className="text-sm font-semibold" style={{ color: "var(--canvas-text)" }}>{entry.accountSystem}</p>
+                  <p className="text-xs" style={{ color: "var(--canvas-text-2)" }}>
+                    {entry.accessType} · granted {new Date(entry.grantedDate).toLocaleDateString()}
+                    {entry.revokedDate ? ` · revoked ${new Date(entry.revokedDate).toLocaleDateString()}` : ""}
+                  </p>
+                  {entry.notes && <p className="text-xs mt-1" style={{ color: "var(--canvas-text-3)" }}>{entry.notes}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
 
         {/* Sign out */}
         <Section title="Session">

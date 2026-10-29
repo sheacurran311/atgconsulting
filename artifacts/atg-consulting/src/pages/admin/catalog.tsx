@@ -35,6 +35,7 @@ export default function AdminCatalogPage() {
   const [selected, setSelected] = useState<CatalogItem | null>(null);
   const [filter, setFilter] = useState("");
   const [verifying, setVerifying] = useState<string | null>(null);
+  const [batching, setBatching] = useState(false);
 
   // Import state
   const [importMode, setImportMode] = useState<"json" | "url">("json");
@@ -54,6 +55,15 @@ export default function AdminCatalogPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  async function verifyBatch() {
+    setBatching(true);
+    const response = await fetch("/api/admin/catalog/verify-batch", { method: "POST", credentials: "include" });
+    const payload = await response.json().catch(() => ({ verified: 0 })) as { verified?: number };
+    setBatching(false);
+    setImportResult(payload.verified ? `Verified ${payload.verified} link-checked item(s).` : "No link-checked pending items to verify.");
+    load();
+  }
 
   async function verify(id: string) {
     setVerifying(id);
@@ -175,6 +185,20 @@ export default function AdminCatalogPage() {
               </button>
             </div>
           </div>
+        )}
+
+        {tab === "queue" && queue.length > 0 && (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
+              One approval verifies pending items whose links were already checked. Items stay hidden until you do this.
+            </p>
+            <button type="button" onClick={verifyBatch} disabled={batching} className="btn-primary text-xs" style={{ padding: "6px 12px" }}>
+              {batching ? "Verifying…" : "Verify link-checked batch"}
+            </button>
+          </div>
+        )}
+        {tab === "queue" && importResult && (
+          <p className="text-sm font-medium" style={{ color: "#16A34A" }}>{importResult}</p>
         )}
 
         {/* Item list */}

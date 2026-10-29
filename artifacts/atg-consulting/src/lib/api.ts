@@ -477,10 +477,20 @@ export type PortalProposal =
   | { state: "empty" | "pending"; proposal?: undefined }
   | { state: "ready"; proposal: ClientProposal };
 
+export interface AccessLogEntry {
+  id: string;
+  accountSystem: string;
+  accessType: string;
+  grantedDate: string;
+  revokedDate: string | null;
+  notes: string;
+}
+
 export const portalApi = {
   status:      () => get<PortalStatus>("/portal/status"),
   proposal:    () => get<PortalProposal>("/portal/proposal"),
   personalize: () => post<{ ok: boolean }>("/portal/personalize", {}),
+  accessLog:   () => get<AccessLogEntry[]>("/portal/access-log"),
 };
 
 

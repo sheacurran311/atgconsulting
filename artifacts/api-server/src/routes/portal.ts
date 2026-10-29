@@ -21,6 +21,24 @@ const router = Router();
 
 // ── Portal status ─────────────────────────────────────────────────────────────
 
+router.get("/portal/access-log", withUser, requireAuth, async (req, res) => {
+  const clientId = (req as AuthedRequest).atgUser?.clientId;
+  if (!clientId) { res.json([]); return; }
+  const entries = await prisma.clientAccessLog.findMany({
+    where: { clientId },
+    orderBy: { grantedDate: "desc" },
+    select: {
+      id: true,
+      accountSystem: true,
+      accessType: true,
+      grantedDate: true,
+      revokedDate: true,
+      notes: true,
+    },
+  });
+  res.json(entries);
+});
+
 router.get("/portal/status", withUser, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
 
