@@ -53,6 +53,22 @@ interface TodayData {
     model: string;
     health: { ok: boolean; model: string; latencyMs?: number; error?: string; checkedAt: string } | null;
     fallbacks: FallbackEvent[];
+    month?: string;
+    tokensUsed?: number;
+    clientsWithUsage?: number;
+    clientsOverCap?: number;
+    caps?: { SELF_SERVE: number; GUIDED: number; WHITE_GLOVE: number };
+  };
+  board?: {
+    pipeline: { new: number; reviewed: number; report_sent: number; converted: number; collecting: number };
+    waitingApprovers: { id: string; name: string; email: string | null; status: string; company: string }[];
+    clientsByTier: { NONE: number; SELF_SERVE: number; GUIDED: number; WHITE_GLOVE: number };
+    clientsByStatus: { PROSPECT: number; ACTIVE: number };
+    health: { clientId: string; name: string; tier: string; flags: string[] }[];
+    revenue: { billingEnabled: boolean; message: string; lastEventType?: string | null; lastEventAt?: string | null; clientsWithStripeCustomer?: number };
+    content: { queued: number; draft: number; approved: number; published: number };
+    catalog: { pending: number; verified: number; rejected: number; disabledAfterDeadLink: number };
+    notifications: { id: string; label: string; url: string }[];
   };
   catalogHarvest?: {
     status: string;
@@ -220,6 +236,87 @@ export default function AdminTodayPage() {
           </button>
         </div>
 
+        {data?.board && (
+          <div className="grid lg:grid-cols-2 gap-4">
+            <section className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+              <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>PIPELINE</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {([
+                  ["New", data.board.pipeline.new],
+                  ["Reviewed", data.board.pipeline.reviewed],
+                  ["Report sent", data.board.pipeline.report_sent],
+                  ["Converted", data.board.pipeline.converted],
+                  ["Still collecting", data.board.pipeline.collecting],
+                ] as const).map(([label, count]) => (
+                  <p key={label} style={{ color: "var(--canvas-text)" }}><span className="font-semibold">{count}</span> {label}</p>
+                ))}
+              </div>
+            </section>
+            <section className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+              <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>WAITING APPROVERS</p>
+              {data.board.waitingApprovers.length === 0 ? (
+                <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>No open approver invites.</p>
+              ) : data.board.waitingApprovers.map((row) => (
+                <p key={row.id} className="text-sm" style={{ color: "var(--canvas-text)" }}>{row.company} — {row.name} ({row.status})</p>
+              ))}
+            </section>
+            <section className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+              <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>CLIENTS BY TIER</p>
+              <p className="text-sm" style={{ color: "var(--canvas-text)" }}>
+                None {data.board.clientsByTier.NONE} · Self-serve {data.board.clientsByTier.SELF_SERVE} · Guided {data.board.clientsByTier.GUIDED} · Done-for-you {data.board.clientsByTier.WHITE_GLOVE}
+              </p>
+              <p className="text-xs mt-2" style={{ color: "var(--canvas-text-3)" }}>
+                Prospect {data.board.clientsByStatus.PROSPECT} · Active {data.board.clientsByStatus.ACTIVE}
+              </p>
+            </section>
+            <section className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+              <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>CLIENT HEALTH</p>
+              {data.board.health.length === 0 ? (
+                <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>No flags on the latest clients.</p>
+              ) : data.board.health.map((row) => (
+                <p key={row.clientId} className="text-sm mb-1" style={{ color: "var(--canvas-text)" }}>
+                  <Link to={`/admin/clients/${row.clientId}`}>{row.name}</Link>
+                  <span style={{ color: "var(--canvas-text-3)" }}> — {row.flags.join(", ")}</span>
+                </p>
+              ))}
+            </section>
+            <section className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+              <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>REVENUE</p>
+              <p className="text-sm" style={{ color: "var(--canvas-text)" }}>{data.board.revenue.message}</p>
+              {data.board.revenue.billingEnabled && (
+                <p className="text-xs mt-2" style={{ color: "var(--canvas-text-3)" }}>
+                  {data.board.revenue.lastEventType ? `Last webhook: ${data.board.revenue.lastEventType}` : "No webhook recorded."}
+                  {data.board.revenue.lastEventAt ? ` · ${new Date(data.board.revenue.lastEventAt).toLocaleString()}` : ""}
+                  {typeof data.board.revenue.clientsWithStripeCustomer === "number" ? ` · ${data.board.revenue.clientsWithStripeCustomer} client${data.board.revenue.clientsWithStripeCustomer === 1 ? "" : "s"} with a Stripe customer id` : ""}
+                </p>
+              )}
+            </section>
+            <section className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+              <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>CONTENT ENGINE</p>
+              <p className="text-sm" style={{ color: "var(--canvas-text)" }}>
+                Queued {data.board.content.queued} · Draft {data.board.content.draft} · Approved {data.board.content.approved} · Published {data.board.content.published}
+              </p>
+              <Link to="/admin/content" className="text-sm font-semibold" style={{ color: "var(--blue)" }}>Open content</Link>
+            </section>
+            <section className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+              <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>CATALOG HEALTH</p>
+              <p className="text-sm" style={{ color: "var(--canvas-text)" }}>
+                Pending {data.board.catalog.pending} · Verified {data.board.catalog.verified} · Rejected {data.board.catalog.rejected} · Disabled after a dead link {data.board.catalog.disabledAfterDeadLink}
+              </p>
+              <Link to="/admin/catalog" className="text-sm font-semibold" style={{ color: "var(--blue)" }}>Open catalog</Link>
+            </section>
+            <section className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
+              <p className="font-mono text-2xs mb-2" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>NOTIFICATIONS</p>
+              <p className="text-xs mb-2" style={{ color: "var(--canvas-text-3)" }}>Same events that email Shea. Nothing here is sent to a client.</p>
+              {data.board.notifications.length === 0 ? (
+                <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>No open notices.</p>
+              ) : data.board.notifications.map((item) => (
+                <p key={item.id} className="text-sm" style={{ color: "var(--canvas-text)" }}><Link to={item.url}>{item.label}</Link></p>
+              ))}
+            </section>
+          </div>
+        )}
+
         {data?.ai && (
           <div className="rounded-xl p-4 space-y-2" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
             <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -231,6 +328,18 @@ export default function AdminTodayPage() {
                   {data.ai.health?.latencyMs != null ? ` · ${data.ai.health.latencyMs}ms` : ""}
                 </p>
                 {data.ai.health?.error && <p className="text-xs mt-1" style={{ color: "#B91C1C" }}>{data.ai.health.error}</p>}
+                <p className="text-xs mt-1" style={{ color: "var(--canvas-text-3)" }}>
+                  {data.ai.enabled ? "AI assist is on" : "AI assist is off"}
+                  {data.ai.month ? ` · ${data.ai.month}` : ""}
+                  {typeof data.ai.tokensUsed === "number" ? ` · ${data.ai.tokensUsed} tokens recorded` : ""}
+                  {typeof data.ai.clientsWithUsage === "number" ? ` across ${data.ai.clientsWithUsage} client${data.ai.clientsWithUsage === 1 ? "" : "s"}` : ""}
+                  {typeof data.ai.clientsOverCap === "number" ? ` · ${data.ai.clientsOverCap} at or over their cap` : ""}
+                </p>
+                {data.ai.caps && (
+                  <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
+                    Caps: Self-serve {data.ai.caps.SELF_SERVE} · Guided {data.ai.caps.GUIDED} · Done-for-you {data.ai.caps.WHITE_GLOVE}
+                  </p>
+                )}
               </div>
               <button type="button" onClick={() => { void checkHealth(); }} disabled={checkingHealth} className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
                 {checkingHealth ? "Checking…" : "Check AI"}
