@@ -801,20 +801,18 @@ router.get("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req, 
 // Admin: approve proposal
 router.post("/admin/discovery/:id/proposal/approve", withUser, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
-  const { publishToPortal } = req.body as { publishToPortal?: boolean };
   const proposal = await prisma.discoveryProposal.findUnique({ where: { discoveryIntakeId: req.params.id as string } });
   if (!proposal) { res.status(404).json({ error: "No proposal to approve." }); return; }
   const updated = await prisma.discoveryProposal.update({
     where: { id: proposal.id },
     data: {
-      status: publishToPortal ? "portal_published" : "approved",
+      status: "approved",
       approvedAt: new Date(),
-      ...(publishToPortal ? { portalPublishedAt: new Date() } : {}),
     },
   });
   await audit({
     actorUserId: actor.id, action: "PROPOSAL_APPROVED", entity: "DiscoveryIntake",
-    entityId: req.params.id as string, meta: { publishToPortal: !!publishToPortal },
+    entityId: req.params.id as string, meta: { clientVisible: true },
   });
   res.json({ ok: true, proposal: updated });
 });

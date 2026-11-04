@@ -243,6 +243,8 @@ router.post("/workbench/install/mark", async (req, res) => {
   const parsed = MarkInstalledSchema.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "slug and platform are required." }); return; }
   const { slug, platform } = parsed.data;
+  const access = await checkWorkflowAccess(user.clientId, slug);
+  if (!access.allowed) { res.status(403).json({ error: access.reason ?? "This workflow is not on your plan." }); return; }
   const existing = await prisma.clientWorkflowSettings.findUnique({
     where: { clientId_slug: { clientId: user.clientId, slug } },
     select: { installStatus: true },

@@ -45,6 +45,7 @@ interface TodayData {
     supportTickets?: TodayTask[];
     clientMessages?: TodayTask[];
     workflowRequests?: TodayTask[];
+    dfyApplications?: TodayTask[];
   };
   ai?: {
     enabled: boolean;
@@ -67,10 +68,15 @@ const TASK_TYPE_STYLES: Record<string, { color: string; bg: string; label: strin
   intake_review:   { color: "#D97706", bg: "rgba(217,119,6,0.08)",  label: "Intake review" },
   proposal_draft:  { color: "#3B6BFF", bg: "rgba(59,107,255,0.08)", label: "Proposal draft" },
   content_draft:   { color: "#7C3AED", bg: "rgba(124,58,237,0.08)", label: "Content draft" },
+  content_topic:   { color: "#7C3AED", bg: "rgba(124,58,237,0.06)", label: "Content topic" },
   content_publish: { color: "#16A34A", bg: "rgba(22,163,74,0.08)",  label: "Ready to publish" },
   catalog_verify:  { color: "#D97706", bg: "rgba(217,119,6,0.06)",  label: "Catalog verify" },
   upcoming_session:{ color: "#3B6BFF", bg: "rgba(59,107,255,0.06)", label: "Session" },
   dfy_access:      { color: "var(--canvas-text-3)", bg: "var(--canvas-2)", label: "DFY access" },
+  support_ticket:  { color: "#B45309", bg: "rgba(180,83,9,0.08)",   label: "Support" },
+  client_message:  { color: "#3B6BFF", bg: "rgba(59,107,255,0.08)", label: "Message" },
+  workflow_request:{ color: "#0F766E", bg: "rgba(15,118,110,0.08)", label: "Workflow request" },
+  dfy_application: { color: "#7C3AED", bg: "rgba(124,58,237,0.08)", label: "Done-for-you" },
 };
 
 function TaskCard({ task, busy, onDone, onSnooze }: {
@@ -153,6 +159,7 @@ export default function AdminTodayPage() {
         supportTickets: drop(current.tasks.supportTickets ?? []),
         clientMessages: drop(current.tasks.clientMessages ?? []),
         workflowRequests: drop(current.tasks.workflowRequests ?? []),
+        dfyApplications: drop(current.tasks.dfyApplications ?? []),
       };
       return {
         ...current,
@@ -164,7 +171,7 @@ export default function AdminTodayPage() {
           contentDrafts: tasks.contentDrafts.filter((item) => item.type === "content_draft").length,
           catalogQueue: tasks.catalogQueue.length,
           upcomingSessions: tasks.upcomingSessions.length,
-          total: tasks.intakeReviews.length + tasks.proposalDrafts.length + tasks.contentDrafts.filter((item) => item.type === "content_draft").length + tasks.catalogQueue.length + tasks.supportTickets.length + tasks.clientMessages.length + tasks.workflowRequests.length,
+          total: tasks.intakeReviews.length + tasks.proposalDrafts.length + tasks.contentDrafts.length + tasks.catalogQueue.length + tasks.supportTickets.length + tasks.clientMessages.length + tasks.workflowRequests.length + tasks.dfyApplications.length + tasks.upcomingSessions.length,
         },
       };
     });
@@ -189,6 +196,7 @@ export default function AdminTodayPage() {
     ...(data.tasks.supportTickets ?? []),
     ...(data.tasks.clientMessages ?? []),
     ...(data.tasks.workflowRequests ?? []),
+    ...(data.tasks.dfyApplications ?? []),
   ] : [];
 
   return (
@@ -271,8 +279,12 @@ export default function AdminTodayPage() {
                 {[
                   ["Intake reviews",  data.counts.intakeReviews,   "#D97706"],
                   ["Proposal drafts", data.counts.proposalDrafts,  "#3B6BFF"],
-                  ["Content drafts",  data.counts.contentDrafts,   "#7C3AED"],
+                  ["Content",         data.tasks.contentDrafts.length, "#7C3AED"],
                   ["Catalog queue",   data.counts.catalogQueue,    "#D97706"],
+                  ["Support",         data.tasks.supportTickets?.length ?? 0, "#B45309"],
+                  ["Messages",        data.tasks.clientMessages?.length ?? 0, "#3B6BFF"],
+                  ["Requests",        data.tasks.workflowRequests?.length ?? 0, "#0F766E"],
+                  ["Sessions",        data.counts.upcomingSessions, "#3B6BFF"],
                 ].map(([label, count, color]) => (
                   <div key={label as string} className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
                     <p className="font-extrabold text-2xl mb-0.5" style={{ color: color as string, letterSpacing: "-0.03em" }}>{count as number}</p>

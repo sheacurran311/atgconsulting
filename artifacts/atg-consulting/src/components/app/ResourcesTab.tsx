@@ -54,37 +54,45 @@ function ToolCard({ tool, source }: { tool: ResourceTool; source: string }) {
 
 export default function ResourcesTab() {
   const [data, setData] = useState<ResourcesPayload | null>(null);
+  const [matches, setMatches] = useState<{ id: string; name: string; painPoint: string; why: string; url: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.knowledge.resources()
-      .then(setData)
-      .catch(() => null)
-      .finally(() => setLoading(false));
+    Promise.all([
+      api.knowledge.resources().catch(() => null),
+      api.catalogMatches().catch(() => ({ matches: [] })),
+    ]).then(([resources, catalog]) => {
+      setData(resources);
+      setMatches(catalog.matches);
+    }).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading resources…</p>;
-  if (!data) return <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Could not load resources.</p>;
 
-  const hasTools = data.planTools.length > 0 || data.featuredTools.length > 0;
+  const resources = data ?? { planTools: [], featuredTools: [], affiliateDisclosure: "" };
+  const hasTools = resources.planTools.length > 0 || resources.featuredTools.length > 0;
 
   return (
     <div className="space-y-6">
       {/* Affiliate disclosure */}
-      {(data.planTools.some((t) => t.hasReferral) || data.featuredTools.some((t) => t.hasReferral)) && (
+      {(resources.planTools.some((t) => t.hasReferral) || resources.featuredTools.some((t) => t.hasReferral)) && (
         <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
-          {data.affiliateDisclosure}
+          {resources.affiliateDisclosure}
         </p>
       )}
 
+      {!data && (
+        <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Could not load the tool list.</p>
+      )}
+
       {/* Plan tools */}
-      {data.planTools.length > 0 && (
+      {resources.planTools.length > 0 && (
         <div>
           <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
             YOUR RECOMMENDED TOOLS
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
-            {data.planTools.map((tool) => (
+            {resources.planTools.map((tool) => (
               <ToolCard key={tool.slug ?? tool.name} tool={tool} source="resources-plan" />
             ))}
           </div>
@@ -92,20 +100,46 @@ export default function ResourcesTab() {
       )}
 
       {/* Featured tools (not in plan) */}
-      {data.featuredTools.length > 0 && (
+      {resources.featuredTools.length > 0 && (
         <div>
           <p className="font-mono text-2xs mb-3" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.1em" }}>
-            {data.planTools.length > 0 ? "ALSO WORTH KNOWING" : "RECOMMENDED TOOLS"}
+            {resources.planTools.length > 0 ? "ALSO WORTH KNOWING" : "RECOMMENDED TOOLS"}
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
-            {data.featuredTools.map((tool) => (
+            {resources.featuredTools.map((tool) => (
               <ToolCard key={tool.slug ?? tool.name} tool={tool} source="resources-featured" />
             ))}
           </div>
         </div>
       )}
 
-      {!hasTools && (
+      <div>
+        <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
+          VERIFIED CATALOG MATCHES
+        </p>
+        {matches.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>
+            No verified catalog matches yet. Shea reviews matches before they show up here.
+          </p>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-3">
+            {matches.map((match) => (
+              <div key={match.id} className="rounded-xl p-4" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
+                <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)" }}>{match.name}</p>
+                {match.painPoint && <p className="font-mono text-2xs mt-1" style={{ color: "var(--blue)" }}>{match.painPoint}</p>}
+                {match.why && <p className="text-xs mt-1" style={{ color: "var(--canvas-text-2)" }}>{match.why}</p>}
+                {match.url && (
+                  <a href={match.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium mt-2 inline-block" style={{ color: "var(--blue)" }}>
+                    Open source ↗
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {!hasTools && matches.length === 0 && (
         <div className="rounded-xl p-6" style={{ border: "1px dashed var(--canvas-border)", background: "var(--canvas-2)" }}>
           <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>
             Your personalised tool recommendations will appear here after your tool plan is generated.
