@@ -232,7 +232,32 @@ export interface Consultation { id: string; title: string; scheduledAt: string |
 export interface Document { id: string; title: string; type: string; mime: string; size: number; visibleToClient: boolean; createdAt: string }
 export interface Report { id: string; date: string; kind: string; contentMarkdown: string; status: string; publishedAt: string | null }
 export interface Module { id: string; slug: string; title: string; description: string; minTier: string; order: number; videoUrl: string | null; body: string; status: string }
-export interface Dashboard { client: ClientAdmin | null; workflowItems: WorkflowItem[]; recentConsultation: Consultation | null; recentReport: Report | null; activeDocCount: number }
+export interface ClientHomePayload {
+  where: {
+    hasIntake: boolean;
+    intakeAt: string | null;
+    proposalState: "empty" | "pending" | "ready";
+    proposalApprovedAt: string | null;
+    planReady: boolean;
+    planApprovedAt: string | null;
+  };
+  plan: { tier: string; status: string | null; testMode: boolean; helpStyle: string | null };
+  toolPlan: { ready: boolean; approvedAt: string | null };
+  nextActions: { id: string; label: string; href: string }[];
+  workflows: { slug: string; name: string; state: "locked" | "ready" | "installed" | "verified" }[];
+  guided: { total: number; used: number; remaining: number } | null;
+  dfy: {
+    show: boolean;
+    applicationStatus: string | null;
+    milestones: { label: string; description: string }[];
+    accessCount: number;
+  };
+  message: { body: string; fromAdmin: boolean; createdAt: string } | null;
+  unreadMessages: number;
+  tickets: { id: string; subject: string; status: string; createdAt: string }[];
+  report: { date: string; publishedAt: string | null } | null;
+}
+export interface Dashboard { client: ClientAdmin | null; workflowItems: WorkflowItem[]; recentConsultation: Consultation | null; recentReport: Report | null; activeDocCount: number; home: ClientHomePayload }
 export interface ClientAdmin { id: string; userId: string; company: string | null; tier: string; status: string; industry: string | null; aiLevel: number; createdAt: string; notes: string | null; user: { name: string | null; email: string | null }; _count?: { consultations: number; documents: number } }
 export interface ClientWorkflowOption { id: string; name: string; area: string; description: string }
 export interface ClientDetail extends ClientAdmin { intakes: IntakeRecord[]; plans: PlanAdmin[]; workflowItems: WorkflowItem[]; consultations: Consultation[]; documents: Document[]; reports: Report[]; workflows?: ClientWorkflowOption[] }

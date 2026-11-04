@@ -8,6 +8,10 @@ import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
 import { helpStyleFromIntake } from "../lib/intakeHelpStyle";
+import { adminTestMode } from "../lib/access";
+import { clientProposalState, parseMilestones } from "../lib/clientProposal";
+import { extractPersonalizedSlugs } from "../lib/personalization";
+import { buildNextActions, workflowRowState } from "../lib/clientHome";
 
 const router = Router();
 router.use(withUser, requireAuth);
@@ -52,26 +56,166 @@ router.get("/client/dashboard", async (req, res) => {
   const clientId = getClient(req as AuthedRequest, res);
   if (!clientId) return;
 
-  const [client, workflowItems, recentConsultation, recentReport, activeDocCount] =
-    await Promise.all([
-      prisma.client.findUnique({ where: { id: clientId }, include: { user: true } }),
-      prisma.workflowItem.findMany({
-        where: { clientId },
-        orderBy: [{ done: "asc" }, { order: "asc" }],
-        take: 10,
-      }),
-      prisma.consultation.findFirst({
-        where: { clientId, scheduledAt: { gte: new Date() } },
-        orderBy: { scheduledAt: "asc" },
-      }),
-      prisma.report.findFirst({
-        where: { clientId, status: "PUBLISHED" },
-        orderBy: { date: "desc" },
-      }),
-      prisma.document.count({ where: { clientId, visibleToClient: true } }),
-    ]);
+  const [
+    client,
+    workflowItems,
+    recentConsultation,
+    recentReport,
+    activeDocCount,
+    intakes,
+    approvedPlan,
+    pendingOutputs,
+    openActionItems,
+    latestMessage,
+    unreadMessages,
+    tickets,
+    dfy,
+    accessCount,
+    installSettings,
+  ] = await Promise.all([
+    prisma.client.findUnique({ where: { id: clientId }, include: { user: true } }),
+    prisma.workflowItem.findMany({
+      where: { clientId },
+      orderBy: [{ done: "asc" }, { order: "asc" }],
+      take: 10,
+    }),
+    prisma.consultation.findFirst({
+      where: { clientId, scheduledAt: { gte: new Date() } },
+      orderBy: { scheduledAt: "asc" },
+    }),
+    prisma.report.findFirst({
+      where: { clientId, status: "PUBLISHED" },
+      orderBy: { date: "desc" },
+    }),
+    prisma.document.count({ where: { clientId, visibleToClient: true } }),
+    prisma.discoveryIntake.findMany({
+      where: { clientId },
+      select: { id: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.toolPlan.findFirst({
+      where: { clientId, status: "approved" },
+      orderBy: { approvedAt: "desc" },
+      select: { approvedAt: true, status: true },
+    }),
+    prisma.outputItem.count({ where: { clientId, status: "pending" } }),
+    prisma.actionItem.count({ where: { owner: "CLIENT", done: false, consultation: { clientId } } }),
+    prisma.clientMessage.findFirst({
+      where: { clientId },
+      orderBy: { createdAt: "desc" },
+      select: { body: true, fromAdmin: true, createdAt: true },
+    }),
+    prisma.clientMessage.count({ where: { clientId, fromAdmin: true, readAt: null } }),
+    prisma.supportTicket.findMany({
+      where: { clientId },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: { id: true, subject: true, status: true, createdAt: true },
+    }),
+    prisma.dfyApplication.findUnique({ where: { clientId }, select: { status: true, createdAt: true } }),
+    prisma.clientAccessLog.count({ where: { clientId } }),
+    prisma.clientWorkflowSettings.findMany({
+      where: { clientId },
+      select: { slug: true, enabled: true, installStatus: true, installedAt: true },
+    }),
+  ]);
 
-  res.json({ client, workflowItems, recentConsultation, recentReport, activeDocCount });
+  const intakeIds = intakes.map((row) => row.id);
+  const proposals = intakeIds.length
+    ? await prisma.discoveryProposal.findMany({
+        where: { discoveryIntakeId: { in: intakeIds } },
+        select: { status: true, approvedAt: true, milestones: true },
+      })
+    : [];
+  const approvedProposal = proposals.find((row) => row.status === "approved" || row.status === "portal_published") ?? null;
+  const proposalState = clientProposalState({
+    clientId,
+    intakeCount: intakes.length,
+    hasApproved: !!approvedProposal,
+  });
+  const personalized = extractPersonalizedSlugs(client?.notes ?? null) ?? [];
+  const templates = personalized.length
+    ? await prisma.workflowTemplate.findMany({
+        where: { slug: { in: personalized } },
+        select: { slug: true, name: true, minTier: true, enabled: true },
+      })
+    : [];
+  const templateBySlug = new Map(templates.map((row) => [row.slug, row]));
+  const settingBySlug = new Map(installSettings.map((row) => [row.slug, row]));
+  const testMode = adminTestMode();
+  const tier = client?.tier ?? "NONE";
+  const guidedTotal = client?.guidedSessionsTotal ?? null;
+  const guidedUsed = client?.guidedSessionsUsed ?? 0;
+  const guided = tier === "GUIDED" && guidedTotal != null
+    ? { total: guidedTotal, used: guidedUsed, remaining: guidedTotal - guidedUsed }
+    : null;
+
+  res.json({
+    client,
+    workflowItems,
+    recentConsultation,
+    recentReport,
+    activeDocCount,
+    home: {
+      where: {
+        hasIntake: intakes.length > 0,
+        intakeAt: intakes[0]?.createdAt ?? null,
+        proposalState,
+        proposalApprovedAt: approvedProposal?.approvedAt ?? null,
+        planReady: !!approvedPlan,
+        planApprovedAt: approvedPlan?.approvedAt ?? null,
+      },
+      plan: {
+        tier,
+        status: client?.status ?? null,
+        testMode,
+        helpStyle: client?.helpStyle ?? null,
+      },
+      toolPlan: {
+        ready: !!approvedPlan,
+        approvedAt: approvedPlan?.approvedAt ?? null,
+      },
+      nextActions: buildNextActions({
+        guidedRemaining: guided?.remaining ?? null,
+        unreadMessages,
+        pendingOutputs,
+        openActionItems,
+      }),
+      workflows: personalized.flatMap((slug) => {
+        const template = templateBySlug.get(slug);
+        if (!template) return [];
+        const setting = settingBySlug.get(slug);
+        return [{
+          slug,
+          name: template.name,
+          state: workflowRowState({
+            clientTier: tier,
+            minTier: template.minTier,
+            templateEnabled: template.enabled,
+            overrideEnabled: setting?.enabled,
+            installStatus: setting?.installStatus,
+            installedAt: setting?.installedAt,
+            testMode,
+          }),
+        }];
+      }),
+      guided,
+      dfy: {
+        show: client?.helpStyle === "done_for_you" || tier === "WHITE_GLOVE" || !!dfy,
+        applicationStatus: dfy?.status ?? null,
+        milestones: approvedProposal ? parseMilestones(approvedProposal.milestones) : [],
+        accessCount,
+      },
+      message: latestMessage
+        ? { body: latestMessage.body.slice(0, 280), fromAdmin: latestMessage.fromAdmin, createdAt: latestMessage.createdAt }
+        : null,
+      unreadMessages,
+      tickets,
+      report: recentReport
+        ? { date: recentReport.date, publishedAt: recentReport.publishedAt }
+        : null,
+    },
+  });
 });
 
 router.patch("/client/workflow/:id", async (req, res) => {
