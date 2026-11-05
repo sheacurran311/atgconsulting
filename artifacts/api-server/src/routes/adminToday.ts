@@ -17,7 +17,9 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
-import { getCachedHealth, grokHealthCheck, GROK_MODEL, isGrokEnabled, recentFallbacks } from "../lib/grokClient";
+import { getCachedHealth, grokHealthCheck, GROK_MODEL, isGrokEnabled, recentFallbacks, monthlyTokenCap, isAiEnabled } from "../lib/grokClient";
+import { clientHealthFlags, countByKey } from "../lib/adminBoard";
+import { billingActive } from "../lib/access";
 import { lastHarvestReport } from "../lib/catalogHarvest";
 
 const router = Router();
@@ -261,19 +263,211 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       + tasks.upcomingSessions.length,
   };
 
+  const month = now.toISOString().slice(0, 7);
+  const clientSample = await prisma.client.findMany({
+    orderBy: { updatedAt: "desc" },
+    take: 40,
+    select: {
+      id: true,
+      tier: true,
+      status: true,
+      guidedSessionsTotal: true,
+      guidedSessionsUsed: true,
+      user: { select: { name: true, email: true } },
+      dfyApplication: { select: { status: true } },
+      _count: { select: { accessLog: true } },
+    },
+  });
+  const sampleIds = clientSample.map((row) => row.id);
+  const [
+    intakeGroups,
+    collectingEngagements,
+    waitingMembers,
+    tierGroups,
+    statusGroups,
+    contentGroups,
+    catalogPending,
+    catalogVerified,
+    catalogRejected,
+    catalogDead,
+    usageRows,
+    intakeCounts,
+    unreadByClient,
+    draftProposals,
+    publishedRecently,
+    lastStripe,
+    stripeCustomers,
+  ] = await Promise.all([
+    prisma.discoveryIntake.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.discoveryEngagement.count({ where: { status: "collecting" } }),
+    prisma.engagementMember.findMany({
+      where: { status: { notIn: ["submitted", "skipped"] }, revokedAt: null },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        status: true,
+        engagement: {
+          select: {
+            companyName: true,
+            intakes: { select: { decisionAuthority: true } },
+          },
+        },
+      },
+      take: 40,
+    }),
+    prisma.client.groupBy({ by: ["tier"], _count: { _all: true } }),
+    prisma.client.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.content.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.catalogItem.count({ where: { reviewStatus: "pending" } }),
+    prisma.catalogItem.count({ where: { verified: true, enabled: true } }),
+    prisma.catalogItem.count({ where: { reviewStatus: "rejected" } }),
+    prisma.catalogItem.count({ where: { enabled: false, reviewNotes: { startsWith: "Dead link" } } }),
+    prisma.aIAssistUsage.findMany({
+      where: { month, feature: "all" },
+      select: { tokenCount: true, client: { select: { tier: true } } },
+    }),
+    sampleIds.length
+      ? prisma.discoveryIntake.groupBy({ by: ["clientId"], where: { clientId: { in: sampleIds } }, _count: { _all: true } })
+      : Promise.resolve([]),
+    sampleIds.length
+      ? prisma.clientMessage.groupBy({
+          by: ["clientId"],
+          where: { clientId: { in: sampleIds }, fromAdmin: false, readAt: null },
+          _count: { _all: true },
+        })
+      : Promise.resolve([]),
+    prisma.discoveryProposal.findMany({ where: { status: "draft" }, select: { discoveryIntakeId: true } }),
+    prisma.content.findMany({
+      where: { status: "published", updatedAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) } },
+      select: { id: true, title: true },
+      orderBy: { updatedAt: "desc" },
+      take: 8,
+    }),
+    prisma.stripeEvent.findFirst({ orderBy: { processedAt: "desc" }, select: { type: true, processedAt: true } }),
+    prisma.client.count({ where: { stripeCustomerId: { not: null } } }),
+  ]);
+
+  const draftIntakeIds = draftProposals.map((row) => row.discoveryIntakeId);
+  const draftClientIds = new Set(
+    draftIntakeIds.length
+      ? (await prisma.discoveryIntake.findMany({
+          where: { id: { in: draftIntakeIds }, clientId: { not: null } },
+          select: { clientId: true },
+        })).map((row) => row.clientId).filter((id): id is string => !!id)
+      : [],
+  );
+  const intakeCountByClient = new Map(intakeCounts.flatMap((row) => row.clientId ? [[row.clientId, row._count._all] as const] : []));
+  const unreadCountByClient = new Map(unreadByClient.map((row) => [row.clientId, row._count._all]));
+  const health = clientSample.flatMap((row) => {
+    const flags = clientHealthFlags({
+      intakeCount: intakeCountByClient.get(row.id) ?? 0,
+      proposalDraft: draftClientIds.has(row.id),
+      tier: row.tier,
+      guidedSessionsTotal: row.guidedSessionsTotal,
+      guidedSessionsUsed: row.guidedSessionsUsed,
+      dfyAccepted: row.dfyApplication?.status === "accepted",
+      accessCount: row._count.accessLog,
+      unreadFromClient: unreadCountByClient.get(row.id) ?? 0,
+    });
+    if (flags.length === 0) return [];
+    return [{
+      clientId: row.id,
+      name: row.user?.name ?? row.user?.email ?? "Client",
+      tier: row.tier,
+      flags,
+    }];
+  });
+  const intakeRows = intakeGroups.map((row) => ({ key: row.status, count: row._count._all }));
+  const tierRows = tierGroups.map((row) => ({ key: row.tier, count: row._count._all }));
+  const statusRows = statusGroups.map((row) => ({ key: row.status, count: row._count._all }));
+  const contentRows = contentGroups.map((row) => ({ key: row.status, count: row._count._all }));
+  const tokensUsed = usageRows.reduce((sum, row) => sum + row.tokenCount, 0);
+  const overCap = usageRows.filter((row) => row.tokenCount >= monthlyTokenCap(row.client.tier)).length;
+  const billingOn = billingActive();
+  const waitingApprovers = waitingMembers
+    .filter((member) => member.engagement.intakes.some((intake) => intake.decisionAuthority === "partial" || intake.decisionAuthority === "none"))
+    .map((member) => ({
+      id: member.id,
+      name: member.name ?? member.email ?? "Approver",
+      email: member.email,
+      status: member.status,
+      company: member.engagement.companyName,
+    }));
+  const notifications = [
+    ...tasks.intakeReviews.map((item) => ({ id: item.id, label: `New intake: ${item.label}`, url: item.url })),
+    ...tasks.supportTickets.map((item) => ({ id: item.id, label: `Support: ${item.label}`, url: item.url })),
+    ...tasks.clientMessages.map((item) => ({ id: item.id, label: item.label, url: item.url })),
+    ...tasks.workflowRequests.map((item) => ({ id: item.id, label: item.label, url: item.url })),
+    ...tasks.dfyApplications.map((item) => ({ id: item.id, label: item.label, url: item.url })),
+    ...publishedRecently.map((item) => ({ id: item.id, label: `Published: ${item.title}`, url: "/admin/content" })),
+  ].slice(0, 20);
+
   res.json({
     date: now.toISOString().split("T")[0],
     counts,
     actionsReady,
     tasks,
     ai: {
-      enabled: isGrokEnabled(),
+      enabled: isAiEnabled(),
       keyConfigured: Boolean(process.env.XAI_API_KEY),
       model: GROK_MODEL,
       health: getCachedHealth(),
       fallbacks: recentFallbacks().slice(0, 20),
+      month,
+      tokensUsed,
+      clientsWithUsage: usageRows.length,
+      clientsOverCap: overCap,
+      caps: {
+        SELF_SERVE: monthlyTokenCap("SELF_SERVE"),
+        GUIDED: monthlyTokenCap("GUIDED"),
+        WHITE_GLOVE: monthlyTokenCap("WHITE_GLOVE"),
+      },
     },
     catalogHarvest: lastHarvestReport(),
+    board: {
+      pipeline: {
+        new: countByKey(intakeRows, "new"),
+        reviewed: countByKey(intakeRows, "reviewed"),
+        report_sent: countByKey(intakeRows, "report_sent"),
+        converted: countByKey(intakeRows, "converted"),
+        collecting: collectingEngagements,
+      },
+      waitingApprovers,
+      clientsByTier: {
+        NONE: countByKey(tierRows, "NONE"),
+        SELF_SERVE: countByKey(tierRows, "SELF_SERVE"),
+        GUIDED: countByKey(tierRows, "GUIDED"),
+        WHITE_GLOVE: countByKey(tierRows, "WHITE_GLOVE"),
+      },
+      clientsByStatus: {
+        PROSPECT: countByKey(statusRows, "PROSPECT"),
+        ACTIVE: countByKey(statusRows, "ACTIVE"),
+      },
+      health,
+      revenue: billingOn
+        ? {
+            billingEnabled: true,
+            message: "Billing is on. This is not a revenue total.",
+            lastEventType: lastStripe?.type ?? null,
+            lastEventAt: lastStripe?.processedAt ?? null,
+            clientsWithStripeCustomer: stripeCustomers,
+          }
+        : { billingEnabled: false, message: "Billing is off." },
+      content: {
+        queued: countByKey(contentRows, "queued"),
+        draft: countByKey(contentRows, "draft"),
+        approved: countByKey(contentRows, "approved"),
+        published: countByKey(contentRows, "published"),
+      },
+      catalog: {
+        pending: catalogPending,
+        verified: catalogVerified,
+        rejected: catalogRejected,
+        disabledAfterDeadLink: catalogDead,
+      },
+      notifications,
+    },
   });
 });
 
