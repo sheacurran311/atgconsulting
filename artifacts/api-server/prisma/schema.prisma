@@ -1077,8 +1077,21 @@ model EngagementMember {
 model CatalogItem {
   id            String    @id @default(cuid())
   name          String
-  /// grok_bot_template | claude_skill | claude_plugin | chatgpt_gpt | mcp_connector | atg_template
+  /// grok_bot_template | claude_skill | claude_plugin | chatgpt_gpt | mcp_connector | atg_template | model | claw
   sourceType    String
+  /// Stable id for seeded assistants and claws. Null on older rows.
+  slug          String?   @unique
+  /// template | model | claw. Older rows stay "template".
+  kind          String    @default("template")
+  /// Company or project behind a model or claw. Empty for templates.
+  maker         String    @default("")
+  /// JSON string array. Claws name the model providers they need.
+  requiresModels String   @default("[]")
+  /// Plain words. Not a score.
+  setupDifficulty String  @default("")
+  hostingRequirement String @default("")
+  /// Required for claws. Clients should read this before installing.
+  safetyNote    String    @default("")
   /// Official or marketplace URL (never invented)
   sourceUrl     String    @default("")
   description   String    @default("")
@@ -1116,6 +1129,7 @@ model CatalogItem {
   matches       CatalogMatch[]
 
   @@index([sourceType])
+  @@index([kind, verified, enabled])
   @@index([verified, enabled])
   @@index([reviewStatus])
 }

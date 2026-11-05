@@ -27,18 +27,22 @@ import { prisma } from "../lib/db";
 import { withUser, requireAdmin, requireAuth, type AuthedRequest } from "../lib/auth";
 import { classifyPainPoints, matchAndRankCatalog, getPainChips } from "../lib/catalogAI";
 import { audit } from "../lib/audit";
+import { isCatalogKind } from "../lib/catalogKinds";
 
 const router = Router();
 
 // ── Public ────────────────────────────────────────────────────────────────────
 
-router.get("/catalog", withUser, async (_req, res) => {
+router.get("/catalog", withUser, async (req, res) => {
+  const kind = typeof req.query.kind === "string" && isCatalogKind(req.query.kind) ? req.query.kind : undefined;
   const items = await prisma.catalogItem.findMany({
-    where: { verified: true, enabled: true },
+    where: { verified: true, enabled: true, ...(kind ? { kind } : {}) },
     orderBy: [{ sourceType: "asc" }, { name: "asc" }],
     select: {
       id: true, name: true, sourceType: true, sourceUrl: true,
       description: true, howItHelps: true, tags: true, tierFit: true,
+      kind: true, maker: true, requiresModels: true,
+      setupDifficulty: true, hostingRequirement: true, safetyNote: true,
     },
   });
   res.json(items);
@@ -53,7 +57,7 @@ router.get("/catalog/chips", async (req, res) => {
 
 const ItemBody = z.object({
   name:        z.string().min(1).max(300),
-  sourceType:  z.enum(["grok_bot_template","claude_skill","claude_plugin","chatgpt_gpt","mcp_connector","atg_template"]),
+  sourceType:  z.enum(["grok_bot_template","claude_skill","claude_plugin","chatgpt_gpt","mcp_connector","atg_template","model","claw"]),
   sourceUrl:   z.string().max(500).optional(),
   description: z.string().max(2000).optional(),
   howItHelps:  z.string().max(500).optional(),
@@ -65,13 +69,45 @@ const ItemBody = z.object({
   tierFit:     z.enum(["SELF_SERVE","GUIDED","WHITE_GLOVE","all"]).optional(),
   referralUrl: z.string().max(500).optional(),
   enabled:     z.boolean().optional(),
+  kind:        z.enum(["template","model","claw"]).optional(),
+  maker:       z.string().max(120).optional(),
+  requiresModels: z.array(z.string().max(80)).max(12).optional(),
+  setupDifficulty: z.string().max(200).optional(),
+  hostingRequirement: z.string().max(200).optional(),
+  safetyNote:  z.string().max(500).optional(),
 });
 
+function catalogWrite(data: z.infer<typeof ItemBody>) {
+  const { tags, requiresModels, kind, maker, setupDifficulty, hostingRequirement, safetyNote, ...rest } = data;
+  const resolvedKind = kind ?? (rest.sourceType === "model" || rest.sourceType === "claw" ? rest.sourceType : "template");
+  if (resolvedKind === "claw" && !(safetyNote && safetyNote.trim())) {
+    return { error: "A claw needs the safety note before it can be saved." };
+  }
+  return {
+    tags,
+    data: {
+      ...rest,
+      kind: resolvedKind,
+      maker: maker ?? "",
+      requiresModels: JSON.stringify(requiresModels ?? []),
+      setupDifficulty: setupDifficulty ?? "",
+      hostingRequirement: hostingRequirement ?? "",
+      safetyNote: resolvedKind === "claw" ? safetyNote!.trim() : (safetyNote ?? ""),
+      sourceUrl: rest.sourceUrl ?? "",
+      description: rest.description ?? "",
+      howItHelps: rest.howItHelps ?? "",
+      tierFit: rest.tierFit ?? "all",
+      referralUrl: rest.referralUrl ?? "",
+    },
+  };
+}
+
 router.get("/admin/catalog", withUser, requireAdmin, async (req, res) => {
-  const { status, source } = req.query as { status?: string; source?: string };
+  const { status, source, kind } = req.query as { status?: string; source?: string; kind?: string };
   const where: Record<string, unknown> = {};
   if (status) where.reviewStatus = status;
   if (source) where.sourceType = source;
+  if (isCatalogKind(kind)) where.kind = kind;
   const items = await prisma.catalogItem.findMany({
     where, orderBy: { createdAt: "desc" }, take: 200,
   });
@@ -81,9 +117,10 @@ router.get("/admin/catalog", withUser, requireAdmin, async (req, res) => {
 router.post("/admin/catalog", withUser, requireAdmin, async (req, res) => {
   const parsed = ItemBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
-  const { tags, ...rest } = parsed.data;
+  const written = catalogWrite(parsed.data);
+  if ("error" in written) { res.status(422).json({ error: written.error }); return; }
   const item = await prisma.catalogItem.create({
-    data: { ...rest, sourceUrl: rest.sourceUrl ?? "", description: rest.description ?? "", howItHelps: rest.howItHelps ?? "", tags: JSON.stringify(tags ?? {}), tierFit: rest.tierFit ?? "all", referralUrl: rest.referralUrl ?? "" },
+    data: { ...written.data, tags: JSON.stringify(written.tags ?? {}) },
   });
   res.status(201).json(item);
 });
@@ -93,10 +130,25 @@ router.patch("/admin/catalog/:id", withUser, requireAdmin, async (req, res) => {
   if (!item) { res.status(404).json({ error: "Not found." }); return; }
   const parsed = ItemBody.partial().safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Validation failed." }); return; }
-  const { tags, ...rest } = parsed.data;
+  const nextKind = parsed.data.kind ?? (parsed.data.sourceType === "model" || parsed.data.sourceType === "claw" ? parsed.data.sourceType : item.kind);
+  const nextNote = parsed.data.safetyNote ?? item.safetyNote;
+  if (nextKind === "claw" && !nextNote.trim()) {
+    res.status(422).json({ error: "A claw needs the safety note before it can be saved." });
+    return;
+  }
+  const { tags, requiresModels, kind, maker, setupDifficulty, hostingRequirement, safetyNote, ...rest } = parsed.data;
   const updated = await prisma.catalogItem.update({
     where: { id: item.id },
-    data: { ...rest, ...(tags !== undefined ? { tags: JSON.stringify(tags) } : {}) },
+    data: {
+      ...rest,
+      ...(kind !== undefined ? { kind } : {}),
+      ...(maker !== undefined ? { maker } : {}),
+      ...(requiresModels !== undefined ? { requiresModels: JSON.stringify(requiresModels) } : {}),
+      ...(setupDifficulty !== undefined ? { setupDifficulty } : {}),
+      ...(hostingRequirement !== undefined ? { hostingRequirement } : {}),
+      ...(safetyNote !== undefined ? { safetyNote } : {}),
+      ...(tags !== undefined ? { tags: JSON.stringify(tags) } : {}),
+    },
   });
   res.json(updated);
 });
@@ -137,16 +189,27 @@ router.post("/admin/catalog/import", withUser, requireAdmin, async (req, res) =>
   const results: { name: string; action: string; error?: string }[] = [];
   for (const raw of items) {
     if (!raw.name || !raw.sourceType) { results.push({ name: raw.name ?? "?", action: "skip", error: "name and sourceType are required" }); continue; }
+    const kind = raw.kind ?? (raw.sourceType === "model" || raw.sourceType === "claw" ? raw.sourceType : "template");
+    if (kind === "claw" && !(raw.safetyNote ?? "").trim()) {
+      results.push({ name: raw.name, action: "skip", error: "a claw needs a safety note" });
+      continue;
+    }
     try {
       await prisma.catalogItem.create({
         data: {
           name: raw.name,
           sourceType: raw.sourceType,
+          kind,
+          maker: raw.maker ?? "",
           sourceUrl: raw.sourceUrl ?? "",
           description: raw.description ?? "",
           howItHelps: raw.howItHelps ?? "",
           tags: "{}",
           tierFit: raw.tierFit ?? "all",
+          requiresModels: JSON.stringify(raw.requiresModels ?? []),
+          setupDifficulty: raw.setupDifficulty ?? "",
+          hostingRequirement: raw.hostingRequirement ?? "",
+          safetyNote: raw.safetyNote ?? "",
           reviewStatus: "pending",
         },
       });
@@ -222,6 +285,7 @@ router.post("/admin/catalog/verify-batch", withUser, requireAdmin, async (req, r
       enabled: true,
       sourceUrl: { not: "" },
       lastCheckedAt: { not: null },
+      kind: "template",
       ...(ids ? { id: { in: ids } } : {}),
     },
     select: { id: true, name: true, sourceType: true },
@@ -297,7 +361,7 @@ router.post("/admin/catalog/match/:intakeId", withUser, requireAdmin, async (req
 
   // Fetch verified catalog items
   const catalogItems = await prisma.catalogItem.findMany({
-    where: { verified: true, enabled: true },
+    where: { verified: true, enabled: true, kind: "template" },
     select: { id: true, name: true, description: true, howItHelps: true, tags: true, sourceType: true, tierFit: true },
   });
 
@@ -356,10 +420,20 @@ router.get("/client/catalog-matches", withUser, requireAuth, async (req, res) =>
 
   const matches = await prisma.catalogMatch.findMany({
     where: { intakeId: intake.id, catalogItem: { verified: true, enabled: true } },
-    include: { catalogItem: { select: { name: true, sourceType: true, sourceUrl: true, howItHelps: true, tierFit: true } } },
+    include: { catalogItem: { select: { name: true, sourceType: true, sourceUrl: true, howItHelps: true, tierFit: true, kind: true, safetyNote: true } } },
     orderBy: { score: "desc" },
   });
-  res.json(matches);
+  res.json({
+    matches: matches.map((match) => ({
+      id: match.id,
+      name: match.catalogItem.name,
+      painPoint: match.painPoint,
+      why: match.rankExplanation,
+      url: match.catalogItem.sourceUrl || null,
+      kind: match.catalogItem.kind,
+      safetyNote: match.catalogItem.safetyNote,
+    })),
+  });
 });
 
 export default router;
