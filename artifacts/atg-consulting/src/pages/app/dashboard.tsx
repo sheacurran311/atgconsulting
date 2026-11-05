@@ -18,7 +18,8 @@ import ResourcesTab from "@/components/app/ResourcesTab";
 import InfoTab from "@/components/app/InfoTab";
 import AICoachPanel from "@/components/app/AICoachPanel";
 import TroubleshooterPanel from "@/components/app/TroubleshooterPanel";
-import DfyApplyCard from "@/components/app/DfyApplyCard";
+import ClientHome from "@/components/app/ClientHome";
+import type { ClientHomePayload } from "@/lib/api";
 
 const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
 
@@ -83,6 +84,7 @@ function HoursSavedTab({ tier }: { tier: string }) {
 }
 
 const TABS = [
+  { id: "home",      label: "Home" },
   { id: "today",     label: "Today" },
   { id: "workflows", label: "My workflows" },
   { id: "history",   label: "Run history" },
@@ -93,12 +95,24 @@ const TABS = [
 ];
 
 export default function DashboardPage() {
-  const [tab, setTab] = useState("today");
+  const [tab, setTab] = useState(() => {
+    if (typeof window === "undefined") return "home";
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    return requested && TABS.some((item) => item.id === requested) ? requested : "home";
+  });
+  const [home, setHome] = useState<ClientHomePayload | null>(null);
+  const [homeError, setHomeError] = useState<string | null>(null);
   const { account } = useAccount();
   const portal = usePortal();
   const tier = account?.tier ?? portal?.tier ?? "NONE";
   const testMode = portal?.testMode ?? false;
   const personalizedSlugs = portal?.personalizedSlugs ?? [];
+
+  useEffect(() => {
+    api.client.dashboard()
+      .then((data) => setHome(data.home))
+      .catch((err: Error) => setHomeError(err.message));
+  }, []);
 
   return (
     <AppShell wide>
@@ -109,7 +123,7 @@ export default function DashboardPage() {
             <h1 className="font-extrabold text-2xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.025em" }}>Your dashboard</h1>
           </div>
           <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn-primary text-sm" style={{ padding: "8px 14px" }}>
-            Book 1:1 with Shea
+            Book externally
           </a>
         </div>
 
@@ -139,10 +153,11 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {tab === "today" && tier === "GUIDED" && <GuidedSessionsPanel />}
-        {tab === "today" && (
-          <DfyApplyCard visible={account?.helpStyle === "done_for_you" || tier === "WHITE_GLOVE"} />
+        {tab === "home" && (
+          home ? <ClientHome home={home} />
+          : <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>{homeError ?? "Loading your home…"}</p>
         )}
+        {tab === "today" && tier === "GUIDED" && <GuidedSessionsPanel />}
         {tab === "today" && <DayView tier={tier} testMode={testMode} />}
         {tab === "workflows" && (
           <div className="max-w-content">
