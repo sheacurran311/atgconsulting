@@ -28,6 +28,7 @@ import engagementRouter from "./engagement";
 import catalogRouter from "./catalog";
 import contentRouter from "./content";
 import adminTodayRouter from "./adminToday";
+import workshopRouter from "./workshop";
 import { blockIfImpersonating } from "../lib/impersonate";
 
 const router: IRouter = Router();
@@ -69,5 +70,6 @@ router.use(engagementRouter);
 router.use(catalogRouter);
 router.use(contentRouter);
 router.use(adminTodayRouter);
+router.use(workshopRouter);
 
 export default router;

@@ -1,6 +1,6 @@
 /**
  * Knowledge article seed data.
- * Articles are admin-editable markdown; seeded from code if the table is empty.
+ * Articles are admin-editable markdown. Missing slugs are created. Existing rows stay.
  * Full platform guides and vertical FAQs are in this file.
  * Tags: { verticals: string[], tiers: string[], platforms: string[] }
  */
@@ -160,20 +160,134 @@ Configure your GPT or scheduled task to produce a **draft** output. Always revie
     tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: [] },
     sortOrder: 100,
   },
+  {
+    slug: "review-an-ai-draft",
+    title: "How to review an AI draft",
+    body: `# How to review an AI draft
+
+Read the draft as if a new employee wrote it.
+
+Check three things: every fact matches what you provided, the ask is the one you wanted, and the voice is one you would send.
+
+Delete any detail you did not supply. If a sentence promises a price, a date, or a discount, confirm it before you keep it.
+
+Then decide: send, edit, or discard. The assistant does not make that decision.`,
+    tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: [] },
+    sortOrder: 110,
+  },
+  {
+    slug: "prompt-checklist",
+    title: "A prompt checklist",
+    body: `# A prompt checklist
+
+Before you send a request, confirm:
+
+- Who the draft is for
+- What finished looks like
+- The facts that must stay true
+- What the draft must not promise
+- How long it should be
+
+If one of those is missing, add it. A shorter checklist you actually use beats a long one you skip.`,
+    tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: [] },
+    sortOrder: 120,
+  },
+  {
+    slug: "what-not-to-paste",
+    title: "What not to paste into an assistant",
+    body: `# What not to paste into an assistant
+
+Leave out passwords, API keys, card numbers, government ID numbers, and health details.
+
+Leave out customer information your own rules say must stay in another system.
+
+If you only need the shape of a message, replace names with "the customer."
+
+The vendor's privacy terms are on the vendor's site. This app does not connect to your assistant account.`,
+    tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: [] },
+    sortOrder: 130,
+  },
+  {
+    slug: "email-into-a-template",
+    title: "Turn one email into a template",
+    body: `# Turn one email into a template
+
+Start from an email you already send often.
+
+Mark the sentences that stay the same. Mark the blanks: name, date, job.
+
+Write the standing text and the blanks as a saved instruction in your own assistant. Add a line that says you review the draft before it is used.
+
+Run it once with sample details you are allowed to share.`,
+    tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: [] },
+    sortOrder: 140,
+  },
+  {
+    slug: "compare-assistants",
+    title: "Compare assistants on one task",
+    body: `# Compare assistants on one task
+
+Grok, Claude, and ChatGPT are general assistants from different companies. Menus and plans change. Check each vendor's site for what is included.
+
+To compare, use the same prompt and the same non-sensitive notes in the tool your team can already open. If you try a second tool, keep the prompt the same.
+
+Keep the draft that needed fewer factual fixes. There is no universal ranking.`,
+    tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: [] },
+    sortOrder: 150,
+  },
+  {
+    slug: "note-time-saved",
+    title: "Note time on one task",
+    body: `# Note time on one task
+
+Write the start time and the finish time for one real run, including your review.
+
+Do it again the next time that task shows up. Two notes are a record. They are not a study and not a percentage to publish.
+
+If the second job was harder, say so. Do not smooth the numbers.`,
+    tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: [] },
+    sortOrder: 160,
+  },
+  {
+    slug: "share-a-template",
+    title: "Share one template with a team",
+    body: `# Share one template with a team
+
+Give the template a job name. Write when to use it and when not to.
+
+Name the inputs the person must paste, and name who reviews the draft before it goes to a customer.
+
+Show one person how to run it. Change the instruction based on what confused them before you ask anyone else to use it.`,
+    tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: [] },
+    sortOrder: 170,
+  },
+  {
+    slug: "you-stay-in-control",
+    title: "You stay in control",
+    body: `# You stay in control
+
+A connector can read mail, a calendar, or files after you approve that access in the assistant's own settings.
+
+Read what you are granting. Leave off any setting that sends, posts, or deletes without a person, until you mean to turn it on.
+
+ATG does not store those passwords and does not run the assistant for you. You start the task and you review the draft.`,
+    tags: { verticals: [], tiers: ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"], platforms: [] },
+    sortOrder: 180,
+  },
 ];
 
-/** Upsert all article seeds if the table is empty. */
+/** Create any missing article seeds. Existing rows are not overwritten. */
 export async function seedKnowledgeArticles(prisma: {
-  knowledgeArticle: { findFirst: Function; upsert: Function };
+  knowledgeArticle: {
+    findUnique: (args: { where: { slug: string } }) => Promise<{ id: string } | null>;
+    create: (args: { data: { slug: string; title: string; body: string; tags: string; sortOrder: number } }) => Promise<unknown>;
+  };
 }) {
-  const existing = await prisma.knowledgeArticle.findFirst();
-  if (existing) return;
-
   for (const seed of ARTICLE_SEEDS) {
-    await prisma.knowledgeArticle.upsert({
-      where: { slug: seed.slug },
-      update: {},
-      create: {
+    const existing = await prisma.knowledgeArticle.findUnique({ where: { slug: seed.slug } });
+    if (existing) continue;
+    await prisma.knowledgeArticle.create({
+      data: {
         slug: seed.slug,
         title: seed.title,
         body: seed.body,

@@ -19,6 +19,7 @@ import { prisma } from "../lib/db";
 import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { getCachedHealth, grokHealthCheck, GROK_MODEL, isGrokEnabled, recentFallbacks, monthlyTokenCap, isAiEnabled } from "../lib/grokClient";
 import { clientHealthFlags, countByKey } from "../lib/adminBoard";
+import { canAccessWorkshop } from "../lib/workshopAccess";
 import { billingActive } from "../lib/access";
 import { lastHarvestReport } from "../lib/catalogHarvest";
 
@@ -273,7 +274,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       status: true,
       guidedSessionsTotal: true,
       guidedSessionsUsed: true,
-      user: { select: { name: true, email: true } },
+      user: { select: { id: true, name: true, email: true } },
       dfyApplication: { select: { status: true } },
       _count: { select: { accessLog: true } },
     },
@@ -357,6 +358,23 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
         })).map((row) => row.clientId).filter((id): id is string => !!id)
       : [],
   );
+  const sampleUserIds = clientSample.map((row) => row.user.id);
+  let workshopLessonTotal = 0;
+  let workshopStarts: { userId: string; _count: { _all: number } }[] = [];
+  try {
+    const [lessonTotal, starts] = await Promise.all([
+      prisma.workshopLesson.count({ where: { status: "PUBLISHED", module: { status: "PUBLISHED" } } }),
+      sampleUserIds.length
+        ? prisma.workshopProgress.groupBy({ by: ["userId"], where: { userId: { in: sampleUserIds } }, _count: { _all: true } })
+        : Promise.resolve([]),
+    ]);
+    workshopLessonTotal = lessonTotal;
+    workshopStarts = starts;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/Workshop|does not exist|P2021/i.test(msg)) throw err;
+  }
+  const workshopCountByUser = new Map(workshopStarts.map((row) => [row.userId, row._count._all]));
   const intakeCountByClient = new Map(intakeCounts.flatMap((row) => row.clientId ? [[row.clientId, row._count._all] as const] : []));
   const unreadCountByClient = new Map(unreadByClient.map((row) => [row.clientId, row._count._all]));
   const health = clientSample.flatMap((row) => {
@@ -369,6 +387,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       dfyAccepted: row.dfyApplication?.status === "accepted",
       accessCount: row._count.accessLog,
       unreadFromClient: unreadCountByClient.get(row.id) ?? 0,
+      workshopNotStarted: workshopLessonTotal > 0 && canAccessWorkshop(row.tier, false) && (workshopCountByUser.get(row.user.id) ?? 0) === 0,
     });
     if (flags.length === 0) return [];
     return [{

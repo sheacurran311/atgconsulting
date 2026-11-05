@@ -19,6 +19,7 @@ import ConsultationsPage from "@/pages/app/consultations";
 import DocumentsPage from "@/pages/app/documents";
 import ReportsPage from "@/pages/app/reports";
 import LearnPage from "@/pages/app/learn";
+import { WorkshopHomePage, WorkshopLessonPage } from "@/pages/app/workshop";
 import AppAccountPage from "@/pages/app/account";
 import ProposalPage from "@/pages/app/proposal";
 
@@ -36,6 +37,7 @@ import AdminDiscoveryPage from "@/pages/admin/discovery";
 import AdminEngagementsPage from "@/pages/admin/engagements";
 import AdminCatalogPage from "@/pages/admin/catalog";
 import AdminTodayPage from "@/pages/admin/today";
+import AdminWorkshopPage from "@/pages/admin/workshop";
 import BlogPage from "@/pages/blog";
 import BlogPostPage from "@/pages/blog-post";
 
@@ -136,6 +138,8 @@ function AuthenticatedApp() {
         <Route path="/app/documents" component={DocumentsPage} />
         <Route path="/app/reports/:date" component={ReportsPage} />
         <Route path="/app/reports" component={ReportsPage} />
+        <Route path="/app/learn/workshop/:slug" component={WorkshopLessonPage} />
+        <Route path="/app/learn/workshop" component={WorkshopHomePage} />
         <Route path="/app/learn/:slug" component={LearnPage} />
         <Route path="/app/learn" component={LearnPage} />
         <Route path="/app/account" component={AppAccountPage} />
@@ -147,6 +151,7 @@ function AuthenticatedApp() {
         <Route path="/admin/clients" component={AdminClientsPage} />
         <Route path="/admin/reports" component={AdminReportsPage} />
         <Route path="/admin/content" component={AdminContentPage} />
+        <Route path="/admin/workshop" component={AdminWorkshopPage} />
         <Route path="/admin/audit" component={AdminAuditPage} />
         <Route path="/admin/messages" component={AdminMessagesPage} />
         <Route path="/admin/tiers" component={AdminTiersPage} />

@@ -12,6 +12,7 @@ export function clientHealthFlags(input: {
   dfyAccepted: boolean;
   accessCount: number;
   unreadFromClient: number;
+  workshopNotStarted?: boolean;
 }): string[] {
   const flags: string[] = [];
   if (input.intakeCount === 0) flags.push("No intake");
@@ -25,6 +26,7 @@ export function clientHealthFlags(input: {
   }
   if (input.dfyAccepted && input.accessCount === 0) flags.push("Done-for-you accepted with no access recorded");
   if (input.unreadFromClient > 0) flags.push("Unread message");
+  if (input.workshopNotStarted) flags.push("AI workshop not started");
   return flags;
 }
 

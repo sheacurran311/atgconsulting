@@ -25,6 +25,7 @@ const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Engagements", to: "/admin/engagements",        icon: Users },
   { label: "Catalog",     to: "/admin/catalog",            icon: Search },
   { label: "Content",     to: "/admin/content",            icon: BookOpen },
+  { label: "Workshop",    to: "/admin/workshop",           icon: BookOpen },
   { label: "Clients",     to: "/admin/clients",            icon: Contact },
   { label: "Plans & DFY", to: "/admin/tiers",              icon: Layers },
   { label: "Messages",    to: "/admin/messages",           icon: MessageSquare },
