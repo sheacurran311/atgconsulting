@@ -12,6 +12,7 @@ import { adminTestMode } from "../lib/access";
 import { clientProposalState, parseMilestones } from "../lib/clientProposal";
 import { extractPersonalizedSlugs } from "../lib/personalization";
 import { buildNextActions, workflowRowState } from "../lib/clientHome";
+import { workshopSummary } from "./workshop";
 
 const router = Router();
 router.use(withUser, requireAuth);
@@ -149,6 +150,7 @@ router.get("/client/dashboard", async (req, res) => {
   const guided = tier === "GUIDED" && guidedTotal != null
     ? { total: guidedTotal, used: guidedUsed, remaining: guidedTotal - guidedUsed }
     : null;
+  const workshop = await workshopSummary((req as AuthedRequest).atgUser!.id, tier);
 
   res.json({
     client,
@@ -214,6 +216,7 @@ router.get("/client/dashboard", async (req, res) => {
       report: recentReport
         ? { date: recentReport.date, publishedAt: recentReport.publishedAt }
         : null,
+      workshop,
     },
   });
 });

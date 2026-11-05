@@ -180,6 +180,27 @@ export default function ClientHome({ home }: { home: ClientHomePayload }) {
         </div>
       </Card>
 
+      <Card kicker="AI WORKSHOP">
+        {home.workshop.locked ? (
+          <>
+            <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>The workshop opens on Self-serve, Guided, and Done-for-you.</p>
+            <Link href="/app/account" className="text-sm font-semibold" style={{ color: "var(--blue)" }}>View your plan</Link>
+          </>
+        ) : home.workshop.totalLessons === 0 ? (
+          <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>No workshop lessons published yet.</p>
+        ) : (
+          <>
+            <p className="font-extrabold text-2xl" style={{ color: "var(--canvas-text)", letterSpacing: "-0.03em" }}>{home.workshop.percent}%</p>
+            <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>{home.workshop.completedLessons} of {home.workshop.totalLessons} lessons</p>
+            {home.workshop.resumeHref && (
+              <Link href={home.workshop.resumeHref} className="text-sm font-semibold mt-2 inline-block" style={{ color: "var(--blue)" }}>
+                {home.workshop.percent === 100 ? "Review the workshop" : `Resume: ${home.workshop.resumeLabel ?? "Next lesson"}`}
+              </Link>
+            )}
+          </>
+        )}
+      </Card>
+
       <Card kicker="REPORTS">
         {home.report ? (
           <Link href="/app/reports" className="text-sm font-semibold" style={{ color: "var(--blue)" }}>

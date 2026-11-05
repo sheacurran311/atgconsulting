@@ -145,6 +145,13 @@ export const api = {
     get: (slug: string) => get<Module>(`/modules/${slug}`),
     complete: (slug: string) => post<{ ok: boolean }>(`/modules/${slug}/complete`),
   },
+  workshop: {
+    outline: () => get<WorkshopOutline>("/workshop"),
+    lesson: (slug: string) => get<WorkshopLessonDetail>(`/workshop/lessons/${slug}`),
+    complete: (slug: string) => post<{ ok: boolean; percent: number; completedLessons: number; totalLessons: number }>(`/workshop/lessons/${slug}/complete`, {}),
+    quiz: (slug: string) => get<WorkshopQuiz>(`/workshop/modules/${slug}/quiz`),
+    submitQuiz: (slug: string, answers: number[]) => post<{ score: number; total: number; results: boolean[]; note: string }>(`/workshop/modules/${slug}/quiz`, { answers }),
+  },
 
   // ── Admin ──────────────────────────────────────────────────────────────────
   admin: {
@@ -161,6 +168,13 @@ export const api = {
       list: () => get<Module[]>("/admin/content/modules"),
       create: (body: unknown) => post<Module>("/admin/content/modules", body),
       update: (id: string, body: unknown) => req<Module>("PUT", `/admin/content/modules/${id}`, body),
+    },
+    workshop: {
+      list: () => get<WorkshopAdminModule[]>("/admin/workshop"),
+      updateModule: (id: string, body: unknown) => req<WorkshopAdminModule>("PUT", `/admin/workshop/modules/${id}`, body),
+      updateLesson: (id: string, body: unknown) => req<WorkshopAdminLesson>("PUT", `/admin/workshop/lessons/${id}`, body),
+      reorder: (body: { modules?: { id: string; order: number }[]; lessons?: { id: string; order: number }[] }) => post<{ ok: boolean }>("/admin/workshop/reorder", body),
+      progress: () => get<{ publishedLessons: number; clients: { clientId: string; name: string; tier: string; completedLessons: number; totalLessons: number; percent: number }[] }>("/admin/workshop/progress"),
     },
     audit: (params?: string) => get<AuditEntry[]>(`/admin/audit${params ? `?${params}` : ""}`),
     // Workbench admin
@@ -232,6 +246,50 @@ export interface Consultation { id: string; title: string; scheduledAt: string |
 export interface Document { id: string; title: string; type: string; mime: string; size: number; visibleToClient: boolean; createdAt: string }
 export interface Report { id: string; date: string; kind: string; contentMarkdown: string; status: string; publishedAt: string | null }
 export interface Module { id: string; slug: string; title: string; description: string; minTier: string; order: number; videoUrl: string | null; body: string; status: string }
+export interface WorkshopOutline {
+  locked: boolean;
+  percent: number;
+  completedLessons: number;
+  totalLessons: number;
+  testMode: boolean;
+  modules: {
+    slug: string;
+    title: string;
+    summary: string;
+    percent: number;
+    lessonCount: number;
+    completedLessons: number;
+    hasQuiz: boolean;
+    quiz: { score: number; total: number } | null;
+    lessons: { slug: string; title: string; minutes: number; completed: boolean }[];
+  }[];
+}
+export interface WorkshopLessonDetail {
+  slug: string;
+  title: string;
+  minutes: number;
+  body: string;
+  takeaways: string[];
+  exercise: string;
+  completed: boolean;
+  module: { slug: string; title: string };
+  prevSlug: string | null;
+  nextSlug: string | null;
+}
+export interface WorkshopAdminLesson {
+  id: string; slug: string; title: string; body: string; minutes: number;
+  takeaways: string; exercise: string; order: number; status: string;
+}
+export interface WorkshopAdminModule {
+  id: string; slug: string; title: string; summary: string; order: number; status: string; quizJson: string;
+  lessons: WorkshopAdminLesson[];
+}
+export interface WorkshopQuiz {
+  slug: string;
+  title: string;
+  questions: { prompt: string; choices: string[] }[];
+  prior: { score: number; total: number } | null;
+}
 export interface ClientHomePayload {
   where: {
     hasIntake: boolean;
@@ -256,6 +314,14 @@ export interface ClientHomePayload {
   unreadMessages: number;
   tickets: { id: string; subject: string; status: string; createdAt: string }[];
   report: { date: string; publishedAt: string | null } | null;
+  workshop: {
+    locked: boolean;
+    percent: number;
+    completedLessons: number;
+    totalLessons: number;
+    resumeLabel: string | null;
+    resumeHref: string | null;
+  };
 }
 export interface Dashboard { client: ClientAdmin | null; workflowItems: WorkflowItem[]; recentConsultation: Consultation | null; recentReport: Report | null; activeDocCount: number; home: ClientHomePayload }
 export interface ClientAdmin { id: string; userId: string; company: string | null; tier: string; status: string; industry: string | null; aiLevel: number; createdAt: string; notes: string | null; user: { name: string | null; email: string | null }; _count?: { consultations: number; documents: number } }

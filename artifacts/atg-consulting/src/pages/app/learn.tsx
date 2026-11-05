@@ -23,8 +23,15 @@ function ModuleList() {
         <div className="mb-8">
           <p className="section-eyebrow mb-1">Client portal</p>
           <h1 className="text-2xl font-extrabold text-canvas-text">Learn</h1>
-          <p className="text-canvas-text text-sm mt-1">Modules to help you get the most from your AI setup.</p>
+          <p className="text-canvas-text text-sm mt-1">A self-guided workshop, plus shorter modules when Shea publishes them.</p>
         </div>
+        <Link to="/app/learn/workshop">
+          <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-5 mb-6 hover:border-blue/30 transition-colors">
+            <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>AI WORKSHOP</p>
+            <p className="font-bold text-canvas-text">Practice in your own assistant</p>
+            <p className="text-canvas-text text-sm mt-1">Lessons, a check you score yourself, and progress you can resume. Paid plans, or admin test mode.</p>
+          </div>
+        </Link>
         {loading ? <p className="text-canvas-text">Loading…</p> : modules.length === 0 ? (
           <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-10 text-center">
             <p className="font-bold text-canvas-text mb-1">No modules published yet</p>

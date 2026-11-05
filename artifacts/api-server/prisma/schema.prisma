@@ -42,6 +42,8 @@ model User {
   client      Client?
   auditLogs   AuditLog[]
   moduleProgress ModuleProgress[]
+  workshopProgress WorkshopProgress[]
+  workshopQuizzes WorkshopQuizResult[]
 }
 
 // ── Client profile ─────────────────────────────────────────────────────────────
@@ -248,6 +250,74 @@ model ModuleProgress {
   moduleId    String
   module      Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   completedAt DateTime  @default(now())
+
+  @@unique([userId, moduleId])
+}
+
+// ── AI Workshop (self-guided, inside Learn) ───────────────────────────────────
+// Apply with: pnpm --filter @workspace/api-server db:push
+
+model WorkshopModule {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  title     String
+  summary   String   @default("")
+  order     Int      @default(0)
+  /// DRAFT | PUBLISHED
+  status    String   @default("DRAFT")
+  /// JSON array of { prompt, choices, answerIndex }. Self-scored by the learner.
+  quizJson  String   @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lessons   WorkshopLesson[]
+  quizzes   WorkshopQuizResult[]
+}
+
+model WorkshopLesson {
+  id         String   @id @default(cuid())
+  moduleId   String
+  module     WorkshopModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  slug       String   @unique
+  title      String
+  body       String   @default("")
+  minutes    Int      @default(8)
+  /// JSON string array
+  takeaways  String   @default("[]")
+  /// Done in the learner's own assistant. This app does not run it.
+  exercise   String   @default("")
+  order      Int      @default(0)
+  /// DRAFT | PUBLISHED
+  status     String   @default("DRAFT")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  progress   WorkshopProgress[]
+
+  @@index([moduleId, order])
+}
+
+model WorkshopProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId    String
+  lesson      WorkshopLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completedAt DateTime @default(now())
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+}
+
+model WorkshopQuizResult {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moduleId   String
+  module     WorkshopModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  score      Int
+  total      Int
+  updatedAt  DateTime @updatedAt
 
   @@unique([userId, moduleId])
 }
