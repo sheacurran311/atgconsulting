@@ -2,10 +2,25 @@
  * Shea — "Your operator" section.
  * Content driven by src/content/shea.ts — edit that file to update bio and steps.
  */
+import { useState } from "react";
 import { Link } from "wouter";
 import { SHEA } from "@/content/shea";
 
 function SheaAvatar({ size = 80 }: { size?: number }) {
+  const [failed, setFailed] = useState(false);
+  if (SHEA.photo && !failed) {
+    return (
+      <img
+        src={SHEA.photo}
+        alt={SHEA.name}
+        width={size}
+        height={size}
+        className="rounded-2xl object-cover flex-shrink-0"
+        style={{ width: size, height: size, border: "1px solid var(--ink-border)" }}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
   return (
     <div
       className="rounded-2xl flex items-center justify-center font-mono font-bold overflow-hidden flex-shrink-0"
@@ -17,9 +32,8 @@ function SheaAvatar({ size = 80 }: { size?: number }) {
         fontSize: size * 0.3,
         color: "var(--blue)",
       }}
-      aria-label={`${SHEA.name} — photo placeholder`}
+      aria-label={`${SHEA.name} photo placeholder`}
     >
-      {/* Replace with <img src={SHEA.photo} /> when photo is ready */}
       {SHEA.initials}
     </div>
   );

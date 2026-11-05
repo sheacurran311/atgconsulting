@@ -23,6 +23,7 @@ import { z } from "zod";
 import { createHash, randomBytes } from "crypto";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
+import { checkWorkflowAccess } from "../lib/access";
 
 const router = Router();
 router.use(withUser, requireAuth);
@@ -47,6 +48,8 @@ router.get("/workbench/install-code/:slug", async (req, res) => {
   if (!user.clientId) { res.status(403).json({ error: "No client profile." }); return; }
 
   const slug = req.params.slug as string;
+  const access = await checkWorkflowAccess(user.clientId, slug);
+  if (!access.allowed) { res.status(403).json({ error: access.reason ?? "This workflow is not on your plan." }); return; }
 
   // Look up or create the code record
   let record = await prisma.workflowInstallCode.findUnique({
@@ -95,6 +98,8 @@ router.post("/workbench/install-verify", async (req, res) => {
 
   const { slug, code } = parsed.data;
   const clientId = user.clientId;
+  const access = await checkWorkflowAccess(clientId, slug);
+  if (!access.allowed) { res.status(403).json({ error: access.reason ?? "This workflow is not on your plan." }); return; }
 
   const record = await prisma.workflowInstallCode.findUnique({
     where: { clientId_slug: { clientId, slug } },

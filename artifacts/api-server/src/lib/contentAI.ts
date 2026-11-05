@@ -243,7 +243,7 @@ Return ONLY JSON: {"topics":[{"topic":"kebab-slug","angle":"one sentence"}]}`,
 /** Turns the oldest queued topics into draft posts. Called by the weekly cron. */
 export async function generateWeeklyContent(): Promise<{ created: number; tokensUsed: number }> {
   const perWeek = parseInt(process.env.CONTENT_DRAFTS_PER_WEEK ?? "2", 10);
-  await proposeContentTopics(Math.max(perWeek, 2));
+  // Topics are proposed by the daily cron. Monday only turns queued rows into drafts.
 
   const queued = await prisma.content.findMany({
     where: { status: "queued" },

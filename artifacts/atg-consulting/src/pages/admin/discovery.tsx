@@ -160,15 +160,15 @@ export default function AdminDiscoveryPage() {
     setGeneratingProposal(false);
   }
 
-  async function approveProposal(publishToPortal = false) {
+  async function approveProposal() {
     if (!selected) return;
     setApproving(true);
     await fetch(`/api/admin/discovery/${selected.id}/proposal/approve`, {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ publishToPortal }),
+      body: JSON.stringify({}),
     });
-    setProposal((p) => p ? { ...p, status: publishToPortal ? "portal_published" : "approved", approvedAt: new Date().toISOString() } : p);
+    setProposal((p) => p ? { ...p, status: "approved", approvedAt: new Date().toISOString() } : p);
     setApproving(false);
   }
 
@@ -350,7 +350,7 @@ export default function AdminDiscoveryPage() {
                     <a href={`/api/admin/discovery/${selected.id}/proposal.html`} target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
                       Print view
                     </a>
-                    <button type="button" onClick={() => approveProposal(false)} disabled={approving} className="btn-primary text-sm" style={{ padding: "7px 14px", background: "#16A34A" }}>
+                    <button type="button" onClick={() => approveProposal()} disabled={approving} className="btn-primary text-sm" style={{ padding: "7px 14px", background: "#16A34A" }}>
                       {approving ? "…" : "Approve"}
                     </button>
                   </>

@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
-import intakeRouter from "./intake";
 import accountRouter from "./account";
 import planRouter from "./plan";
 import clientRouter from "./client";
@@ -42,7 +41,6 @@ router.use((req, res, next) => {
 });
 
 router.use(healthRouter);
-router.use(intakeRouter);
 router.use(accountRouter);
 router.use(planRouter);
 router.use(clientRouter);

@@ -81,6 +81,8 @@ export const api = {
     usage:         () => get<{ used: number; cap: number; month: string; byFeature: { feature: string; tokenCount: number; messageCount: number }[]; enabled: boolean }>("/ai-assist/usage"),
   },
 
+  catalogMatches: () => get<{ matches: { id: string; name: string; painPoint: string; why: string; url: string | null }[] }>("/client/catalog-matches"),
+
   knowledge: {
     list:           () => get<KnowledgeArticle[]>("/knowledge"),
     bySlug:         (slug: string) => get<KnowledgeArticle>(`/knowledge/${slug}`),
@@ -223,7 +225,7 @@ export interface PlanResult {
   intakeId: string; name: string; email: string; claimed: boolean;
   plan: { id: string; aiReadinessLabel: string; aiReadinessSummary: string; focusAreas: FocusArea[]; recommendedTier: string; tierRationale: string; ctaText: string; source: string } | null;
 }
-export interface ClientProfile { id: string; email: string | null; name: string | null; role: string; isAdmin: boolean; clientId: string | null; tier: string; status: string | null; digestEmailOptIn: boolean }
+export interface ClientProfile { id: string; email: string | null; name: string | null; role: string; isAdmin: boolean; clientId: string | null; tier: string; status: string | null; digestEmailOptIn: boolean; helpStyle?: string | null }
 export interface WorkflowItem { id: string; area: string; title: string; done: boolean; order: number }
 export interface ActionItem { id: string; owner: string; text: string; done: boolean; dueAt: string | null }
 export interface Consultation { id: string; title: string; scheduledAt: string | null; durationMin: number; notes: string | null; status: string; recordingUrl: string | null; actionItems: ActionItem[] }

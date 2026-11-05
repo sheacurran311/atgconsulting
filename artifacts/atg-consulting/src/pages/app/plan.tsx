@@ -1,7 +1,6 @@
 /**
  * /app/plan — My Plan (tool plan) page.
- * Visible to SELF_SERVE and above when admin has approved the plan.
- * Self-serve can also request a plan if none exists yet.
+ * Shown after Shea approves the plan. A draft is not labeled as approved.
  */
 import { useState, useEffect } from "react";
 import AppShell from "@/components/app/AppShell";
@@ -18,7 +17,11 @@ function PlanView({ plan }: { plan: ToolPlan }) {
   return (
     <div className="space-y-8">
       <div className="rounded-xl p-5" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
-        <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>APPROVED BY SHEA · {plan.approvedAt ? new Date(plan.approvedAt).toLocaleDateString() : "—"}</p>
+        <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>
+          {plan.status === "approved" && plan.approvedAt
+            ? `APPROVED BY SHEA · ${new Date(plan.approvedAt).toLocaleDateString()}`
+            : "NOT READY"}
+        </p>
         <p className="text-sm" style={{ color: "var(--canvas-text-2)" }}>
           This plan was personalised for your business. Tool pricing changes — always verify current pricing on the provider's site before purchasing.
         </p>
@@ -114,7 +117,7 @@ export default function PlanPage() {
     setGenerating(true);
     try {
       await api.toolPlan.generate();
-      setPendingMsg("Your plan has been sent to Shea for review. She'll approve it within 2 business days.");
+      setPendingMsg("Shea reviews this before you see it. It is not on your account until he approves it.");
     } catch {
       setPendingMsg("Something went wrong. Contact support.");
     } finally {

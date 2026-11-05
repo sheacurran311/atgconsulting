@@ -7,6 +7,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
+import { helpStyleFromIntake } from "../lib/intakeHelpStyle";
 
 const router = Router();
 router.use(withUser, requireAuth);
@@ -43,6 +44,7 @@ router.get("/client/me", async (req, res) => {
     tier: client?.tier ?? "NONE",
     status: client?.status ?? null,
     digestEmailOptIn: client?.digestEmailOptIn ?? true,
+    helpStyle: client?.helpStyle ?? null,
   });
 });
 
@@ -263,10 +265,44 @@ router.get("/client/intake/history", requireAuth, async (req, res) => {
   const intakes = await prisma.discoveryIntake.findMany({
     where: { clientId: user.clientId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, createdAt: true, decisionAuthority: true },
+    select: { id: true, createdAt: true, answers: true, requestedTier: true },
     take: 20,
   });
-  res.json(intakes.map((i) => ({ id: i.id, createdAt: i.createdAt, helpStyle: i.decisionAuthority ?? "not_sure" })));
+  res.json(intakes.map((i) => ({
+    id: i.id,
+    createdAt: i.createdAt,
+    helpStyle: helpStyleFromIntake({ answers: i.answers, requestedTier: i.requestedTier }),
+  })));
+});
+
+router.get("/client/catalog-matches", requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).atgUser!;
+  if (!user.clientId) { res.json({ matches: [] }); return; }
+  const intake = await prisma.discoveryIntake.findFirst({
+    where: { clientId: user.clientId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (!intake) { res.json({ matches: [] }); return; }
+  const rows = await prisma.catalogMatch.findMany({
+    where: {
+      intakeId: intake.id,
+      isGap: false,
+      catalogItem: { verified: true, enabled: true },
+    },
+    include: { catalogItem: { select: { id: true, name: true, sourceUrl: true, howItHelps: true, description: true, referralUrl: true } } },
+    orderBy: { score: "desc" },
+    take: 12,
+  });
+  res.json({
+    matches: rows.map((row) => ({
+      id: row.id,
+      name: row.catalogItem.name,
+      painPoint: row.painPoint,
+      why: row.rankExplanation || row.catalogItem.howItHelps || row.catalogItem.description,
+      url: row.catalogItem.referralUrl || row.catalogItem.sourceUrl || null,
+    })),
+  });
 });
 
 // ── Intake prefill for adaptive edit flow ─────────────────────────────────────

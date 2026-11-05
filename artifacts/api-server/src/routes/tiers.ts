@@ -28,6 +28,7 @@ import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { generateToolPlan, type ToolPlanInput } from "../lib/llm";
 import { sanitiseText } from "../lib/sanitize";
+import { shouldAutoApproveToolPlan, toolPlanVisibleToClient } from "../lib/toolPlanPolicy";
 
 const router = Router();
 
@@ -45,14 +46,14 @@ router.get("/tool-plan", withUser, requireAuth, async (req, res) => {
   const clientId = cid(req as AuthedRequest, res);
   if (!clientId) return;
 
-  // Return the best available plan: approved first, then draft (for clients who
-  // generated a plan before their tier was confirmed). Self-serve plans are
-  // approved immediately on generation — no Shea review required.
   const plan = await prisma.toolPlan.findFirst({
-    where: { clientId, status: { in: ["approved", "draft"] } },
-    orderBy: [{ status: "asc" }, { createdAt: "desc" }], // "approved" sorts before "draft"
+    where: { clientId, status: "approved" },
+    orderBy: { createdAt: "desc" },
   });
-  if (!plan) { res.status(404).json({ error: "Your tool plan has not been generated yet. Generate it from your dashboard." }); return; }
+  if (!plan || !toolPlanVisibleToClient(plan.status)) {
+    res.status(404).json({ error: "Shea has not approved your tool plan yet." });
+    return;
+  }
   res.json(plan);
 });
 
@@ -86,11 +87,8 @@ router.post("/tool-plan/generate", withUser, requireAuth, async (req, res) => {
 
   const output = await generateToolPlan(input);
 
-  // Self-serve: plan is delivered immediately — no Shea approval gate.
-  // Guided / DFY: plan stays as "draft" so Shea can review and personalise before release.
-  const tier = client?.tier ?? "NONE";
-  const autoApprove = tier === "SELF_SERVE" || tier === "NONE"; // NONE = new user or test mode
-  const now = new Date();
+  // Every tier stays a draft until Shea approves it in admin.
+  const autoApprove = shouldAutoApproveToolPlan(client?.tier);
 
   const existing = await prisma.toolPlan.findFirst({ where: { clientId, status: "draft" }, orderBy: { createdAt: "desc" } });
   const planData = {
@@ -98,7 +96,9 @@ router.post("/tool-plan/generate", withUser, requireAuth, async (req, res) => {
     stepsJson: JSON.stringify(output.steps),
     source: output.source,
     intakeId: intake?.id ?? null,
-    ...(autoApprove ? { status: "approved", approvedAt: now } : {}),
+    status: "draft" as const,
+    approvedAt: null,
+    ...(autoApprove ? { status: "approved" as const, approvedAt: new Date() } : {}),
   };
   const plan = existing
     ? await prisma.toolPlan.update({ where: { id: existing.id }, data: planData })

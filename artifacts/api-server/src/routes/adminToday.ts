@@ -60,6 +60,8 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
     openTickets,
     unreadMessages,
     openRequests,
+    guidedSessions,
+    dfyApplications,
   ] = await Promise.all([
     // New intake submissions needing review
     prisma.discoveryIntake.findMany({
@@ -127,6 +129,18 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
+    prisma.sessionRecord.findMany({
+      where: { sessionDate: { gte: now, lte: in7d } },
+      include: { client: { include: { user: { select: { name: true, email: true } } } } },
+      orderBy: { sessionDate: "asc" },
+      take: 20,
+    }),
+    prisma.dfyApplication.findMany({
+      where: { status: { in: ["applied", "waitlisted"] } },
+      include: { client: { include: { user: { select: { name: true, email: true } } } } },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
   ]);
 
   const { hidden, actionsReady } = await hiddenItemKeys(now);
@@ -165,13 +179,24 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       meta: item.sourceType,
       createdAt: item.createdAt,
     }))),
-    upcomingSessions: visible(upcomingSessions.map((s) => ({
-      type: "upcoming_session",
-      id: s.id,
-      label: `${s.title} — ${s.client?.user?.name ?? "—"}`,
-      url: `/admin/clients/${s.clientId}`,
-      meta: s.scheduledAt?.toISOString(),
-    }))),
+    upcomingSessions: visible([
+      ...guidedSessions.map((s) => ({
+        type: "upcoming_session",
+        id: s.id,
+        label: `${s.sessionType} session — ${s.client?.user?.name ?? s.client?.user?.email ?? "Client"}`,
+        url: `/admin/clients/${s.clientId}`,
+        meta: s.sessionDate.toISOString(),
+        createdAt: s.sessionDate,
+      })),
+      ...upcomingSessions.map((s) => ({
+        type: "upcoming_session",
+        id: s.id,
+        label: `${s.title} — ${s.client?.user?.name ?? "—"}`,
+        url: `/admin/clients/${s.clientId}`,
+        meta: s.scheduledAt?.toISOString(),
+        createdAt: s.scheduledAt ?? undefined,
+      })),
+    ]),
     dfyAccess: visible(dfyAccessClients.map((a) => ({
       type: "dfy_access",
       id: a.id,
@@ -183,7 +208,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       type: "support_ticket",
       id: ticket.id,
       label: `${ticket.client.user?.name ?? ticket.client.user?.email ?? "Client"} — ${ticket.subject}`,
-      url: `/admin/today`,
+      url: `/admin/tiers`,
       meta: ticket.message.slice(0, 140),
       createdAt: ticket.createdAt,
     }))),
@@ -203,6 +228,14 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       meta: request.description.slice(0, 140),
       createdAt: request.createdAt,
     }))),
+    dfyApplications: visible(dfyApplications.map((app) => ({
+      type: "dfy_application",
+      id: app.id,
+      label: `${app.client.user?.name ?? app.client.user?.email ?? "Client"} applied for Done-for-you`,
+      url: `/admin/tiers`,
+      meta: app.status,
+      createdAt: app.createdAt,
+    }))),
   };
 
   const counts = {
@@ -216,7 +249,16 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
     supportTickets:   tasks.supportTickets.length,
     clientMessages:   tasks.clientMessages.length,
     workflowRequests: tasks.workflowRequests.length,
-    total: tasks.intakeReviews.length + tasks.proposalDrafts.length + tasks.contentDrafts.filter((c) => c.type === "content_draft").length + tasks.catalogQueue.length + tasks.supportTickets.length + tasks.clientMessages.length + tasks.workflowRequests.length,
+    dfyApplications:  tasks.dfyApplications.length,
+    total: tasks.intakeReviews.length
+      + tasks.proposalDrafts.length
+      + tasks.contentDrafts.length
+      + tasks.catalogQueue.length
+      + tasks.supportTickets.length
+      + tasks.clientMessages.length
+      + tasks.workflowRequests.length
+      + tasks.dfyApplications.length
+      + tasks.upcomingSessions.length,
   };
 
   res.json({

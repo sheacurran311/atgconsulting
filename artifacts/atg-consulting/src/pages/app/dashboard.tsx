@@ -18,6 +18,7 @@ import ResourcesTab from "@/components/app/ResourcesTab";
 import InfoTab from "@/components/app/InfoTab";
 import AICoachPanel from "@/components/app/AICoachPanel";
 import TroubleshooterPanel from "@/components/app/TroubleshooterPanel";
+import DfyApplyCard from "@/components/app/DfyApplyCard";
 
 const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
 
@@ -139,6 +140,9 @@ export default function DashboardPage() {
         </div>
 
         {tab === "today" && tier === "GUIDED" && <GuidedSessionsPanel />}
+        {tab === "today" && (
+          <DfyApplyCard visible={account?.helpStyle === "done_for_you" || tier === "WHITE_GLOVE"} />
+        )}
         {tab === "today" && <DayView tier={tier} testMode={testMode} />}
         {tab === "workflows" && (
           <div className="max-w-content">
