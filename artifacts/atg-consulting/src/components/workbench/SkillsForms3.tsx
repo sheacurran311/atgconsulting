@@ -88,7 +88,7 @@ function AgentPipelineForm({ onOutput, onClose }: Omit<Props, "skillKey">) {
         <h3 className="font-extrabold text-lg" style={{ color: "var(--canvas-text)", letterSpacing: "-0.02em" }}>Multi-step agent pipeline</h3>
         <p className="text-sm mt-1" style={{ color: "var(--canvas-text-2)" }}>Run each step of your configured pipeline. Each step's output feeds the next. Admin configures the pipeline chain.</p>
       </div>
-      <Field label="Pipeline chain ID" hint="Get this from Shea — she configures chains per client">
+      <Field label="Pipeline chain ID" hint="Get this from Shea — he configures chains per client">
         <input value={chainId} onChange={(e) => setChainId(e.target.value)} className="field-input text-sm font-mono" placeholder="cuid…" />
       </Field>
       <div className="flex items-center gap-2">

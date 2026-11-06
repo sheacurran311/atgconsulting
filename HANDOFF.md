@@ -40,9 +40,9 @@ Billing is off. Those prices are copy. Nothing charges a card until `BILLING_ENA
 
 - **model** — a general assistant with no workflow in the catalog. Fields used: name, maker, official URL (`sourceUrl`), a short "good for" line (`description`), `tierFit`, `verified`.
 - **claw** — a self-hosted agent that needs a model plugged in. Extra fields: `requiresModels` (JSON array), `setupDifficulty`, `hostingRequirement`, and a mandatory `safetyNote`.
-- Clients only receive rows that are `verified` and `enabled`. Seeds are unverified. Batch verify only covers `kind = template` rows whose links were already checked, so models and claws stay hidden until he verifies each one.
+- Clients only receive rows that are `verified` and `enabled`. Seeds are unverified. Batch verify defaults to `kind = template`. Pass `{ "kind": "model" }` or `{ "kind": "claw" }` to include those rows. Clients still only see verified, enabled rows.
 
-Seeded models (unverified): Grok (xAI), Claude (Anthropic), ChatGPT (OpenAI), Gemini (Google), Microsoft Copilot (Microsoft), Perplexity, Meta AI (Meta), Le Chat (Mistral). Muse is not included.
+Seeded models (unverified): Grok (xAI), Claude (Anthropic), ChatGPT (OpenAI), Gemini (Google), Microsoft Copilot (Microsoft), Perplexity, Meta AI (Meta), Le Chat (Mistral), Muse (Meta, https://muse.ai/, fallback page https://ai.meta.com/muse/). Muse is a short unverified model row. It is not a feature list and it has no price.
 
 Seeded claws (unverified), each with the safety note that they run with the client's own keys on the client's own machine, that permissions should be reviewed, and that this app never connects to them or stores keys:
 
@@ -81,7 +81,8 @@ No new variables were added for models or claws.
 | `STRIPE_SECRET_KEY` | Stripe secret. Required only if billing is on | unset |
 | `STRIPE_WEBHOOK_SECRET` | Webhook signature secret | unset |
 | `STRIPE_PRICE_SELF_SERVE` | Price id, one-time Self-serve | unset |
-| `STRIPE_PRICE_GUIDED` | Price id, one-time Guided package | unset |
+| `STRIPE_PRICE_GUIDED` | Price id, one-time Guided package. Checkout still charges this price. | unset |
+| `STRIPE_PRICE_GUIDED_5` | Optional. If the purchased price id matches this, the webhook sets 5 Guided sessions. Otherwise the count comes from the intake request (5, else 3). | unset |
 | `STRIPE_PRICE_DFY_SETUP` | Price id, Done-for-you setup (`WHITE_GLOVE`) | unset |
 | `STRIPE_PRICE_DFY_MONTHLY` | Optional monthly care price id | unset |
 | `CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` | Clerk | Replit sets the publishable key from the host |
@@ -115,9 +116,29 @@ No new variables were added for models or claws.
 3. Run `pnpm --filter @workspace/api-server db:push`.
 4. Republish.
 
-Do not edit `.replit`. Do not start a second dev server. This pull request needs `db:push` for `CatalogItem` columns: `slug`, `kind`, `maker`, `requiresModels`, `setupDifficulty`, `hostingRequirement`, `safetyNote`. Workshop tables from the earlier workshop pull request also need to be present. If those were already pushed, this push only adds the catalog columns.
+Do not edit `.replit`. Do not start a second dev server. After merging the catalog pull request and this one, run:
 
-There are no new environment variables.
+```
+pnpm --filter @workspace/api-server db:push
+```
+
+This adds `SessionRecord.packageCounted`, `Consultation.packageCounted`, and `DiscoveryProposal.acceptedAt` / `acceptedByName`. The catalog columns from the earlier pull request (`slug`, `kind`, `maker`, `requiresModels`, `setupDifficulty`, `hostingRequirement`, `safetyNote`) are included if they are not already on the database.
+
+Optional new env var: `STRIPE_PRICE_GUIDED_5`. `CRON_SECRET` already exists. Leave it unset until he hosts the job.
+
+## Daily report cron
+
+This app does not run the job. He hosts it. The route accepts `Authorization: Bearer` or `x-cron-secret`. Both must equal `CRON_SECRET`.
+
+```
+curl -X POST "$APP_URL/api/cron/daily-reports" -H "Authorization: Bearer $CRON_SECRET"
+```
+
+## Signup and Guided count
+
+Verified signup stores `requestedTier` and `requestedSessions` on the intake and leaves `Client.tier` at `NONE`. Workflows stay locked. `ADMIN_TEST_MODE=true` still unlocks surfaces for him. He assigns the tier after review.
+
+A Guided checkout records 3 or 5 sessions. It never records 4. Marking a Guided session record (`sessionType` guided) or completing a consultation increments `guidedSessionsUsed` once, capped at the package total. The same calendar day is not counted twice across those two records.
 
 ## Pull requests #37–#46
 
@@ -142,18 +163,18 @@ When he is ready:
 - Portal: `GET /api/billing/portal`.
 - Webhook: `POST /api/stripe/webhook`, raw body, signature from `STRIPE_WEBHOOK_SECRET`. Processed ids are stored on `StripeEvent` (`id`, `type`, `processedAt` only).
 - Price env vars: `STRIPE_PRICE_SELF_SERVE`, `STRIPE_PRICE_GUIDED`, `STRIPE_PRICE_DFY_SETUP`, `STRIPE_PRICE_DFY_MONTHLY`.
-- Done-for-you money should follow the written offer: 30% deposit, then milestones on the statement of work, optional $750/mo care, $150/hr for approved out-of-scope work. The current webhook does not model deposits or milestones. It sets `guidedSessionsTotal` to **4**, which does not match the 3-session or 5-session packages. Fix that before charging anyone. Do not change it until the billing project starts.
+- Done-for-you money should follow the written offer: 30% deposit, then milestones on the statement of work, optional $750/mo care, $150/hr for approved out-of-scope work. The webhook sets `guidedSessionsTotal` to 3 or 5. It does not set 4. It still does not model the deposit or milestones. Do not turn billing on until he is ready.
 
 ## Known gaps and backlog
 
 1. Apply this schema with `db:push`, then verify the seeded models and claws in Admin → Catalog before expecting them on Learn.
-2. Billing stays off. The Guided session count on the webhook is wrong for a real charge (see above). Deposits and milestones are not in Stripe yet.
+2. Billing stays off. Deposits and milestones are not in Stripe yet. The Guided count is 3 or 5.
 3. Assist token caps disagree between `grokClient.ts` and `routes/ai-assist.ts`.
 4. Blog posts stay unpublished until he approves a draft. Do not seed fake posts.
 5. Legal pages are drafts until counsel review and `VITE_LEGAL_PUBLISHED=true`.
 6. `EMAIL_PROVIDER=console` only logs. Set Resend, Postmark, or SMTP when he wants inbox mail.
 7. The public site has no $297 price. Leave it that way until he asks.
-8. Self-hosted agents beyond the three seeded claws need a real public URL before they are added. Do not add Muse.
+8. Self-hosted agents beyond the three seeded claws need a real public URL before they are added. Muse is already seeded, unverified.
 
 ## Click-through
 

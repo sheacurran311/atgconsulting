@@ -7,7 +7,8 @@
  *   STRIPE_SECRET_KEY          — Stripe secret key (sk_test_... or sk_live_...)
  *   STRIPE_WEBHOOK_SECRET      — from Stripe dashboard → Webhooks → endpoint secret
  *   STRIPE_PRICE_SELF_SERVE    — Price ID for Self-serve (one-time)
- *   STRIPE_PRICE_GUIDED        — Price ID for Guided session package (one-time)
+ *   STRIPE_PRICE_GUIDED        — Price ID for the 3-session Guided package (one-time)
+ *   STRIPE_PRICE_GUIDED_5      — optional Price ID for the 5-session package
  *   STRIPE_PRICE_DFY_SETUP     — Price ID for Done-for-you setup fee (one-time)
  *   STRIPE_PRICE_DFY_MONTHLY   — Price ID for Done-for-you monthly subscription
  */

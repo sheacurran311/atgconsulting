@@ -59,15 +59,15 @@ export default function Hero() {
 
             <p className="text-md leading-relaxed mb-4" style={{ color: "var(--ink-text-2)", maxWidth: "480px" }}>
               Shea designs AI workflows for your business — admin, marketing, sales, and customer support.
-              Self-serve means you install them from a diagnosis she reviews. Guided means she joins you on calls.
-              Done-for-you means she runs them. You approve the output. Nothing is sent automatically.
+              Self-serve means you install them from a diagnosis he reviews. Guided means he joins you on calls.
+              Done-for-you means he runs them. You approve the output. Nothing is sent automatically.
             </p>
 
             <div className="space-y-2 mb-7">
               {[
                 "Approval-first — every output lands in your inbox for review",
                 "Portable — take any workflow as a skill into Grok Bot or Claude",
-                "Three ways to work — run it yourself, build it with Shea, or have her run it",
+                "Three ways to work — run it yourself, build it with Shea, or have him run it",
               ].map((point) => (
                 <p key={point} className="flex gap-2 text-sm" style={{ color: "var(--ink-text-2)" }}>
                   <span style={{ color: "var(--blue)" }}>›</span>

@@ -20,7 +20,7 @@ const STEPS = [
   {
     n: "03",
     cmd: "design session",
-    desc: "You and Shea map the exact workflow on a 1:1 call. She explains what she'll build, which tools, and what each step does.",
+    desc: "You and Shea map the exact workflow on a 1:1 call. He explains what he will build, which tools, and what each step does.",
     note: "→ you stay in control of every decision",
   },
   {

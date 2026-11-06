@@ -1,6 +1,6 @@
 /**
  * POST /api/cron/daily-reports
- * Protected by CRON_SECRET header.
+ * Protected by CRON_SECRET, sent as Authorization: Bearer or x-cron-secret.
  * Idempotent: upserts one DRAFT report per ACTIVE client per day.
  * Auto-publishes if REPORTS_AUTOPUBLISH=true.
  */
@@ -14,14 +14,15 @@ import { getGrokClient, GROK_MODEL, logFallback } from "../lib/grokClient";
 import { harvestCatalogNow } from "../lib/catalogHarvest";
 import { publishApprovedContent } from "../lib/contentPublish";
 import { notifyShea } from "../lib/email";
+import { cronAuthorized, presentedCronSecret } from "../lib/cronAuth";
 
 const router = Router();
 
 router.post("/cron/daily-reports", async (req, res) => {
   const secret = process.env.CRON_SECRET;
-  const provided = req.headers["x-cron-secret"] as string | undefined;
+  const provided = presentedCronSecret(req.headers as Record<string, string | string[] | undefined>);
 
-  if (!secret || !provided || provided !== secret) {
+  if (!cronAuthorized(secret, provided)) {
     res.status(401).json({ error: "Unauthorized." });
     return;
   }

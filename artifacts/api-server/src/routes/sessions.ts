@@ -20,9 +20,40 @@ import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { summarizeSession } from "../lib/llm";
+import { guidedUsedAfterComplete } from "../lib/guidedPackage";
 import { sanitiseText, sanitiseShortText } from "../lib/sanitize";
 
 const router = Router();
+
+async function countGuidedRecord(clientId: string, sessionId: string, sessionType: string, sessionDate: Date, alreadyCounted: boolean) {
+  if (sessionType !== "guided" || alreadyCounted) return;
+  const owner = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { tier: true, guidedSessionsTotal: true, guidedSessionsUsed: true },
+  });
+  if (!owner) return;
+  const start = new Date(sessionDate);
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  const sibling = await prisma.consultation.findFirst({
+    where: { clientId, packageCounted: true, scheduledAt: { gte: start, lt: end } },
+    select: { id: true },
+  });
+  const next = guidedUsedAfterComplete({
+    tier: owner.tier,
+    total: owner.guidedSessionsTotal,
+    used: owner.guidedSessionsUsed,
+    counts: true,
+    alreadyCounted: false,
+    sameDayAlreadyCounted: Boolean(sibling),
+  });
+  if (!next.markCounted) return;
+  if (next.used !== owner.guidedSessionsUsed) {
+    await prisma.client.update({ where: { id: clientId }, data: { guidedSessionsUsed: next.used } });
+  }
+  await prisma.sessionRecord.update({ where: { id: sessionId }, data: { packageCounted: true } });
+}
 
 const MAX_TRANSCRIPT_CHARS = 120_000;
 
@@ -82,7 +113,9 @@ router.post("/admin/clients/:id/sessions", withUser, requireAdmin, async (req, r
       adminNotes: adminNotes ? sanitiseText(adminNotes, 20_000) : null,
     },
   });
-  res.status(201).json(session);
+  await countGuidedRecord(clientId, session.id, session.sessionType, session.sessionDate, false);
+  const saved = await prisma.sessionRecord.findUnique({ where: { id: session.id } });
+  res.status(201).json(saved ?? session);
 });
 
 // Also accept file upload for transcript (.txt/.vtt/.srt/.md)
@@ -156,7 +189,9 @@ router.patch("/admin/clients/:id/sessions/:sid", withUser, requireAdmin, async (
   };
 
   const updated = await prisma.sessionRecord.update({ where: { id: session.id }, data });
-  res.json(updated);
+  await countGuidedRecord(updated.clientId, updated.id, updated.sessionType, updated.sessionDate, session.packageCounted);
+  const saved = await prisma.sessionRecord.findUnique({ where: { id: updated.id } });
+  res.json(saved ?? updated);
 });
 
 // ── Admin: delete ─────────────────────────────────────────────────────────────

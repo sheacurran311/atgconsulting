@@ -29,6 +29,7 @@ import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/
 import { generateToolPlan, type ToolPlanInput } from "../lib/llm";
 import { sanitiseText } from "../lib/sanitize";
 import { shouldAutoApproveToolPlan, toolPlanVisibleToClient } from "../lib/toolPlanPolicy";
+import { canAcceptDfy } from "../lib/guidedPackage";
 
 const router = Router();
 
@@ -227,7 +228,23 @@ const DfyStatusSchema = z.object({
 router.patch("/admin/dfy-applications/:id", withUser, requireAdmin, async (req, res) => {
   const parsed = DfyStatusSchema.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Invalid status." }); return; }
-  const updated = await prisma.dfyApplication.update({ where: { id: req.params.id as string }, data: parsed.data });
+  const existing = await prisma.dfyApplication.findUnique({ where: { id: req.params.id as string } });
+  if (!existing) { res.status(404).json({ error: "Application not found." }); return; }
+  if (parsed.data.status === "accepted") {
+    const cap = parseInt(process.env.DFY_MONTHLY_CAP ?? "1", 10);
+    const acceptedThisMonth = await prisma.dfyApplication.count({
+      where: {
+        status: "accepted",
+        id: { not: existing.id },
+        updatedAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
+      },
+    });
+    if (!canAcceptDfy({ cap, acceptedThisMonth, alreadyAccepted: existing.status === "accepted" })) {
+      res.status(409).json({ error: "Done-for-you is full for this month." });
+      return;
+    }
+  }
+  const updated = await prisma.dfyApplication.update({ where: { id: existing.id }, data: parsed.data });
   // When accepted, set client tier to WHITE_GLOVE
   if (parsed.data.status === "accepted") {
     await prisma.client.update({ where: { id: updated.clientId }, data: { tier: "WHITE_GLOVE", status: "ACTIVE" } });

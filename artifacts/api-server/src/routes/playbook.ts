@@ -18,6 +18,7 @@ import { prisma } from "../lib/db";
 import { gateAdminRouter, type AuthedRequest } from "../lib/auth";
 import { generateClientPlaybook, type PlaybookInput, type SessionSummarySnippet } from "../lib/llm";
 import { sanitiseText, sanitiseShortText } from "../lib/sanitize";
+import { parseIntakeAnswers } from "../lib/intakeAnswers";
 
 const router = Router();
 router.use(gateAdminRouter);
@@ -35,9 +36,7 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
     ? await prisma.discoveryIntake.findFirst({ where: { id: intakeId ?? "" } })
     : await prisma.discoveryIntake.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" } });
 
-  const answers: Record<string, unknown> = intake?.answers
-    ? (() => { try { return JSON.parse(intake.answers) as Record<string, unknown>; } catch { return {}; } })()
-    : {};
+  const parsed = parseIntakeAnswers(intake?.answers);
 
   // Load recent session summaries to inform playbook
   const sessionRecords = await prisma.sessionRecord.findMany({
@@ -62,19 +61,19 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
 
   return {
     clientName: client.user.name ?? intake?.contactName ?? "Client",
-    role:       sanitiseShortText(String(answers.role ?? client.roleTitle ?? "business owner")),
-    industry:   sanitiseShortText(String(answers.industry ?? client.industry ?? "unknown")),
-    bizSize:    String(answers.bizSize ?? client.size ?? "solo"),
+    role:       sanitiseShortText(parsed.role ?? client.roleTitle ?? "business owner"),
+    industry:   sanitiseShortText(parsed.industry ?? client.industry ?? "not stated"),
+    bizSize:    parsed.bizSize ?? client.size ?? "not stated",
     areas:      (() => { try { return JSON.parse(client.areas) as string[]; } catch { return []; } })(),
-    aiComfort:  (() => { try { const a = JSON.parse((intake as { answers: string } | null)?.answers ?? "{}"); const ac = (a as Record<string, unknown>).aiComfort; return typeof ac === "number" ? ac : 1; } catch { return client.aiLevel ?? 1; } })(),
-    hoursLost:  10, // DiscoveryIntake stores hours in answers JSON; default
+    aiComfort:  parsed.aiComfort ?? client.aiLevel ?? 0,
+    hoursLost:  parsed.hoursLost,
     helpStyle:  client.helpStyle ?? "not_sure",
-    toolBudget: undefined, // now stored in DiscoveryIntake.answers
-    currentSoftware: undefined,
+    toolBudget: parsed.toolBudget ?? undefined,
+    currentSoftware: parsed.tools ?? undefined,
     weeklyVolumes: undefined,
-    timeSinks:  (() => { try { return JSON.parse(String(answers.timeSinks ?? "[]")) as string[]; } catch { return []; } })(),
-    automateFirst: answers.automateFirst ? sanitiseShortText(String(answers.automateFirst)) : undefined,
-    freeText:   answers.freeText ? sanitiseText(String(answers.freeText)) : undefined,
+    timeSinks:  parsed.topProblems ? [sanitiseShortText(parsed.topProblems)] : [],
+    automateFirst: parsed.topProblems ? sanitiseShortText(parsed.topProblems) : undefined,
+    freeText:   parsed.anythingElse ? sanitiseText(parsed.anythingElse) : undefined,
     tier:       client.tier,
     vertical:   client.industry ?? "unknown",
     adminNotes: client.notes ? sanitiseText(client.notes) : undefined,

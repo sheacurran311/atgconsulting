@@ -200,7 +200,7 @@ export default function AccountPage() {
               <div className="grid sm:grid-cols-2 gap-3 mb-4">
                 {[
                   ["AI comfort", AI_LABELS[intake.aiComfort] ?? `Level ${intake.aiComfort}`],
-                  ["Hours lost / week", `~${intake.hoursLost}h`],
+                  ["Hours lost / week", intake.hoursLost == null ? "Not stated" : `${intake.hoursLost} hours typed`],
                   ["Preferred help", HELP_STYLE_LABELS[intake.helpStyle] ?? intake.helpStyle],
                   ["Areas", (() => { try { return (JSON.parse(intake.areas) as string[]).map((a) => a.replace("_", " ")).join(", "); } catch { return "—"; } })()],
                   ["Budget", intakeAnswers.toolBudget as string ?? "—"],

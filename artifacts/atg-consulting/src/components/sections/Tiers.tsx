@@ -56,7 +56,7 @@ const TIERS = [
     name: "Done-for-you",
     tagline: "Shea builds, runs, and tunes it. You approve output.",
     sheaRole: "Shea is your operator.",
-    sheaDetail: "Up to 3 custom workflows designed, built, and run by Shea. You approve the output; she handles everything else. By application — limited spots, waitlist when full. Optional $750/mo care plan for ongoing monitoring and tuning.",
+    sheaDetail: "Up to 3 custom workflows designed, built, and run by Shea. You approve the output; he handles everything else. By application — limited spots, waitlist when full. Optional $750/mo care plan for ongoing monitoring and tuning.",
     price: "From $3,500",
     priceNote: "By application only",
     cta: "Apply",

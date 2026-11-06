@@ -1,7 +1,7 @@
 /**
  * Client-facing view of a DiscoveryProposal.
  * Shea's internal reviewSummary is never included.
- * Drafts are not returned — the client sees a pending state until she approves.
+ * Drafts are not returned — the client sees a pending state until he approves.
  */
 
 export type ClientProposalState = "empty" | "pending" | "ready";
@@ -28,6 +28,8 @@ export interface ClientProposalView {
   investment: { tier?: string; price?: string; care?: string; notes?: string };
   acceptanceClause: string;
   contactName: string | null;
+  acceptedAt: string | null;
+  acceptedByName: string | null;
 }
 
 const INVESTMENT_KEYS = ["tier", "price", "care", "notes"] as const;
@@ -78,6 +80,8 @@ export function toClientProposal(row: {
   milestones: string;
   investment: string;
   acceptanceClause: string;
+  acceptedAt?: Date | null;
+  acceptedByName?: string | null;
 }, contactName: string | null): ClientProposalView {
   return {
     id: row.id,
@@ -91,5 +95,7 @@ export function toClientProposal(row: {
     investment: parseInvestment(row.investment),
     acceptanceClause: row.acceptanceClause,
     contactName,
+    acceptedAt: row.acceptedAt ? row.acceptedAt.toISOString() : null,
+    acceptedByName: row.acceptedByName ?? null,
   };
 }

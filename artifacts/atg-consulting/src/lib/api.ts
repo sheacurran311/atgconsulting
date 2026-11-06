@@ -173,6 +173,7 @@ export const api = {
     clients: (params?: string) => get<ClientAdmin[]>(`/admin/clients${params ? `?${params}` : ""}`),
     client: (id: string) => get<ClientDetail>(`/admin/clients/${id}`),
     clientPrep: (id: string) => get<PrepView>(`/admin/clients/${id}/prep`),
+    sessionBrief: (id: string) => get<SessionBriefView>(`/admin/clients/${id}/session-brief`),
     updateClient: (id: string, body: unknown) => patch<ClientAdmin>(`/admin/clients/${id}`, body),
     createConsultation: (clientId: string, body: unknown) => post<Consultation>(`/admin/clients/${clientId}/consultations`, body),
     updateConsultation: (id: string, body: unknown) => patch<Consultation>(`/admin/consultations/${id}`, body),
@@ -345,6 +346,22 @@ export interface ClientDetail extends ClientAdmin { intakes: IntakeRecord[]; pla
 export interface IntakeRecord { id: string; email: string; name: string; areas: string; aiComfort: number; hoursLost: number; status: string; createdAt: string; plans: PlanAdmin[]; client: ClientAdmin | null }
 export interface PlanAdmin { id: string; aiReadinessLabel: string; aiReadinessSummary: string; focusAreas: string; recommendedTier: string; tierRationale: string; adminReport: string | null; source: string; createdAt: string; refreshDiff?: string | null }
 export interface PrepView { client: ClientDetail; intake: IntakeRecord | null; answers: Record<string, unknown> | null; plan: PlanAdmin | null; talkingPoints: string[] }
+export interface SessionBriefView {
+  consultationId: string | null;
+  scheduledAt: string | null;
+  brief: {
+    clientName: string;
+    tier: string;
+    sessionLabel: string;
+    quotes: string[];
+    decisionMaker: string;
+    agenda: string[];
+    demo: string[];
+    homework: string[];
+    capture: string[];
+    nextStep: string[];
+  };
+}
 export interface AuditEntry { id: string; action: string; entity: string; entityId: string | null; meta: string; createdAt: string; actor: { name: string | null; email: string | null } | null }
 
 // (workbench API is declared inline in the api object above)
@@ -579,6 +596,8 @@ export interface ClientProposal {
   investment: { tier?: string; price?: string; care?: string; notes?: string };
   acceptanceClause: string;
   contactName: string | null;
+  acceptedAt: string | null;
+  acceptedByName: string | null;
 }
 
 export type PortalProposal =
@@ -597,6 +616,7 @@ export interface AccessLogEntry {
 export const portalApi = {
   status:      () => get<PortalStatus>("/portal/status"),
   proposal:    () => get<PortalProposal>("/portal/proposal"),
+  acceptProposal: () => post<{ ok: boolean; acceptedAt: string | null; acceptedByName: string | null }>("/portal/proposal/accept", {}),
   personalize: () => post<{ ok: boolean }>("/portal/personalize", {}),
   accessLog:   () => get<AccessLogEntry[]>("/portal/access-log"),
 };
@@ -648,7 +668,7 @@ export interface IntakeSummary {
   id: string;
   createdAt: string;
   aiComfort: number;
-  hoursLost: number;
+  hoursLost: number | null;
   helpStyle: string;
   areas: string;
   answers: string; // JSON

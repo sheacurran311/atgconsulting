@@ -308,7 +308,7 @@ router.post("/ai-assist/report-refresh", async (req, res) => {
       areas,
       aiComfort,
       helpStyle: findAns("preferredHelp") ?? "not_sure",
-      hoursLost: parseInt(findAns("hoursLost") ?? "10", 10) || 10,
+      hoursLost: (() => { const raw = findAns("hoursLost"); if (!raw || !/^\d+(\.\d+)?$/.test(raw.trim())) return null; const n = Number(raw); return n > 0 && n <= 168 ? n : null; })(),
       timeSinks: (() => { const t = findAns("timeSinks"); if (!t) return []; try { return JSON.parse(t) as string[]; } catch { return []; } })(),
       role: findAns("role") ?? client.roleTitle ?? "Business owner",
       bizSize: findAns("team_size") ?? client.size ?? "solo",

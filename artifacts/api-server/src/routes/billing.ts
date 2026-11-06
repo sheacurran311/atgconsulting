@@ -12,6 +12,7 @@ import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
 import { isBillingEnabled, getStripe, getPriceId, getDfyMonthlyPriceId, APP_URL, type CheckoutTier } from "../lib/stripe";
+import { guidedPackageSize } from "../lib/guidedPackage";
 import type Stripe from "stripe";
 
 const router = Router();
@@ -79,14 +80,30 @@ router.post("/billing/checkout", withUser, requireAuth, async (req, res) => {
 
   const mode: Stripe.Checkout.SessionCreateParams["mode"] = dfyMonthlyPriceId ? "subscription" : "payment";
 
+  let guidedSessions: "3" | "5" | undefined;
+  if (tier === "GUIDED") {
+    const intake = await prisma.discoveryIntake.findFirst({
+      where: { clientId: user.clientId },
+      orderBy: { createdAt: "desc" },
+      select: { requestedSessions: true },
+    });
+    guidedSessions = guidedPackageSize({ requestedSessions: intake?.requestedSessions ?? null }) === 5 ? "5" : "3";
+  }
+  const metadata: Record<string, string> = {
+    clientId: user.clientId,
+    tier,
+    ...(priceId ? { priceId } : {}),
+    ...(guidedSessions ? { guidedSessions } : {}),
+  };
+
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode,
     line_items: lineItems,
     success_url: `${APP_URL}/app/account?checkout=success`,
     cancel_url: `${APP_URL}/app/account?checkout=cancelled`,
-    metadata: { clientId: user.clientId, tier },
-    ...(mode === "payment" ? { payment_intent_data: { metadata: { clientId: user.clientId, tier } } } : {}),
+    metadata,
+    ...(mode === "payment" ? { payment_intent_data: { metadata } } : {}),
   });
 
   res.json({ url: session.url });
@@ -124,8 +141,15 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session): Promise
     data: {
       tier,
       status: "ACTIVE",
-      // For Guided, set a default session package if none set
-      ...(tier === "GUIDED" ? { guidedSessionsTotal: 4, guidedSessionsUsed: 0 } : {}),
+      ...(tier === "GUIDED" ? {
+        guidedSessionsTotal: guidedPackageSize({
+          metadataSessions: session.metadata?.guidedSessions,
+          priceId: typeof session.metadata?.priceId === "string" ? session.metadata.priceId : null,
+          priceGuided: process.env.STRIPE_PRICE_GUIDED,
+          priceGuided5: process.env.STRIPE_PRICE_GUIDED_5,
+        }),
+        guidedSessionsUsed: 0,
+      } : {}),
       // For DFY, also link subscription if it exists
       ...(session.subscription ? { stripeSubscriptionId: String(session.subscription) } : {}),
     },

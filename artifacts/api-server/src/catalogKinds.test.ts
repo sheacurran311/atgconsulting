@@ -13,9 +13,14 @@ test("assistant seeds", () => {
   const models = ASSISTANT_SEEDS.filter((seed) => seed.kind === "model");
   const claws = ASSISTANT_SEEDS.filter((seed) => seed.kind === "claw");
     assert.deepEqual(models.map((seed) => seed.name), [
-      "Grok", "Claude", "ChatGPT", "Gemini", "Microsoft Copilot", "Perplexity", "Meta AI", "Le Chat",
+      "Grok", "Claude", "ChatGPT", "Gemini", "Microsoft Copilot", "Perplexity", "Meta AI", "Le Chat", "Muse",
     ]);
-    assert.equal(ASSISTANT_SEEDS.some((seed) => /muse/i.test(seed.name)), false);
+    const muse = models.find((seed) => seed.name === "Muse");
+    assert.ok(muse);
+    assert.equal(muse.maker, "Meta");
+    assert.equal(muse.sourceUrl, "https://muse.ai/");
+    assert.match(muse.goodFor, /ai\.meta\.com\/muse/);
+    assert.doesNotMatch(muse.goodFor, /email|travel|browser|\$/i);
     for (const seed of models) {
       assert.equal(seed.kind, "model");
       assert.ok(seed.maker.length > 0);

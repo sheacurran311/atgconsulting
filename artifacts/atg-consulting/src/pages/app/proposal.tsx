@@ -30,6 +30,10 @@ function Section({ label, title, children }: { label: string; title: string; chi
 }
 
 function ReadyView({ proposal }: { proposal: ClientProposal }) {
+  const [acceptedAt, setAcceptedAt] = useState<string | null>(proposal.acceptedAt);
+  const [acceptedByName, setAcceptedByName] = useState<string | null>(proposal.acceptedByName);
+  const [accepting, setAccepting] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
   const scope = proposal.scope.split("\n").map((line) => line.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
   const investment = proposal.investment;
   const hasInvestment = !!(investment.tier || investment.price || investment.care || investment.notes);
@@ -116,14 +120,37 @@ function ReadyView({ proposal }: { proposal: ClientProposal }) {
         </Section>
       )}
 
-      {proposal.acceptanceClause.trim() && (
-        <Section label="07 — ACCEPTANCE" title="Ready to move forward">
-          <Paragraphs text={proposal.acceptanceClause} />
+      <Section label="07 — ACCEPTANCE" title="Ready to move forward">
+          {proposal.acceptanceClause.trim() ? <Paragraphs text={proposal.acceptanceClause} /> : null}
+          {acceptedAt ? (
+            <p className="text-sm font-semibold mt-4" style={{ color: "var(--canvas-text)" }}>
+              Accepted {new Date(acceptedAt).toLocaleString()}{acceptedByName ? ` by ${acceptedByName}` : ""}. He still assigns the tier.
+            </p>
+          ) : (
+            <button
+              type="button"
+              className="btn-primary mt-4"
+              disabled={accepting}
+              onClick={() => {
+                setAccepting(true);
+                setAcceptError(null);
+                portalApi.acceptProposal()
+                  .then((result) => {
+                    setAcceptedAt(result.acceptedAt);
+                    setAcceptedByName(result.acceptedByName);
+                  })
+                  .catch(() => setAcceptError("Could not record acceptance. Try again."))
+                  .finally(() => setAccepting(false));
+              }}
+            >
+              {accepting ? "Saving…" : "I accept this proposal"}
+            </button>
+          )}
+          {acceptError && <p className="text-sm mt-2" style={{ color: "var(--red, #b91c1c)" }}>{acceptError}</p>}
           <p className="text-xs mt-4" style={{ color: "var(--canvas-text-3)" }}>
-            Accepting this proposal happens with Shea. This page does not record a signature.
+            This records your name and the time. It does not start billing or change your tier.
           </p>
         </Section>
-      )}
     </div>
   );
 }
@@ -185,7 +212,7 @@ export default function ProposalPage() {
       {data?.state === "pending" && (
         <StatusCard
           title="Shea is reviewing your intake"
-          body="Your proposal will show here after she approves it. Nothing is sent to you until then."
+          body="Your proposal will show here after he approves it. Nothing is sent to you until then."
         />
       )}
 

@@ -9,6 +9,9 @@ import { prisma } from "../lib/db";
 import { gateAdminRouter, type AuthedRequest } from "../lib/auth";
 import { generateDailyReport } from "../lib/reports";
 import { audit } from "../lib/audit";
+import { parseIntakeAnswers } from "../lib/intakeAnswers";
+import { guidedUsedAfterComplete } from "../lib/guidedPackage";
+import { buildSessionBrief } from "../lib/sessionBrief";
 
 const router = Router();
 router.use(gateAdminRouter);
@@ -78,14 +81,17 @@ router.get("/admin/clients/:id/prep", async (req, res) => {
   });
   const intake = discoveryIntake;
   const plan = client.plans[0];
-  const answers = intake ? (() => { try { return JSON.parse(intake.answers); } catch { return null; } })() : null;
+  const parsed = intake ? parseIntakeAnswers(intake.answers) : null;
+  const answers = parsed;
 
-  // Generate talking points from plan + intake
   const talkingPoints: string[] = [];
-  if (answers) {
+  if (parsed) {
     talkingPoints.push(`Ask about their role and what a typical week looks like for them.`);
-    if (answers.top_problems ?? answers.automateFirst) talkingPoints.push(`They described: "${answers.top_problems ?? answers.automateFirst}" — explore why.`);
-    talkingPoints.push(`Explore how much time repetitive tasks cost them — get a specific number.`);
+    if (parsed.topProblems) talkingPoints.push(`They described: "${parsed.topProblems}" — explore why.`);
+    if (parsed.decisionAuthority) talkingPoints.push(`Decision authority on the intake: ${parsed.decisionAuthority}.`);
+    talkingPoints.push(parsed.hoursLost == null
+      ? "Hours were not stated. Do not suggest a number."
+      : `They typed ${parsed.hoursLost} hours a week. Confirm it. Do not turn it into a cost.`);
   }
   if (plan) {
     const focusAreas: { area: string; name: string }[] = (() => { try { return JSON.parse(plan.focusAreas) as { area: string; name: string }[]; } catch { return []; } })();
@@ -95,7 +101,52 @@ router.get("/admin/clients/:id/prep", async (req, res) => {
   talkingPoints.push("Ask what their biggest blocker is right now.");
   talkingPoints.push("Confirm next steps and who owns each action item.");
 
-  res.json({ client, intake, answers, plan, talkingPoints });
+  res.json({
+    client,
+    intake,
+    answers: parsed
+      ? {
+          role: parsed.role,
+          industry: parsed.industry,
+          bizSize: parsed.bizSize,
+          hoursLost: parsed.hoursLost,
+          automateFirst: parsed.topProblems,
+          toolBudget: parsed.toolBudget,
+          currentSoftware: parsed.tools,
+          decisionAuthority: parsed.decisionAuthority ?? intake?.decisionAuthority ?? null,
+        }
+      : null,
+    plan,
+    talkingPoints,
+  });
+});
+
+router.get("/admin/clients/:id/session-brief", async (req, res) => {
+  const client = await prisma.client.findUnique({
+    where: { id: req.params.id as string },
+    include: { user: { select: { name: true, email: true } } },
+  });
+  if (!client) { res.status(404).json({ error: "Not found." }); return; }
+  const intake = await prisma.discoveryIntake.findFirst({
+    where: { clientId: client.id },
+    orderBy: { createdAt: "desc" },
+  });
+  const parsed = parseIntakeAnswers(intake?.answers);
+  const upcoming = await prisma.consultation.findFirst({
+    where: { clientId: client.id, status: "SCHEDULED" },
+    orderBy: { scheduledAt: "asc" },
+  });
+  const brief = buildSessionBrief({
+    clientName: client.user.name ?? intake?.contactName ?? "Client",
+    tier: client.tier,
+    guidedTotal: client.guidedSessionsTotal,
+    guidedUsed: client.guidedSessionsUsed,
+    sessionNumber: null,
+    intake: parsed,
+    decisionAuthority: intake?.decisionAuthority ?? null,
+    approverName: intake?.approverName ?? null,
+  });
+  res.json({ brief, consultationId: upcoming?.id ?? null, scheduledAt: upcoming?.scheduledAt ?? null });
 });
 
 const UpdateClientSchema = z.object({
@@ -173,6 +224,34 @@ router.patch("/admin/consultations/:id", async (req, res) => {
     where: { id: req.params.id },
     data: { ...data, scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined },
   });
+
+  if (data.status === "COMPLETED" && existing.status !== "COMPLETED" && !existing.packageCounted) {
+    const owner = await prisma.client.findUnique({
+      where: { id: existing.clientId },
+      select: { tier: true, guidedSessionsTotal: true, guidedSessionsUsed: true },
+    });
+    const day = existing.scheduledAt ?? new Date();
+    const start = new Date(day); start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);
+    const sibling = await prisma.sessionRecord.findFirst({
+      where: { clientId: existing.clientId, packageCounted: true, sessionType: "guided", sessionDate: { gte: start, lt: end } },
+      select: { id: true },
+    });
+    const next = owner ? guidedUsedAfterComplete({
+      tier: owner.tier,
+      total: owner.guidedSessionsTotal,
+      used: owner.guidedSessionsUsed,
+      counts: true,
+      alreadyCounted: false,
+      sameDayAlreadyCounted: Boolean(sibling),
+    }) : null;
+    if (next?.markCounted) {
+      if (owner && next.used !== owner.guidedSessionsUsed) {
+        await prisma.client.update({ where: { id: existing.clientId }, data: { guidedSessionsUsed: next.used } });
+      }
+      await prisma.consultation.update({ where: { id: existing.id }, data: { packageCounted: true } });
+    }
+  }
 
   if (actionItems) {
     await prisma.actionItem.deleteMany({ where: { consultationId: req.params.id, owner: "ADMIN" } });
