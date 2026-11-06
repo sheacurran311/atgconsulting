@@ -4,7 +4,7 @@ import { useState } from "react";
 const faqs = [
   {
     q: "Do I need to know anything about AI or software?",
-    a: "No. If you can use email, you can use ATG. On Self-serve you follow the setup guides yourself. On Guided, Shea walks through setup with you on a call. On Done-for-you, she does the setup. You review what comes out and decide what to send.",
+    a: "No. If you can use email, you can use ATG. On Self-serve you follow the setup guides yourself. On Guided, Shea walks through setup with you on a call. On Done-for-you, he does the setup. You review what comes out and decide what to send.",
   },
   {
     q: "What is the Self-serve tier?",

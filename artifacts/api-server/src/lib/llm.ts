@@ -76,7 +76,8 @@ export interface ClientSnapshot {
 export interface OpportunityArea {
   area: string;
   title: string;
-  estimatedTimeSavedHrsPerWeek: number;
+  /** Null unless the client typed a number of hours. Never a computed saving. */
+  estimatedTimeSavedHrsPerWeek: number | null;
   situationNote: string;  // what Shea observed from the intake
   solutionIdeas: string[]; // concrete things Shea could build/propose
   toolOptions: string[];   // specific tools that fit this client
@@ -133,7 +134,7 @@ Areas wanting help: ${intake.areas.map((a) => AREA_NAMES[a] ?? a).join(", ")}
 AI comfort (0–4): ${intake.aiComfort} — ${AI_READINESS_LABELS[intake.aiComfort] ?? "unknown"}
 Tools used today: ${intake.tools.join(", ") || "none listed"}
 Biggest time sinks: ${intake.timeSinks.join(", ") || "not specified"}
-Hours/week lost to repetitive work: ${intake.hoursLost}
+Hours/week lost to repetitive work: ${intake.hoursLost == null ? "not stated — do not invent a number or a dollar figure" : intake.hoursLost}
 Preferred way to get help: ${intake.helpStyle}
 ${intake.automateFirst ? `Would first automate: ${promptSafe(intake.automateFirst, "automate_first")}` : ""}
 ${intake.freeText ? `Additional context: ${promptSafe(intake.freeText, "free_text")}` : ""}`.trim();
@@ -165,9 +166,9 @@ const CLIENT_OUTPUT_SCHEMA = `{
   "ctaText": string               // 15-30 words. Strong, personal CTA to book a 1:1 with Shea.
 }`;
 
-const ADMIN_SYSTEM_PROMPT = `You are preparing a confidential pre-call intelligence report for Shea Curran (ATG Consulting founder) to use before her 1:1 consultation with a prospective client. This report is for Shea's eyes only — it will never be shown to the client.
+const ADMIN_SYSTEM_PROMPT = `You are preparing a confidential pre-call intelligence report for Shea Curran (ATG Consulting) to use before a 1:1 consultation. This report is for Shea only — it will never be shown to the client.
 
-Be specific, opinionated, and actionable. Shea is an expert at identifying where AI workflows can transform a small business or solopreneur's daily life. She delivers human-designed, tailored solutions — not generic courses or off-the-shelf tools.
+Be specific and actionable. Shea designs human, tailored systems for a small business or solopreneur. Refer to Shea as he. Do not invent hours saved, prices, or ROI. If the client did not state hours, say hours are unknown. Do not include estimatedTimeSavedHrsPerWeek unless that exact number was typed by the client, and never turn hours into a dollar figure.
 
 Return ONLY valid JSON. No markdown, no prose outside JSON.`;
 
@@ -179,7 +180,7 @@ const ADMIN_OUTPUT_SCHEMA = `{
     {
       "area": string,
       "title": string,
-      "estimatedTimeSavedHrsPerWeek": number,
+      "estimatedTimeSavedHrsPerWeek": null,
       "situationNote": string,       // what the intake reveals about this pain
       "solutionIdeas": string[],     // concrete things Shea could build or propose
       "toolOptions": string[]        // specific tools that fit this client's stack and comfort level
@@ -208,7 +209,7 @@ export interface IntakeInput {
   tools: string[];
   timeSinks: string[];
   automateFirst?: string;
-  hoursLost: number;
+  hoursLost: number | null;
   helpStyle: string;
   freeText?: string;
 }
@@ -275,7 +276,7 @@ function buildTemplateClientSnapshot(intake: IntakeInput): ClientSnapshot {
   const firstName = intake.name.split(" ")[0] ?? intake.name;
 
   const summaries: Record<number, string> = {
-    0: `${firstName}, you're at the very beginning of your AI journey — and that's exactly where Shea starts with most clients. You don't need to know anything about AI; that's her job.`,
+    0: `${firstName}, you're at the very beginning of your AI journey — and that's exactly where Shea starts with most clients. You don't need to know anything about AI; that's his job.`,
     1: `${firstName}, you've dipped your toes in — and now it's time to turn those one-off experiments into something that actually runs your business. That's what Shea builds.`,
     2: `${firstName}, you're already getting value from AI weekly. Shea will take that foundation and build a tailored system around your specific role and business.`,
     3: `${firstName}, you've built automations before. Shea will go deeper — designing a connected system that fits your specific life, clients, and industry.`,
@@ -299,7 +300,7 @@ function buildTemplateClientSnapshot(intake: IntakeInput): ClientSnapshot {
     focusAreas,
     recommendedTier,
     tierRationale: buildTierRationale(recommendedTier, intake),
-    ctaText: `Book your free 1:1 with Shea — she'll review your answers and map out exactly what a tailored setup would look like for your ${intake.industry} business.`,
+    ctaText: `Book a 1:1 with Shea. He will review your answers and map out a setup for your ${intake.industry} business.`,
     source: "TEMPLATE",
   };
 }
@@ -313,14 +314,16 @@ export function recommendTier(intake: Pick<IntakeInput, "helpStyle" | "aiComfort
   if (intake.helpStyle === "guided")        return "guided";
   if (intake.helpStyle === "self_serve")    return "self_serve";
   // "not_sure": suggest done-for-you only for low AI comfort AND high hours lost
-  if (intake.aiComfort <= 1 && intake.hoursLost >= 10) return "done_for_you";
+  if (intake.aiComfort <= 1 && intake.hoursLost != null && intake.hoursLost >= 10) return "done_for_you";
   if (intake.aiComfort >= 3) return "self_serve";
   return "guided";
 }
 
 function buildAreaWhy(area: string, intake: IntakeInput): string {
   const map: Record<string, string> = {
-    sales: `With ${intake.hoursLost}+ hours a week going to repetitive work, a tailored sales system would put prospecting and follow-up on autopilot.`,
+    sales: intake.hoursLost != null
+      ? `They reported ${intake.hoursLost} hours a week on repetitive work. A sales workflow should start from the follow-up they described, and they still approve anything that goes out.`
+      : `A sales workflow should start from the follow-up they described. Hours were not stated. They still approve anything that goes out.`,
     marketing: `A human-designed content and campaign system would free you from the grind while keeping everything on-brand.`,
     executive_assistant: `Inbox, scheduling, and logistics are the biggest hidden time drains — the right setup changes your whole day.`,
     customer_support: `Faster, more consistent responses without spending more time: that's what a tailored support system delivers.`,
@@ -337,13 +340,13 @@ function buildTierRationale(tier: ClientSnapshot["recommendedTier"], intake: Int
 function buildTemplateAdminReport(intake: IntakeInput): AdminPreCallReport {
   const firstName = intake.name.split(" ")[0] ?? intake.name;
   return {
-    intakeSummary: `${intake.name} is a ${intake.role} in the ${intake.industry} industry with a ${intake.bizSize}-person business. They selected ${intake.areas.map((a) => AREA_NAMES[a] ?? a).join(" and ")} as their priority areas and estimate losing ~${intake.hoursLost} hours/week to repetitive work. They prefer a ${intake.helpStyle} engagement style.`,
-    situationAndPains: `Their top time sinks (${intake.timeSinks.slice(0, 3).join(", ")}) suggest they're in a manual execution loop with no systematic delegation. At ${intake.bizSize} team size, every hour lost is directly Shea's opportunity to quantify ROI. Their AI comfort level (${intake.aiComfort}/4) means ${intake.aiComfort <= 1 ? "we need to lead with simplicity and outcome, not technology" : "we can move faster and discuss tools directly"}.`,
+    intakeSummary: `${intake.name} is a ${intake.role} in the ${intake.industry} industry with a ${intake.bizSize}-person business. They selected ${intake.areas.map((a) => AREA_NAMES[a] ?? a).join(" and ") || "no areas"} as priority areas. ${intake.hoursLost == null ? "Hours lost were not stated." : `They reported ${intake.hoursLost} hours a week on repetitive work.`} They prefer a ${intake.helpStyle} engagement style.`,
+    situationAndPains: `Their top time sinks (${intake.timeSinks.slice(0, 3).join(", ") || "not stated"}) are the place to start. Do not turn that into a dollar figure. Their AI comfort level (${intake.aiComfort}/4) means ${intake.aiComfort <= 1 ? "lead with simplicity and outcome, not technology" : "tools can be discussed directly"}.`,
     aiReadinessAssessment: `Comfort level ${intake.aiComfort}/4 (${AI_READINESS_LABELS[intake.aiComfort]}). ${intake.tools.includes("none") || intake.tools.length === 0 ? "No current AI tool usage — start from scratch." : `Currently using: ${intake.tools.join(", ")}.`} ${intake.automateFirst ? `Their instinct to automate "${intake.automateFirst}" is a strong signal of readiness.` : "No clear automation instinct stated yet — probe for one on the call."}`,
     opportunityAreas: intake.areas.slice(0, 4).map((a, i) => ({
       area: a,
       title: AREA_NAMES[a] ?? a,
-      estimatedTimeSavedHrsPerWeek: Math.round((intake.hoursLost / intake.areas.length) * 0.6),
+      estimatedTimeSavedHrsPerWeek: null,
       situationNote: `Client flagged this as a priority area with ${intake.timeSinks.filter((s) => getAreaSinks(a).includes(s)).join(", ") || "general workflow"} as key pain points.`,
       solutionIdeas: getAreaSolutionIdeas(a, intake),
       toolOptions: getAreaToolOptions(a, intake),
@@ -364,14 +367,18 @@ function buildTemplateAdminReport(intake: IntakeInput): AdminPreCallReport {
       "5 min — Q&A",
     ],
     talkingPoints: [
-      `They're losing ~${intake.hoursLost} hrs/week — at even $50/hr that's $${intake.hoursLost * 50 * 52 / 1000}k/year in hidden cost.`,
+      intake.hoursLost == null
+        ? "Hours were not stated. Do not quote a weekly or yearly cost."
+        : `They reported ${intake.hoursLost} hours a week. Do not convert that into a dollar ROI.`,
       "ATG's differentiator: a human-designed system built around your specific life, clients, and industry — not a generic tool or course.",
       "You don't need to become an AI expert. Shea handles the setup and runs it for you.",
       `Their comfort level (${intake.aiComfort}/4) means we ${intake.aiComfort <= 1 ? "keep it simple and outcome-focused" : "can move quickly into tool discussions"}.`,
     ],
     discoveryQuestions: [
       "Walk me through a typical Monday morning — what's the first thing that makes you feel behind?",
-      `You mentioned losing ${intake.hoursLost} hours a week — what does that cost you in stress, not just time?`,
+      intake.hoursLost == null
+        ? "Ask whether any task has a number of hours they would actually say out loud. Do not suggest one."
+        : `They said ${intake.hoursLost} hours a week. Ask what that feels like in the week, without putting a price on it.`,
       `You said you'd automate "${intake.automateFirst ?? "something"}" first — tell me more about why that one.`,
       "What has to be perfect before you'd trust a system to handle it?",
       "What happened the last time you tried to systematize something in your business?",
@@ -674,7 +681,7 @@ export interface PlaybookInput {
   // Intake signals
   areas: string[];
   aiComfort: number;
-  hoursLost: number;
+  hoursLost: number | null;
   helpStyle: string;
   toolBudget?: string;
   currentSoftware?: string;
@@ -921,7 +928,7 @@ function buildPlaybookPrompt(input: PlaybookInput): string {
     `ATG tier: ${input.tier}`,
     `Areas wanting help: ${input.areas.join(", ")}`,
     `AI comfort (0-4): ${input.aiComfort}`,
-    `Hours/week lost to repetitive work: ${input.hoursLost}`,
+    `Hours/week lost to repetitive work: ${input.hoursLost == null ? "not stated — do not invent a number" : input.hoursLost}`,
     `Preferred engagement style: ${input.helpStyle}`,
     `Monthly tool budget: ${input.toolBudget ?? "not stated"}`,
     `Current software: ${input.currentSoftware ? promptSafe(input.currentSoftware, "software") : "not stated"}`,
@@ -960,12 +967,12 @@ function buildTemplatePlaybook(input: PlaybookInput): PlaybookContent {
   const primaryArea = input.areas[0] ?? "sales";
 
   return {
-    clientSummary: `${input.clientName} is a ${input.role} in the ${input.industry} space (${input.bizSize}-person business). They selected ${input.areas.map((a) => AREA_FULL[a] ?? a).join(" and ")} as priority areas and report losing ~${input.hoursLost} hours/week to repetitive work. Their preferred engagement is ${input.helpStyle}. AI comfort: ${input.aiComfort}/4. ${input.currentSoftware ? `Currently using: ${input.currentSoftware}.` : "Current software not stated."} ${input.toolBudget ? `Budget: ${input.toolBudget}.` : ""}`,
+    clientSummary: `${input.clientName} is a ${input.role} in the ${input.industry} space (${input.bizSize}-person business). They selected ${input.areas.map((a) => AREA_FULL[a] ?? a).join(" and ") || "no areas"} as priority areas. ${input.hoursLost == null ? "Hours lost were not stated." : `They reported ${input.hoursLost} hours a week.`} Their preferred engagement is ${input.helpStyle}. AI comfort: ${input.aiComfort}/4. ${input.currentSoftware ? `Currently using: ${input.currentSoftware}.` : "Current software not stated."} ${input.toolBudget ? `Budget: ${input.toolBudget}.` : ""}`,
 
     risksAndClarifications: [
       `Clarify exact workflows they want automated — "email" can mean inbox triage, campaigns, or replies.`,
       input.aiComfort <= 1 ? "Low AI comfort — frame everything as 'you review and approve; nothing happens automatically'." : "Mid-to-high AI comfort — check if they've tried automating before and what broke.",
-      input.hoursLost >= 20 ? "High reported hours lost — validate the estimate on the call; often a sign of broader ops issues beyond automation." : "",
+      input.hoursLost != null && input.hoursLost >= 20 ? "They reported 20 or more hours. Confirm that number on the call. Do not turn it into a cost." : "",
       input.toolBudget === "<$50/mo" ? "Very limited tool budget — prioritise free tools and what they already pay for." : "",
       `Confirm client owns all accounts (email, CRM, calendar). Shea joins as a collaborator/admin, not the owner.`,
       `Confirm they understand nothing sends without their explicit approval.`,
@@ -975,13 +982,13 @@ function buildTemplatePlaybook(input: PlaybookInput): PlaybookContent {
     tierRationale: {
       recommendedTier: tierLabel,
       why: input.tier === "WHITE_GLOVE"
-        ? `Done-for-you suits this client based on their comfort level (${input.aiComfort}/4), hours at stake (${input.hoursLost}/wk), and engagement preference. Shea designs, builds, and monitors — client approves output.`
+        ? `Done-for-you matches this client's comfort (${input.aiComfort}/4) and the engagement they asked for. ${input.hoursLost == null ? "Hours were not stated." : `They reported ${input.hoursLost} hours a week.`} Shea designs and runs the workflows. The client approves output.`
         : input.tier === "GUIDED"
         ? `Guided is the right fit: they want to be involved in building, have reasonable comfort (${input.aiComfort}/4), and benefit from live sessions to build the right habits.`
         : `Self-serve fits: higher AI comfort (${input.aiComfort}/4) and a clear sense of what they want to automate. Personalised plan + email support should cover their needs without live sessions.`,
       expectationsToSet: [
         `Response times: ${input.tier === "GUIDED" || input.tier === "WHITE_GLOVE" ? "Direct message thread (same-day for Guided/DFY). " : "Email support — reply within 2 business days. "}`,
-        `Inclusions: ${input.tier === "WHITE_GLOVE" ? "Up to 3 custom workflows, built and run by Shea. Monthly tuning." : input.tier === "GUIDED" ? `Package of ${input.aiComfort <= 1 ? "4–6" : "3–4"} live sessions.` : "Tool plan, setup guide, ready-made workflows, email support."}`,
+        `Inclusions: ${input.tier === "WHITE_GLOVE" ? "Up to 3 custom workflows, built and run by Shea. From $3,500. Optional $750/mo care." : input.tier === "GUIDED" ? "Guided package is 3 sessions ($997) or 5 sessions ($1,497). Use the number on the client record." : "Tool plan, setup guide, ready-made workflows, email support. Self-serve is $197."}`,
         `Exclusions: ${input.tier === "SELF_SERVE" ? "No 1:1 calls with Shea." : "Ongoing work beyond the agreed scope will be quoted separately."}`,
         `Client responsibilities: provide access to accounts, attend sessions, review and approve all outputs within 3 business days.`,
         `Account ownership: client owns all accounts. Shea is added as a collaborator and can be removed at any time.`,

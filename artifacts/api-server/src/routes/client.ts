@@ -8,6 +8,7 @@ import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
 import { helpStyleFromIntake } from "../lib/intakeHelpStyle";
+import { parseIntakeAnswers } from "../lib/intakeAnswers";
 import { adminTestMode } from "../lib/access";
 import { clientProposalState, parseMilestones } from "../lib/clientProposal";
 import { extractPersonalizedSlugs } from "../lib/personalization";
@@ -388,19 +389,17 @@ router.get("/client/intake/latest", requireAuth, async (req, res) => {
   const intake = await prisma.discoveryIntake.findFirst({
     where: { clientId: user.clientId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, createdAt: true, decisionAuthority: true, contactEmail: true, answers: true },
+    select: { id: true, createdAt: true, decisionAuthority: true, contactEmail: true, answers: true, requestedTier: true },
   });
   if (!intake) { res.json(null); return; }
   // Parse answers to extract legacy-compatible fields
-  const answers: Record<string, unknown> = (() => { try { return JSON.parse(intake.answers) as Record<string, unknown>; } catch { return {}; } })();
-  const findAns = (id: string) => (answers as Record<string, {answer?: string}>)[id]?.answer
-    ?? (Array.isArray(answers) ? (answers as Array<{id?: string; answer?: string}>).find((a) => a.id === id)?.answer : undefined);
+  const parsed = parseIntakeAnswers(intake.answers);
   res.json({
     id: intake.id,
     createdAt: intake.createdAt,
-    aiComfort: parseInt(findAns("aiComfort") ?? "1", 10) || 1,
-    hoursLost: parseInt(findAns("hoursLost") ?? "10", 10) || 10,
-    helpStyle: findAns("preferredHelp") ?? "not_sure",
+    aiComfort: parsed.aiComfort ?? 0,
+    hoursLost: parsed.hoursLost,
+    helpStyle: helpStyleFromIntake({ answers: intake.answers, requestedTier: intake.requestedTier }),
     areas: JSON.stringify([]),
     answers: intake.answers,
   });

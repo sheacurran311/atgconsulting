@@ -278,6 +278,8 @@ router.get("/admin/catalog/queue", withUser, requireAdmin, async (_req, res) => 
 router.post("/admin/catalog/verify-batch", withUser, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const ids = Array.isArray(req.body?.ids) ? (req.body.ids as unknown[]).filter((id): id is string => typeof id === "string") : null;
+  const requestedKind = typeof req.body?.kind === "string" ? req.body.kind : undefined;
+  const kind = isCatalogKind(requestedKind) ? requestedKind : "template";
   const pending = await prisma.catalogItem.findMany({
     where: {
       reviewStatus: "pending",
@@ -285,7 +287,7 @@ router.post("/admin/catalog/verify-batch", withUser, requireAdmin, async (req, r
       enabled: true,
       sourceUrl: { not: "" },
       lastCheckedAt: { not: null },
-      kind: "template",
+      kind,
       ...(ids ? { id: { in: ids } } : {}),
     },
     select: { id: true, name: true, sourceType: true },

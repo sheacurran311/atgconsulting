@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useRoute } from "wouter";
 import AdminShell from "@/components/admin/AdminShell";
-import { api, type ClientAdmin, type ClientDetail, type PrepView, type PlanAdmin } from "@/lib/api";
+import { api, type ClientAdmin, type ClientDetail, type PrepView, type PlanAdmin, type SessionBriefView } from "@/lib/api";
 import PlaybookTab from "@/components/admin/PlaybookTab";
 import SessionsTab from "@/components/admin/SessionsTab";
 import AccessLogPanel from "@/components/admin/AccessLogPanel";
@@ -102,7 +102,7 @@ function ClientList() {
 
 // ── Client detail ─────────────────────────────────────────────────────────────
 
-const TABS = ["overview", "prep", "playbook", "sessions", "access", "plan", "consultations", "documents", "reports", "outputs", "workflows"];
+const TABS = ["overview", "brief", "prep", "playbook", "sessions", "access", "plan", "consultations", "documents", "reports", "outputs", "workflows"];
 
 function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
   const [client, setClient] = useState<ClientDetail | null>(null);
@@ -169,6 +169,7 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
 
         {/* Tab content */}
         {tab === "overview" && <OverviewTab client={client} editNotes={editNotes} setEditNotes={setEditNotes} saveNotes={saveNotes} savingNotes={savingNotes} />}
+        {tab === "brief" && <BriefTab clientId={id} />}
         {tab === "prep" && <PrepTab prep={prep} />}
         {tab === "playbook" && <PlaybookTabWrapper clientId={id} intakeId={client.intakes[0]?.id} />}
         {tab === "sessions" && <SessionsTab clientId={id} />}
@@ -245,6 +246,46 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function BriefTab({ clientId }: { clientId: string }) {
+  const [view, setView] = useState<SessionBriefView | null>(null);
+  useEffect(() => {
+    api.admin.sessionBrief(clientId).then(setView).catch(() => setView(null));
+  }, [clientId]);
+  if (!view) return <p className="text-canvas-text">Loading the session brief…</p>;
+  const { brief } = view;
+  return (
+    <div className="space-y-5">
+      <Section title={brief.sessionLabel}>
+        <p className="text-sm text-canvas-text">{brief.clientName} · {brief.tier}</p>
+        {view.scheduledAt && <p className="text-sm text-canvas-text mt-1">Scheduled {new Date(view.scheduledAt).toLocaleString()}</p>}
+      </Section>
+      <Section title="Decision-maker">
+        <p className="text-sm text-canvas-text">{brief.decisionMaker}</p>
+      </Section>
+      {brief.quotes.length > 0 && (
+        <Section title="What they wrote">
+          <ul className="space-y-2 text-sm text-canvas-text">{brief.quotes.map((q) => <li key={q}>{q}</li>)}</ul>
+        </Section>
+      )}
+      <Section title="Agenda">
+        <ul className="space-y-1 text-sm text-canvas-text">{brief.agenda.map((a, i) => <li key={i}>{i + 1}. {a}</li>)}</ul>
+      </Section>
+      <Section title="Demo">
+        <ul className="space-y-1 text-sm text-canvas-text">{brief.demo.map((a) => <li key={a}>{a}</li>)}</ul>
+      </Section>
+      <Section title="Homework">
+        <ul className="space-y-1 text-sm text-canvas-text">{brief.homework.map((a) => <li key={a}>{a}</li>)}</ul>
+      </Section>
+      <Section title="Capture in the session record">
+        <ul className="space-y-1 text-sm text-canvas-text">{brief.capture.map((a) => <li key={a}>{a}</li>)}</ul>
+      </Section>
+      <Section title="Next step">
+        <ul className="space-y-1 text-sm text-canvas-text">{brief.nextStep.map((line) => <li key={line}>{line}</li>)}</ul>
+      </Section>
+    </div>
+  );
+}
+
 function PrepTab({ prep }: { prep: PrepView | null }) {
   if (!prep) return <p className="text-canvas-text">No intake data yet.</p>;
   const { answers, plan, talkingPoints } = prep;
@@ -279,7 +320,7 @@ function PrepTab({ prep }: { prep: PrepView | null }) {
             <Section title="Opportunity areas (ranked)">
               {(adminReport.opportunityAreas as Array<{ area: string; title: string; estimatedTimeSavedHrsPerWeek: number; solutionIdeas: string[]; toolOptions: string[] }>).map((o, i) => (
                 <div key={i} className="mb-4 last:mb-0 border-b border-canvas-border pb-4 last:border-0">
-                  <p className="font-bold text-canvas-text">{i + 1}. {o.title} <span className="text-blue text-xs">~{o.estimatedTimeSavedHrsPerWeek}h/wk</span></p>
+                  <p className="font-bold text-canvas-text">{i + 1}. {o.title} {typeof o.estimatedTimeSavedHrsPerWeek === "number" ? <span className="text-blue text-xs">{o.estimatedTimeSavedHrsPerWeek}h/wk typed</span> : null}</p>
                   <p className="text-canvas-text text-sm mt-1">Ideas: {o.solutionIdeas?.join(" · ")}</p>
                   <p className="text-canvas-text text-xs mt-0.5">Tools: {o.toolOptions?.join(", ")}</p>
                 </div>

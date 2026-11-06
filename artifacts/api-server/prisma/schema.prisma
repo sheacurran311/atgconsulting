@@ -170,6 +170,8 @@ model Consultation {
   notes         String?      // markdown
   recordingUrl  String?
   status        String       @default("SCHEDULED") // SCHEDULED|COMPLETED|CANCELLED
+  /// True after this completed call has been applied to guidedSessionsUsed.
+  packageCounted Boolean     @default(false)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -548,6 +550,8 @@ model SessionRecord {
   /// Visible only to Guided/DFY clients when shareRecap is true
   shareRecap    Boolean  @default(false)
   recapText     String?
+  /// True after a guided SessionRecord has been applied to guidedSessionsUsed.
+  packageCounted Boolean @default(false)
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -1009,6 +1013,9 @@ model DiscoveryProposal {
 
   approvedAt         DateTime?
   portalPublishedAt  DateTime?
+  /// Client clicked "I accept". Does not assign a tier.
+  acceptedAt         DateTime?
+  acceptedByName     String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 }

@@ -136,6 +136,33 @@ router.get("/portal/proposal", withUser, requireAuth, async (req, res) => {
   });
 });
 
+router.post("/portal/proposal/accept", withUser, requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).atgUser!;
+  if (!user.clientId) { res.status(404).json({ error: "No client profile." }); return; }
+  const intakes = await prisma.discoveryIntake.findMany({
+    where: { clientId: user.clientId },
+    select: { id: true, contactName: true },
+  });
+  const proposal = await prisma.discoveryProposal.findFirst({
+    where: {
+      discoveryIntakeId: { in: intakes.map((i) => i.id) },
+      status: { in: ["approved", "portal_published"] },
+    },
+    orderBy: { approvedAt: "desc" },
+  });
+  if (!proposal) { res.status(404).json({ error: "No approved proposal to accept." }); return; }
+  if (proposal.acceptedAt) {
+    res.json({ ok: true, acceptedAt: proposal.acceptedAt, acceptedByName: proposal.acceptedByName });
+    return;
+  }
+  const name = user.name ?? intakes.find((i) => i.id === proposal.discoveryIntakeId)?.contactName ?? "Client";
+  const updated = await prisma.discoveryProposal.update({
+    where: { id: proposal.id },
+    data: { acceptedAt: new Date(), acceptedByName: name },
+  });
+  res.json({ ok: true, acceptedAt: updated.acceptedAt, acceptedByName: updated.acceptedByName });
+});
+
 // ── Personalize (client-initiated) ────────────────────────────────────────────
 
 router.post("/portal/personalize", withUser, requireAuth, async (req, res) => {
