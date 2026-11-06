@@ -79,7 +79,7 @@ router.post("/workbench/inbox-triage", async (req, res) => {
   if (!cid) return;
   const parsed = InboxTriageBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "messages is required.", issues: parsed.error.flatten() }); return; }
-  const _it = await checkWorkflowAccess(cid, "inbox-triage"); if (!_it.allowed) { res.status(403).json({ error: _it.reason }); return; }
+  const _it = await checkWorkflowAccess(cid, "inbox-triage", (req as AuthedRequest).atgUser?.role); if (!_it.allowed) { res.status(403).json({ error: _it.reason }); return; }
 
   const user = (req as AuthedRequest).atgUser!;
   const result = await triageInbox({
@@ -111,7 +111,7 @@ router.post("/workbench/review-request", async (req, res) => {
   if (!cid) return;
   const parsed = ReviewRequestBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "businessName, businessType, and channels are required." }); return; }
-  const _rr = await checkWorkflowAccess(cid, "review-request"); if (!_rr.allowed) { res.status(403).json({ error: _rr.reason }); return; }
+  const _rr = await checkWorkflowAccess(cid, "review-request", (req as AuthedRequest).atgUser?.role); if (!_rr.allowed) { res.status(403).json({ error: _rr.reason }); return; }
 
   const user = (req as AuthedRequest).atgUser!;
   const result = await generateReviewContent({
@@ -146,7 +146,7 @@ router.post("/workbench/social-calendar", async (req, res) => {
   if (!cid) return;
   const parsed = SocialCalendarBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "businessDescription and platforms are required." }); return; }
-  const _sc = await checkWorkflowAccess(cid, "social-calendar"); if (!_sc.allowed) { res.status(403).json({ error: _sc.reason }); return; }
+  const _sc = await checkWorkflowAccess(cid, "social-calendar", (req as AuthedRequest).atgUser?.role); if (!_sc.allowed) { res.status(403).json({ error: _sc.reason }); return; }
 
   const result = await generateSocialCalendar({
     businessDescription: sanitiseText(parsed.data.businessDescription, 400),
@@ -182,7 +182,7 @@ router.post("/workbench/seo-audit", async (req, res) => {
   if (!cid) return;
   const parsed = SeoAuditBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "url and businessType are required.", issues: parsed.error.flatten() }); return; }
-  const _sa = await checkWorkflowAccess(cid, "seo-audit"); if (!_sa.allowed) { res.status(403).json({ error: _sa.reason }); return; }
+  const _sa = await checkWorkflowAccess(cid, "seo-audit", (req as AuthedRequest).atgUser?.role); if (!_sa.allowed) { res.status(403).json({ error: _sa.reason }); return; }
 
   const { url, businessType, cityArea } = parsed.data;
 
@@ -243,7 +243,7 @@ router.post("/workbench/install/mark", async (req, res) => {
   const parsed = MarkInstalledSchema.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "slug and platform are required." }); return; }
   const { slug, platform } = parsed.data;
-  const access = await checkWorkflowAccess(user.clientId, slug);
+  const access = await checkWorkflowAccess(user.clientId, slug, user.role);
   if (!access.allowed) { res.status(403).json({ error: access.reason ?? "This workflow is not on your plan." }); return; }
   const existing = await prisma.clientWorkflowSettings.findUnique({
     where: { clientId_slug: { clientId: user.clientId, slug } },

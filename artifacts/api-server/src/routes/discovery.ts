@@ -317,6 +317,22 @@ router.post("/discovery/submit", async (req, res) => {
     },
   });
 
+  // If this person already has a verified account, attach the intake in the
+  // same request. A later login also links it, but that misses a submit that
+  // lands after the login's link pass.
+  if (finalEmail) {
+    const owner = await prisma.user.findUnique({
+      where: { email: finalEmail },
+      select: { client: { select: { id: true } } },
+    });
+    if (owner?.client) {
+      await prisma.discoveryIntake.updateMany({
+        where: { id: session.id, clientId: null },
+        data: { clientId: owner.client.id },
+      });
+    }
+  }
+
   // If this is an engagement member submission, link intake + update member status
   const engMemberToken = parsed.data.engMemberToken;
   if (engMemberToken) {

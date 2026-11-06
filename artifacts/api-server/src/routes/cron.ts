@@ -15,6 +15,7 @@ import { harvestCatalogNow } from "../lib/catalogHarvest";
 import { publishApprovedContent } from "../lib/contentPublish";
 import { notifyShea } from "../lib/email";
 import { cronAuthorized, presentedCronSecret } from "../lib/cronAuth";
+import { catalogLinkFailureAction } from "../lib/catalogKinds";
 
 const router = Router();
 
@@ -27,7 +28,7 @@ router.post("/cron/daily-reports", async (req, res) => {
     return;
   }
 
-  const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in Denver time
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Denver" });
   const autoPublish = process.env.REPORTS_AUTOPUBLISH === "true";
 
   const activeClients = await prisma.client.findMany({ where: { status: "ACTIVE" }, select: { id: true } });
@@ -91,7 +92,7 @@ router.post("/cron/daily-reports", async (req, res) => {
 async function checkCatalogLinks(): Promise<void> {
   const items = await prisma.catalogItem.findMany({
     where: { enabled: true, sourceUrl: { not: "" } },
-    select: { id: true, name: true, sourceUrl: true, tags: true, howItHelps: true },
+    select: { id: true, name: true, sourceUrl: true, tags: true, howItHelps: true, verified: true },
     orderBy: { lastCheckedAt: "asc" }, // oldest first
     take: 20, // check up to 20 per run
   });
@@ -109,11 +110,15 @@ async function checkCatalogLinks(): Promise<void> {
       const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? "";
       const metaDesc = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1]?.trim() ?? "";
 
-      // Mark dead links by disabling
       if (!isAlive) {
+        const action = catalogLinkFailureAction(r.status, item.verified);
         await prisma.catalogItem.update({
           where: { id: item.id },
-          data: { enabled: false, reviewNotes: `Dead link detected: HTTP ${r.status}`, lastCheckedAt: new Date() },
+          data: {
+            ...(action === "disable" ? { enabled: false } : {}),
+            reviewNotes: `Link check HTTP ${r.status}`,
+            lastCheckedAt: new Date(),
+          },
         });
         continue;
       }

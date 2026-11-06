@@ -51,6 +51,17 @@ export function guidedUsedAfterComplete(input: {
   return { used: input.used + 1, markCounted: true };
 }
 
+/** A spot is used when he accepted it this month. Later note edits do not count. */
+export function countsTowardDfyCap(row: { id: string; status: string; acceptedAt: Date | null }, monthStart: Date, exceptId?: string): boolean {
+  if (row.id === exceptId) return false;
+  if (row.status !== "accepted" || !row.acceptedAt) return false;
+  return row.acceptedAt.getTime() >= monthStart.getTime();
+}
+
+export function dfyMonthStart(now = new Date()): Date {
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+}
+
 export function canAcceptDfy(input: {
   cap: number;
   acceptedThisMonth: number;

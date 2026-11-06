@@ -13,6 +13,16 @@ export function clientCanSeeCatalogItem(item: { verified: boolean; enabled: bool
   return item.verified === true && item.enabled === true;
 }
 
+/**
+ * A failed fetch must not hide a verified row. Unverified rows are disabled
+ * only on a confirmed missing page (404 or 410).
+ */
+export function catalogLinkFailureAction(status: number, verified: boolean): "disable" | "note" {
+  if (verified) return "note";
+  if (status === 404 || status === 410) return "disable";
+  return "note";
+}
+
 export function isCatalogKind(value: string | undefined): value is CatalogKind {
   return value === "template" || value === "model" || value === "claw";
 }

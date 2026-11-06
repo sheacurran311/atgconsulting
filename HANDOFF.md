@@ -122,9 +122,15 @@ Do not edit `.replit`. Do not start a second dev server. After merging the catal
 pnpm --filter @workspace/api-server db:push
 ```
 
-This adds `SessionRecord.packageCounted`, `Consultation.packageCounted`, and `DiscoveryProposal.acceptedAt` / `acceptedByName`. The catalog columns from the earlier pull request (`slug`, `kind`, `maker`, `requiresModels`, `setupDifficulty`, `hostingRequirement`, `safetyNote`) are included if they are not already on the database.
+This adds `SessionRecord.packageCounted`, `Consultation.packageCounted`, `DiscoveryProposal.acceptedAt` / `acceptedByName`, and `DfyApplication.acceptedAt`. The catalog columns from the earlier pull request (`slug`, `kind`, `maker`, `requiresModels`, `setupDifficulty`, `hostingRequirement`, `safetyNote`) are included if they are not already on the database.
 
 Optional new env var: `STRIPE_PRICE_GUIDED_5`. `CRON_SECRET` already exists. Leave it unset until he hosts the job.
+
+`ADMIN_TEST_MODE=true` unlocks paid workflows and the workshop only while the signed-in role is ADMIN. A client session stays locked. View-as-client uses the client's tier. Proposal acceptance is refused during view-as-client.
+
+The daily cron date is America/Denver. Approved blog posts publish when `publishAt` is empty or already due. A future `publishAt` waits. Catalog link checks do not disable a verified row. An unverified row is disabled only on HTTP 404 or 410.
+
+Done-for-you spots use `DfyApplication.acceptedAt`. Editing notes later does not consume another spot.
 
 ## Daily report cron
 

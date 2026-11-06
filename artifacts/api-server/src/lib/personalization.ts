@@ -8,6 +8,7 @@
  */
 
 import { prisma } from "./db";
+import { parseIntakeAnswers } from "./intakeAnswers";
 import { TEMPLATE_SEEDS, PHASE2_SEEDS, PHASE3_SEEDS } from "./templates";
 
 const ALL_SEEDS = [...TEMPLATE_SEEDS, ...PHASE2_SEEDS, ...PHASE3_SEEDS];
@@ -51,18 +52,11 @@ export async function personalizeClientWorkspace(clientId: string): Promise<void
 
   const areas: string[]     = (() => { try { return JSON.parse(client.areas) as string[]; } catch { return []; } })();
   // timeSinks now come from DiscoveryIntake.answers (fetched separately to avoid relation)
-  const discoveryAnswers: Record<string, unknown> = await prisma.discoveryIntake
+  const intakeParsed = await prisma.discoveryIntake
     .findFirst({ where: { clientId }, orderBy: { createdAt: "desc" }, select: { answers: true } })
-    .then((d) => { try { return JSON.parse(d?.answers ?? "{}") as Record<string, unknown>; } catch { return {}; } })
-    .catch(() => ({}));
-  const timeSinks: string[] = (() => {
-    const ts = discoveryAnswers.timeSinks;
-    if (Array.isArray(ts)) return ts as string[];
-    const found = (Array.isArray(discoveryAnswers) ? discoveryAnswers as Array<{ id?: string; answer?: string }> : [])
-      .find((a) => a.id === "timeSinks")?.answer;
-    if (!found) return [];
-    try { return JSON.parse(found) as string[]; } catch { return []; }
-  })();
+    .then((d) => parseIntakeAnswers(d?.answers))
+    .catch(() => parseIntakeAnswers(null));
+  const timeSinks = intakeParsed.timeSinks;
 
   const clientTier = client.tier ?? "NONE";
 
@@ -86,7 +80,7 @@ export async function personalizeClientWorkspace(clientId: string): Promise<void
     if (slug && slug in scores) scores[slug] = (scores[slug] ?? 0) + 2;
   }
   // +1 for AI comfort >= 2 (can handle more complex workflows)
-  const aiComfortForPersonalize = typeof discoveryAnswers.aiComfort === 'number' ? discoveryAnswers.aiComfort : parseInt(String(discoveryAnswers.aiComfort ?? '0'), 10) || 0;
+  const aiComfortForPersonalize = intakeParsed.aiComfort ?? 0;
   if (aiComfortForPersonalize >= 2) {
     for (const s of ["prospect-research", "seo-audit", "social-calendar"]) {
       if (s in scores) scores[s] = (scores[s] ?? 0) + 1;

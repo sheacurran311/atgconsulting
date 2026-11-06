@@ -162,7 +162,7 @@ router.post("/workbench/follow-up", async (req, res) => {
     res.status(404).json({ error: "Finish the intake and save the plan to your account before drafting a follow-up." });
     return;
   }
-  const acc = await checkWorkflowAccess(user.clientId, "follow-up");
+  const acc = await checkWorkflowAccess(user.clientId, "follow-up", user.role);
   if (!acc.allowed) { res.status(403).json({ error: acc.reason }); return; }
 
   const parsed = FollowUpBody.safeParse(req.body);

@@ -16,12 +16,18 @@ const router = Router();
 
 // Legacy plan view — Plans still exist but are no longer created via the old intake form.
 // This endpoint is kept so existing bookmarked plan links don't hard-404.
-router.get("/plan/:intakeId", withUser, async (req, res) => {
+router.get("/plan/:intakeId", withUser, requireAuth, async (req, res) => {
+  const user = (req as AuthedRequest).atgUser!;
   const intakeIdStr = Array.isArray(req.params.intakeId) ? req.params.intakeId[0]! : req.params.intakeId;
 
   // Check if a Plan exists for this intakeId (could be a pre-removal plan)
   const plan = await prisma.plan.findFirst({ where: { intakeId: intakeIdStr }, orderBy: { createdAt: "desc" } });
   if (!plan) { res.status(404).json({ error: "Plan not found. The intake system has been updated — please use the new assessment at /intake." }); return; }
+  const ownsPlan = plan.clientId != null && plan.clientId === user.clientId;
+  if (user.role !== "ADMIN" && !ownsPlan) {
+    res.status(404).json({ error: "Plan not found." });
+    return;
+  }
 
   res.json({
     intakeId: intakeIdStr,

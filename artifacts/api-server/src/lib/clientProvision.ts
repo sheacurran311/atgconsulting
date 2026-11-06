@@ -19,6 +19,9 @@ export async function ensureClientForVerifiedUser(
   email: string,
   existingClientId: string | null,
 ): Promise<string | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return existingClientId;
+
   let clientId = existingClientId;
 
   if (!clientId) {
@@ -40,7 +43,7 @@ export async function ensureClientForVerifiedUser(
 
   await prisma.discoveryIntake.updateMany({
     where: {
-      contactEmail: { equals: email, mode: "insensitive" },
+      contactEmail: { equals: normalized, mode: "insensitive" },
       clientId: null,
     },
     data: { clientId },

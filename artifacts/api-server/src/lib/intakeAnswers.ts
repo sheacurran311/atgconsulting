@@ -16,6 +16,9 @@ export interface ParsedIntake {
   hoursLost: number | null;
   aiComfort: number | null;
   anythingElse: string | null;
+  timeSinks: string[];
+  aiPlatforms: string[];
+  areas: string[];
 }
 
 export function answerMap(raw: string | null | undefined): Record<string, string> {
@@ -40,6 +43,7 @@ export function answerMap(raw: string | null | undefined): Record<string, string
   if (parsed && typeof parsed === "object") {
     for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
       if (typeof value === "string" || typeof value === "number") out[key] = String(value);
+      else if (Array.isArray(value) && value.every((item) => typeof item === "string")) out[key] = JSON.stringify(value);
     }
   }
   return out;
@@ -53,6 +57,23 @@ export function statedHours(raw: string | null | undefined): number | null {
   const n = Number(trimmed);
   if (!Number.isFinite(n) || n <= 0 || n > 168) return null;
   return n;
+}
+
+function stringList(raw: string | undefined): string[] {
+  if (!raw) return [];
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+      }
+    } catch {
+      return [];
+    }
+  }
+  return trimmed.split(",").map((item) => item.trim()).filter(Boolean);
 }
 
 function comfort(raw: string | undefined): number | null {
@@ -79,6 +100,9 @@ export function parseIntakeAnswers(raw: string | null | undefined): ParsedIntake
     hoursLost: statedHours(map.hoursLost ?? map.hours_lost),
     aiComfort: comfort(map.ai_comfort ?? map.aiComfort),
     anythingElse: map.anything_else?.trim() || map.freeText?.trim() || null,
+    timeSinks: stringList(map.timeSinks),
+    aiPlatforms: stringList(map.aiPlatforms).filter((item) => item !== "none" && item !== "not_sure"),
+    areas: stringList(map.areas),
   };
 }
 

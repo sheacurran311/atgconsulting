@@ -143,7 +143,7 @@ router.post("/ai-assist/customize-skill", async (req, res) => {
 
   // Tier check: client must have access to this workflow (respects BILLING_ENABLED bypass)
   const { checkWorkflowAccess } = await import("../lib/access");
-  const acc = await checkWorkflowAccess(clientId, parsed.data.slug);
+  const acc = await checkWorkflowAccess(clientId, parsed.data.slug, (req as AuthedRequest).atgUser?.role);
   if (!acc.allowed) { res.status(403).json({ error: acc.reason }); return; }
 
   const platformLabel = { grok_bot: "Grok Bot", claude: "Claude", chatgpt: "ChatGPT" }[parsed.data.platform];

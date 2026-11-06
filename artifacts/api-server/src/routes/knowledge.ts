@@ -18,6 +18,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
+import { parseIntakeAnswers } from "../lib/intakeAnswers";
 
 const router = Router();
 
@@ -61,8 +62,7 @@ router.get("/knowledge", withUser, requireAuth, async (req, res) => {
   const _discoveryForKnowledge = user.clientId
     ? await prisma.discoveryIntake.findFirst({ where: { clientId: user.clientId }, orderBy: { createdAt: "desc" }, select: { answers: true } })
     : null;
-  const answers: Record<string, unknown> = (() => { try { return JSON.parse(_discoveryForKnowledge?.answers ?? "{}") as Record<string, unknown>; } catch { return {}; } })();
-  const clientPlatforms: string[] = Array.isArray(answers.aiPlatforms) ? (answers.aiPlatforms as string[]) : [];
+  const clientPlatforms = parseIntakeAnswers(_discoveryForKnowledge?.answers).aiPlatforms;
 
   const articles = await prisma.knowledgeArticle.findMany({
     where: { enabled: true },
@@ -160,13 +160,7 @@ router.get("/resources/platform-guides", withUser, requireAuth, async (req, res)
       orderBy: { createdAt: "desc" },
       select: { answers: true },
     });
-    const answers = (() => {
-      try { return JSON.parse(intake?.answers ?? "{}") as Record<string, unknown>; }
-      catch { return {}; }
-    })();
-    if (Array.isArray(answers.aiPlatforms)) {
-      platforms = (answers.aiPlatforms as string[]).filter((p) => p !== "none" && p !== "not_sure");
-    }
+    platforms = parseIntakeAnswers(intake?.answers).aiPlatforms;
   }
 
   // Map platform slugs to knowledge article slugs

@@ -26,6 +26,14 @@ export function adminTestMode(): boolean {
   return process.env.ADMIN_TEST_MODE === "true";
 }
 
+/**
+ * Test mode unlocks paid surfaces only for an admin session.
+ * A client request never receives the bypass, even if the env var is on.
+ */
+export function testModeForActor(role: string | null | undefined): boolean {
+  return adminTestMode() && role === "ADMIN";
+}
+
 export interface AccessResult {
   allowed: boolean;
   reason?: string;
@@ -33,8 +41,8 @@ export interface AccessResult {
   testMode?: boolean;
 }
 
-export async function checkWorkflowAccess(clientId: string, slug: string): Promise<AccessResult> {
-  if (adminTestMode()) {
+export async function checkWorkflowAccess(clientId: string, slug: string, actorRole?: string | null): Promise<AccessResult> {
+  if (testModeForActor(actorRole)) {
     const t = await prisma.workflowTemplate.findUnique({ where: { slug }, select: { enabled: true } });
     if (!t?.enabled) return { allowed: false, reason: "This workflow has been disabled." };
     return { allowed: true, testMode: true };

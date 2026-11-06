@@ -29,7 +29,8 @@ import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/
 import { generateToolPlan, type ToolPlanInput } from "../lib/llm";
 import { sanitiseText } from "../lib/sanitize";
 import { shouldAutoApproveToolPlan, toolPlanVisibleToClient } from "../lib/toolPlanPolicy";
-import { canAcceptDfy } from "../lib/guidedPackage";
+import { canAcceptDfy, dfyMonthStart } from "../lib/guidedPackage";
+import { parseIntakeAnswers } from "../lib/intakeAnswers";
 
 const router = Router();
 
@@ -76,14 +77,15 @@ router.post("/tool-plan/generate", withUser, requireAuth, async (req, res) => {
     orderBy: { createdAt: "desc" },
   });
 
+  const parsedIntake = parseIntakeAnswers(intake?.answers);
   const input: ToolPlanInput = {
-    industry:        intake?.answers ? (() => { try { return (JSON.parse(intake.answers) as Record<string, string>).industry ?? client?.industry ?? "unknown"; } catch { return client?.industry ?? "unknown"; } })() : (client?.industry ?? "unknown"),
-    areas:           (() => { try { return JSON.parse(client?.areas ?? "[]") as string[]; } catch { return []; } })(),
-    aiComfort:       client?.aiLevel ?? 1,
-    toolBudget:      undefined,
-    currentSoftware: undefined,
+    industry:        parsedIntake.industry ?? client?.industry ?? "not stated",
+    areas:           parsedIntake.areas.length > 0 ? parsedIntake.areas : (() => { try { return JSON.parse(client?.areas ?? "[]") as string[]; } catch { return []; } })(),
+    aiComfort:       parsedIntake.aiComfort ?? client?.aiLevel ?? 0,
+    toolBudget:      parsedIntake.toolBudget ?? undefined,
+    currentSoftware: parsedIntake.tools ?? undefined,
     weeklyVolumes:   undefined,
-    timeSinks:       intake?.answers ? (() => { try { return (JSON.parse(intake.answers) as Record<string, unknown>).timeSinks as string[] ?? []; } catch { return []; } })() : [],
+    timeSinks:       parsedIntake.timeSinks,
   };
 
   const output = await generateToolPlan(input);
@@ -215,7 +217,7 @@ router.get("/admin/dfy-applications", withUser, requireAdmin, async (_req, res) 
   });
   const cap = parseInt(process.env.DFY_MONTHLY_CAP ?? "1", 10);
   const acceptedThisMonth = await prisma.dfyApplication.count({
-    where: { status: "accepted", updatedAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
+    where: { status: "accepted", acceptedAt: { gte: dfyMonthStart() } },
   });
   res.json({ applications: apps, cap, acceptedThisMonth, spotsLeft: Math.max(0, cap - acceptedThisMonth) });
 });
@@ -236,7 +238,7 @@ router.patch("/admin/dfy-applications/:id", withUser, requireAdmin, async (req, 
       where: {
         status: "accepted",
         id: { not: existing.id },
-        updatedAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
+        acceptedAt: { gte: dfyMonthStart() },
       },
     });
     if (!canAcceptDfy({ cap, acceptedThisMonth, alreadyAccepted: existing.status === "accepted" })) {
@@ -244,7 +246,13 @@ router.patch("/admin/dfy-applications/:id", withUser, requireAdmin, async (req, 
       return;
     }
   }
-  const updated = await prisma.dfyApplication.update({ where: { id: existing.id }, data: parsed.data });
+  const updated = await prisma.dfyApplication.update({
+    where: { id: existing.id },
+    data: {
+      ...parsed.data,
+      ...(parsed.data.status === "accepted" && !existing.acceptedAt ? { acceptedAt: new Date() } : {}),
+    },
+  });
   // When accepted, set client tier to WHITE_GLOVE
   if (parsed.data.status === "accepted") {
     await prisma.client.update({ where: { id: updated.clientId }, data: { tier: "WHITE_GLOVE", status: "ACTIVE" } });
