@@ -60,8 +60,10 @@ router.get("/documents/local/:key", (req, res) => {
   const token = Array.isArray(req.query.t) ? String(req.query.t[0]) : String(req.query.t ?? "");
   const exp = Array.isArray(req.query.exp) ? String(req.query.exp[0]) : String(req.query.exp ?? "");
   if (!verifyLocalToken(key, token, exp)) { res.status(403).json({ error: "Invalid or expired link." }); return; }
-  const filePath = path.join(LOCAL_DIR, key);
-  if (!filePath.startsWith(LOCAL_DIR)) { res.status(403).end(); return; } // path traversal guard
+  const root = path.resolve(LOCAL_DIR);
+  const filePath = path.resolve(root, key);
+  const relative = path.relative(root, filePath);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) { res.status(403).end(); return; }
   res.sendFile(filePath, (err) => { if (err) res.status(404).end(); });
 });
 

@@ -467,6 +467,8 @@ model DfyApplication {
   client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   intakeId  String?
   status    String   @default("applied") // applied|waitlisted|accepted|declined
+  /// Set once, when he accepts. Monthly cap counts this, not later note edits.
+  acceptedAt DateTime?
   notes     String?  // admin notes
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

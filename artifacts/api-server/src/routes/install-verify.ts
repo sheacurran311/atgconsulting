@@ -48,7 +48,7 @@ router.get("/workbench/install-code/:slug", async (req, res) => {
   if (!user.clientId) { res.status(403).json({ error: "No client profile." }); return; }
 
   const slug = req.params.slug as string;
-  const access = await checkWorkflowAccess(user.clientId, slug);
+  const access = await checkWorkflowAccess(user.clientId, slug, user.role);
   if (!access.allowed) { res.status(403).json({ error: access.reason ?? "This workflow is not on your plan." }); return; }
 
   // Look up or create the code record
@@ -98,7 +98,7 @@ router.post("/workbench/install-verify", async (req, res) => {
 
   const { slug, code } = parsed.data;
   const clientId = user.clientId;
-  const access = await checkWorkflowAccess(clientId, slug);
+  const access = await checkWorkflowAccess(clientId, slug, user.role);
   if (!access.allowed) { res.status(403).json({ error: access.reason ?? "This workflow is not on your plan." }); return; }
 
   const record = await prisma.workflowInstallCode.findUnique({

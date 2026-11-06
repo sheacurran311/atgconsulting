@@ -81,7 +81,7 @@ router.post("/workbench/money-snapshot", withUser, requireAuth, async (req, res)
   if (!cid) return;
   const parsed = MoneySnapshotBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "data is required." }); return; }
-  const _acc_money_snapshot = await checkWorkflowAccess(cid, "money-snapshot"); if (!_acc_money_snapshot.allowed) { res.status(403).json({ error: _acc_money_snapshot.reason }); return; }
+  const _acc_money_snapshot = await checkWorkflowAccess(cid, "money-snapshot", (req as AuthedRequest).atgUser?.role); if (!_acc_money_snapshot.allowed) { res.status(403).json({ error: _acc_money_snapshot.reason }); return; }
 
   const result = await generateMoneySnapshot({
     data: sanitiseText(parsed.data.data, 20000),
@@ -109,7 +109,7 @@ router.post("/workbench/booking-flow", withUser, requireAuth, async (req, res) =
   if (!cid) return;
   const parsed = BookingFlowBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "businessName, serviceTypes, platform, and channels are required." }); return; }
-  const _acc_booking_flow = await checkWorkflowAccess(cid, "booking-flow"); if (!_acc_booking_flow.allowed) { res.status(403).json({ error: _acc_booking_flow.reason }); return; }
+  const _acc_booking_flow = await checkWorkflowAccess(cid, "booking-flow", (req as AuthedRequest).atgUser?.role); if (!_acc_booking_flow.allowed) { res.status(403).json({ error: _acc_booking_flow.reason }); return; }
 
   const user = (req as AuthedRequest).atgUser!;
   const result = await generateBookingFlow({ ...parsed.data, senderName: user.name ?? undefined });
@@ -135,7 +135,7 @@ router.post("/workbench/quote-proposal", withUser, requireAuth, async (req, res)
   if (!cid) return;
   const parsed = QuoteProposalBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "clientName, servicesAndPricing, and scopeDescription are required." }); return; }
-  const _acc_quote_proposal = await checkWorkflowAccess(cid, "quote-proposal"); if (!_acc_quote_proposal.allowed) { res.status(403).json({ error: _acc_quote_proposal.reason }); return; }
+  const _acc_quote_proposal = await checkWorkflowAccess(cid, "quote-proposal", (req as AuthedRequest).atgUser?.role); if (!_acc_quote_proposal.allowed) { res.status(403).json({ error: _acc_quote_proposal.reason }); return; }
 
   const user = (req as AuthedRequest).atgUser!;
   const result = await generateQuoteProposal({ ...parsed.data, senderName: user.name ?? undefined });
@@ -173,7 +173,7 @@ router.post("/workbench/prospect-research", withUser, requireAuth, async (req, r
   if (!cid) return;
   const parsed = ProspectResearchBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "icp and prospects are required." }); return; }
-  const _acc_prospect_research = await checkWorkflowAccess(cid, "prospect-research"); if (!_acc_prospect_research.allowed) { res.status(403).json({ error: _acc_prospect_research.reason }); return; }
+  const _acc_prospect_research = await checkWorkflowAccess(cid, "prospect-research", (req as AuthedRequest).atgUser?.role); if (!_acc_prospect_research.allowed) { res.status(403).json({ error: _acc_prospect_research.reason }); return; }
 
   const user = (req as AuthedRequest).atgUser!;
   const result = await generateProspectResearch({

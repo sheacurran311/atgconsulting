@@ -26,6 +26,7 @@
 import OpenAI from "openai";
 import { createHash } from "crypto";
 import { prisma } from "./db";
+import { parseIntakeAnswers } from "./intakeAnswers";
 import { getGrokClient, GROK_MODEL, GROK_VISION_MODEL, isAiEnabled, monthlyTokenCap, logFallback } from "./grokClient";
 
 // ── Env helpers ───────────────────────────────────────────────────────────────
@@ -175,10 +176,11 @@ export async function buildClientContext(clientId: string): Promise<ClientContex
     prisma.toolPlan.findFirst({ where: { clientId, status: { in: ["approved", "draft"] } }, orderBy: { createdAt: "desc" }, select: { toolsJson: true } }),
   ]);
 
-  const answers: Record<string, unknown> = (() => { try { return JSON.parse(intake?.answers ?? "{}") as Record<string, unknown>; } catch { return {}; } })();
-  const aiPlatforms: string[] = Array.isArray(answers.aiPlatforms) ? (answers.aiPlatforms as string[]).filter((p) => p !== "none" && p !== "not_sure") : [];
-  // areas now come from the JSON answers blob (DiscoveryIntake has no dedicated areas field)
-  const areas: string[] = (() => { try { return Array.isArray(answers.areas) ? (answers.areas as string[]) : JSON.parse(String(answers.areas ?? "[]")) as string[]; } catch { return []; } })();
+  const parsedAnswers = parseIntakeAnswers(intake?.answers);
+  const aiPlatforms = parsedAnswers.aiPlatforms;
+  const areas = parsedAnswers.areas.length > 0
+    ? parsedAnswers.areas
+    : (() => { try { return JSON.parse(client.areas) as string[]; } catch { return []; } })();
 
   // Compressed tool plan
   let toolPlanSummary = "";
@@ -213,7 +215,7 @@ export async function buildClientContext(clientId: string): Promise<ClientContex
     name: (client as { user?: { name: string | null } | null }).user?.name ?? "there",
     tier: client.tier,
     industry: client.industry,
-    aiComfort: (typeof answers.aiComfort === "number" ? answers.aiComfort : null) ?? client.aiLevel ?? 1,
+    aiComfort: parsedAnswers.aiComfort ?? client.aiLevel ?? 0,
     areas,
     aiPlatforms,
     toolPlanSummary,

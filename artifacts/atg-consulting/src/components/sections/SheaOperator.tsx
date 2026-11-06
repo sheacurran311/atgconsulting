@@ -52,7 +52,7 @@ export default function SheaOperator() {
       aria-labelledby="shea-heading"
     >
       <div className="max-w-wide mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Grid: left=bio, right=what she does */}
+        {/* Grid: left=bio, right=what he does */}
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16">
 
           {/* Left: identity */}

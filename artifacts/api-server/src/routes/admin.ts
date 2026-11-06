@@ -10,7 +10,7 @@ import { gateAdminRouter, type AuthedRequest } from "../lib/auth";
 import { generateDailyReport } from "../lib/reports";
 import { audit } from "../lib/audit";
 import { parseIntakeAnswers } from "../lib/intakeAnswers";
-import { guidedUsedAfterComplete } from "../lib/guidedPackage";
+import { applyGuidedCount } from "../lib/guidedCount";
 import { buildSessionBrief } from "../lib/sessionBrief";
 
 const router = Router();
@@ -225,32 +225,15 @@ router.patch("/admin/consultations/:id", async (req, res) => {
     data: { ...data, scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined },
   });
 
-  if (data.status === "COMPLETED" && existing.status !== "COMPLETED" && !existing.packageCounted) {
-    const owner = await prisma.client.findUnique({
-      where: { id: existing.clientId },
-      select: { tier: true, guidedSessionsTotal: true, guidedSessionsUsed: true },
-    });
-    const day = existing.scheduledAt ?? new Date();
-    const start = new Date(day); start.setUTCHours(0, 0, 0, 0);
-    const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);
-    const sibling = await prisma.sessionRecord.findFirst({
-      where: { clientId: existing.clientId, packageCounted: true, sessionType: "guided", sessionDate: { gte: start, lt: end } },
-      select: { id: true },
-    });
-    const next = owner ? guidedUsedAfterComplete({
-      tier: owner.tier,
-      total: owner.guidedSessionsTotal,
-      used: owner.guidedSessionsUsed,
+  if (data.status === "COMPLETED" && existing.status !== "COMPLETED") {
+    await applyGuidedCount({
+      clientId: existing.clientId,
+      kind: "consultation",
+      recordId: existing.id,
+      when: existing.scheduledAt ?? new Date(),
       counts: true,
-      alreadyCounted: false,
-      sameDayAlreadyCounted: Boolean(sibling),
-    }) : null;
-    if (next?.markCounted) {
-      if (owner && next.used !== owner.guidedSessionsUsed) {
-        await prisma.client.update({ where: { id: existing.clientId }, data: { guidedSessionsUsed: next.used } });
-      }
-      await prisma.consultation.update({ where: { id: existing.id }, data: { packageCounted: true } });
-    }
+      alreadyCounted: existing.packageCounted,
+    });
   }
 
   if (actionItems) {

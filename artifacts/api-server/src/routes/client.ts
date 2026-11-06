@@ -9,7 +9,7 @@ import { prisma } from "../lib/db";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
 import { helpStyleFromIntake } from "../lib/intakeHelpStyle";
 import { parseIntakeAnswers } from "../lib/intakeAnswers";
-import { adminTestMode } from "../lib/access";
+import { testModeForActor } from "../lib/access";
 import { clientProposalState, parseMilestones } from "../lib/clientProposal";
 import { extractPersonalizedSlugs } from "../lib/personalization";
 import { buildNextActions, workflowRowState } from "../lib/clientHome";
@@ -144,14 +144,15 @@ router.get("/client/dashboard", async (req, res) => {
     : [];
   const templateBySlug = new Map(templates.map((row) => [row.slug, row]));
   const settingBySlug = new Map(installSettings.map((row) => [row.slug, row]));
-  const testMode = adminTestMode();
+  const actor = (req as AuthedRequest).atgUser!;
+  const testMode = testModeForActor(actor.role);
   const tier = client?.tier ?? "NONE";
   const guidedTotal = client?.guidedSessionsTotal ?? null;
   const guidedUsed = client?.guidedSessionsUsed ?? 0;
   const guided = tier === "GUIDED" && guidedTotal != null
     ? { total: guidedTotal, used: guidedUsed, remaining: guidedTotal - guidedUsed }
     : null;
-  const workshop = await workshopSummary((req as AuthedRequest).atgUser!.id, tier);
+  const workshop = await workshopSummary(client?.userId ?? actor.id, tier, testMode);
 
   res.json({
     client,
@@ -321,7 +322,7 @@ router.get("/modules", async (req, res) => {
   const clientId = user.clientId;
   const client = clientId ? await prisma.client.findUnique({ where: { id: clientId } }) : null;
   const TIER_ORDER = ["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"];
-  const clientTierIdx = TIER_ORDER.indexOf(client?.tier ?? "NONE");
+  const clientTierIdx = testModeForActor(user.role) ? TIER_ORDER.length : TIER_ORDER.indexOf(client?.tier ?? "NONE");
 
   const [modules, progress] = await Promise.all([
     prisma.module.findMany({ where: { status: "PUBLISHED" }, orderBy: { order: "asc" } }),
@@ -341,7 +342,7 @@ router.get("/modules/:slug", async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   const client = user.clientId ? await prisma.client.findUnique({ where: { id: user.clientId } }) : null;
   const TIER_ORDER = ["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"];
-  const clientTierIdx = TIER_ORDER.indexOf(client?.tier ?? "NONE");
+  const clientTierIdx = testModeForActor(user.role) ? TIER_ORDER.length : TIER_ORDER.indexOf(client?.tier ?? "NONE");
 
   const m = await prisma.module.findUnique({ where: { slug: req.params.slug } });
   if (!m || m.status !== "PUBLISHED") { res.status(404).json({ error: "Not found." }); return; }
@@ -355,7 +356,14 @@ router.get("/modules/:slug", async (req, res) => {
 router.post("/modules/:slug/complete", async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   const m = await prisma.module.findUnique({ where: { slug: req.params.slug } });
-  if (!m) { res.status(404).json({ error: "Not found." }); return; }
+  if (!m || m.status !== "PUBLISHED") { res.status(404).json({ error: "Not found." }); return; }
+  const client = user.clientId ? await prisma.client.findUnique({ where: { id: user.clientId } }) : null;
+  const TIER_ORDER = ["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"];
+  const clientTierIdx = TIER_ORDER.indexOf(client?.tier ?? "NONE");
+  if (!testModeForActor(user.role) && TIER_ORDER.indexOf(m.minTier) > clientTierIdx) {
+    res.status(403).json({ error: "Upgrade your plan to access this module.", minTier: m.minTier });
+    return;
+  }
   await prisma.moduleProgress.upsert({
     where: { userId_moduleId: { userId: user.id, moduleId: m.id } },
     create: { userId: user.id, moduleId: m.id },

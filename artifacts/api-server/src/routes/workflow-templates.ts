@@ -146,7 +146,7 @@ router.get("/workbench/skill/:slug/download", withUser, requireAuth, async (req,
   const t = await prisma.workflowTemplate.findUnique({ where: { slug } });
   if (!t || !t.enabled) { res.status(404).json({ error: "Template not found." }); return; }
   const { checkWorkflowAccess } = await import("../lib/access");
-  const access = await checkWorkflowAccess(user.clientId, slug);
+  const access = await checkWorkflowAccess(user.clientId, slug, user.role);
   if (!access.allowed) { res.status(403).json({ error: access.reason ?? "This workflow is not on your plan." }); return; }
 
   // Get or create the verification code for this client+slug

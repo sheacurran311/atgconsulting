@@ -14,7 +14,7 @@ import { Router } from "express";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { personalizeClientWorkspace, extractPersonalizedSlugs } from "../lib/personalization";
-import { adminTestMode } from "../lib/access";
+import { testModeForActor } from "../lib/access";
 import { clientProposalState, toClientProposal } from "../lib/clientProposal";
 
 const router = Router();
@@ -78,8 +78,8 @@ router.get("/portal/status", withUser, requireAuth, async (req, res) => {
     hasIntake,
     clientId:   client?.id ?? null,
     tier:       client?.tier ?? "NONE",
-    /** True only when ADMIN_TEST_MODE=true. Billing does not unlock workflows. */
-    testMode:   adminTestMode(),
+    /** True only for an admin while ADMIN_TEST_MODE=true. */
+    testMode:   testModeForActor(user.role),
     personalizedSlugs: personalizedSlugs ?? [],
     intakePrefill: {
       email: user.email,
@@ -138,6 +138,10 @@ router.get("/portal/proposal", withUser, requireAuth, async (req, res) => {
 
 router.post("/portal/proposal/accept", withUser, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
+  if (user.isImpersonating) {
+    res.status(403).json({ error: "Exit view-as-client before accepting a proposal." });
+    return;
+  }
   if (!user.clientId) { res.status(404).json({ error: "No client profile." }); return; }
   const intakes = await prisma.discoveryIntake.findMany({
     where: { clientId: user.clientId },

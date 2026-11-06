@@ -19,6 +19,7 @@ import OpenAI from "openai";
 import { getGrokClient, GROK_MODEL, GROK_VISION_MODEL, logFallback } from "./grokClient";
 import { z } from "zod";
 import { prisma } from "./db";
+import { parseIntakeAnswers } from "./intakeAnswers";
 
 // ── DB-driven template loading ────────────────────────────────────────────────
 
@@ -1131,12 +1132,7 @@ function buildTemplateAccountAccess(input: PlaybookInput): AccountAccessSection 
   })();
 
   // Derive which AI platforms the client uses from intake answers
-  const answers: Record<string, unknown> = (() => {
-    try { return JSON.parse(input.answersJson ?? "{}") as Record<string, unknown>; } catch { return {}; }
-  })();
-  const aiPlatforms: string[] = Array.isArray(answers.aiPlatforms)
-    ? (answers.aiPlatforms as string[]).filter((p) => p !== "none" && p !== "not_sure")
-    : [];
+  const aiPlatforms = parseIntakeAnswers(input.answersJson).aiPlatforms;
 
   // Build the access checklist from known tool categories + AI platform
   const checklist: AccountAccessItem[] = [];
@@ -1330,12 +1326,8 @@ function buildInstallGuides(input: PlaybookInput): PlaybookInstallGuides | undef
   })();
 
   // Derive which platforms the client uses from intake
-  const answers: Record<string, unknown> = (() => {
-    try { return JSON.parse(input.answersJson ?? "{}") as Record<string, unknown>; } catch { return {}; }
-  })();
-  const aiPlatforms: string[] = Array.isArray(answers.aiPlatforms)
-    ? (answers.aiPlatforms as string[]).filter((p) => p !== "none" && p !== "not_sure")
-    : ["grok_bot"]; // default to Grok Bot if no preference
+  const statedPlatforms = parseIntakeAnswers(input.answersJson).aiPlatforms;
+  const aiPlatforms = statedPlatforms.length > 0 ? statedPlatforms : ["grok_bot"];
 
   // Use the module-level imports (shared source of truth with client SKILL.md exports)
   const ROUTINE_PROMPTS = _ROUTINE_PROMPTS as unknown as Record<string, Record<string, string>>;

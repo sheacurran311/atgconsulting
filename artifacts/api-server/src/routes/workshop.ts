@@ -5,15 +5,21 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
-import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
-import { adminTestMode } from "../lib/access";
+import { withUser, requireAuth, requireAdmin, type AuthedRequest, type ATGUser } from "../lib/auth";
+import { testModeForActor } from "../lib/access";
 import { canAccessWorkshop, parseQuiz, parseTakeaways, progressPercent, scoreQuiz } from "../lib/workshopAccess";
 
 const router = Router();
 
-async function tierFor(userId: string): Promise<string> {
-  const client = await prisma.client.findUnique({ where: { userId }, select: { tier: true } });
-  return client?.tier ?? "NONE";
+async function workshopActor(user: ATGUser): Promise<{ tier: string; progressUserId: string; testMode: boolean }> {
+  const client = user.clientId
+    ? await prisma.client.findUnique({ where: { id: user.clientId }, select: { tier: true, userId: true } })
+    : await prisma.client.findUnique({ where: { userId: user.id }, select: { tier: true, userId: true } });
+  return {
+    tier: client?.tier ?? "NONE",
+    progressUserId: client?.userId ?? user.id,
+    testMode: testModeForActor(user.role),
+  };
 }
 
 function one(value: string | string[] | undefined): string {
@@ -29,8 +35,8 @@ function missingWorkshopTable(err: unknown): boolean {
   return /Workshop(Module|Lesson|Progress|Quiz)|does not exist|P2021/i.test(msg);
 }
 
-export async function workshopSummary(userId: string, tier: string) {
-  const locked = !canAccessWorkshop(tier, adminTestMode());
+export async function workshopSummary(userId: string, tier: string, testMode = false) {
+  const locked = !canAccessWorkshop(tier, testMode);
   if (locked) {
     return {
       locked: true,
@@ -72,8 +78,9 @@ export async function workshopSummary(userId: string, tier: string) {
 
 router.get("/workshop", withUser, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
-  const tier = await tierFor(user.id);
-  const locked = !canAccessWorkshop(tier, adminTestMode());
+  const actor = await workshopActor(user);
+  const tier = actor.tier;
+  const locked = !canAccessWorkshop(tier, actor.testMode);
   const modules = await prisma.workshopModule.findMany({
     where: { status: "PUBLISHED" },
     orderBy: { order: "asc" },
@@ -89,8 +96,8 @@ router.get("/workshop", withUser, requireAuth, async (req, res) => {
   const [progress, quizzes] = locked || !lessonIds.length
     ? [[], []]
     : await Promise.all([
-        prisma.workshopProgress.findMany({ where: { userId: user.id, lessonId: { in: lessonIds } }, select: { lessonId: true } }),
-        prisma.workshopQuizResult.findMany({ where: { userId: user.id, moduleId: { in: modules.map((mod) => mod.id) } }, select: { moduleId: true, score: true, total: true } }),
+        prisma.workshopProgress.findMany({ where: { userId: actor.progressUserId, lessonId: { in: lessonIds } }, select: { lessonId: true } }),
+        prisma.workshopQuizResult.findMany({ where: { userId: actor.progressUserId, moduleId: { in: modules.map((mod) => mod.id) } }, select: { moduleId: true, score: true, total: true } }),
       ]);
   const done = new Set(progress.map((row) => row.lessonId));
   const quizByModule = new Map(quizzes.map((row) => [row.moduleId, row]));
@@ -103,7 +110,7 @@ router.get("/workshop", withUser, requireAuth, async (req, res) => {
   };
   res.json({
     ...summary,
-    testMode: adminTestMode(),
+    testMode: actor.testMode,
     modules: modules.map((mod) => {
       const completedInModule = mod.lessons.filter((lesson) => done.has(lesson.id)).length;
       const quiz = quizByModule.get(mod.id);
@@ -130,8 +137,9 @@ router.get("/workshop", withUser, requireAuth, async (req, res) => {
 
 router.get("/workshop/lessons/:slug", withUser, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
-  const tier = await tierFor(user.id);
-  if (!canAccessWorkshop(tier, adminTestMode())) {
+  const actor = await workshopActor(user);
+  const tier = actor.tier;
+  if (!canAccessWorkshop(tier, actor.testMode)) {
     res.status(403).json({ error: "Upgrade your plan to open the AI Workshop." });
     return;
   }
@@ -141,7 +149,7 @@ router.get("/workshop/lessons/:slug", withUser, requireAuth, async (req, res) =>
   });
   if (!lesson) { res.status(404).json({ error: "Lesson not found." }); return; }
   const completed = await prisma.workshopProgress.findUnique({
-    where: { userId_lessonId: { userId: user.id, lessonId: lesson.id } },
+    where: { userId_lessonId: { userId: actor.progressUserId, lessonId: lesson.id } },
     select: { completedAt: true },
   });
   const siblings = await prisma.workshopLesson.findMany({
@@ -166,19 +174,24 @@ router.get("/workshop/lessons/:slug", withUser, requireAuth, async (req, res) =>
 
 router.post("/workshop/lessons/:slug/complete", withUser, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
-  const tier = await tierFor(user.id);
-  if (!canAccessWorkshop(tier, adminTestMode())) {
+  const actor = await workshopActor(user);
+  const tier = actor.tier;
+  if (!canAccessWorkshop(tier, actor.testMode)) {
     res.status(403).json({ error: "Upgrade your plan to open the AI Workshop." });
+    return;
+  }
+  if (user.isImpersonating && !user.impersonateAllowEdits) {
+    res.status(403).json({ error: "View-as-client is read-only." });
     return;
   }
   const lesson = await prisma.workshopLesson.findFirst({ where: { slug: one(req.params.slug), ...publishedLessonWhere() }, select: { id: true } });
   if (!lesson) { res.status(404).json({ error: "Lesson not found." }); return; }
   await prisma.workshopProgress.upsert({
-    where: { userId_lessonId: { userId: user.id, lessonId: lesson.id } },
-    create: { userId: user.id, lessonId: lesson.id },
+    where: { userId_lessonId: { userId: actor.progressUserId, lessonId: lesson.id } },
+    create: { userId: actor.progressUserId, lessonId: lesson.id },
     update: {},
   });
-  const summary = await workshopSummary(user.id, tier);
+  const summary = await workshopSummary(actor.progressUserId, tier, actor.testMode);
   res.json({ ok: true, ...summary });
 });
 
@@ -186,9 +199,14 @@ const QuizBody = z.object({ answers: z.array(z.number().int()).max(20) });
 
 router.post("/workshop/modules/:slug/quiz", withUser, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
-  const tier = await tierFor(user.id);
-  if (!canAccessWorkshop(tier, adminTestMode())) {
+  const actor = await workshopActor(user);
+  const tier = actor.tier;
+  if (!canAccessWorkshop(tier, actor.testMode)) {
     res.status(403).json({ error: "Upgrade your plan to open the AI Workshop." });
+    return;
+  }
+  if (user.isImpersonating && !user.impersonateAllowEdits) {
+    res.status(403).json({ error: "View-as-client is read-only." });
     return;
   }
   const parsed = QuizBody.safeParse(req.body);
@@ -199,8 +217,8 @@ router.post("/workshop/modules/:slug/quiz", withUser, requireAuth, async (req, r
   if (!questions.length) { res.status(404).json({ error: "This module has no check." }); return; }
   const scored = scoreQuiz(parsed.data.answers, questions);
   const saved = await prisma.workshopQuizResult.upsert({
-    where: { userId_moduleId: { userId: user.id, moduleId: mod.id } },
-    create: { userId: user.id, moduleId: mod.id, score: scored.score, total: scored.total },
+    where: { userId_moduleId: { userId: actor.progressUserId, moduleId: mod.id } },
+    create: { userId: actor.progressUserId, moduleId: mod.id, score: scored.score, total: scored.total },
     update: { score: scored.score, total: scored.total },
   });
   res.json({
@@ -213,15 +231,16 @@ router.post("/workshop/modules/:slug/quiz", withUser, requireAuth, async (req, r
 
 router.get("/workshop/modules/:slug/quiz", withUser, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
-  const tier = await tierFor(user.id);
-  if (!canAccessWorkshop(tier, adminTestMode())) {
+  const actor = await workshopActor(user);
+  const tier = actor.tier;
+  if (!canAccessWorkshop(tier, actor.testMode)) {
     res.status(403).json({ error: "Upgrade your plan to open the AI Workshop." });
     return;
   }
   const mod = await prisma.workshopModule.findFirst({ where: { slug: one(req.params.slug), status: "PUBLISHED" } });
   if (!mod) { res.status(404).json({ error: "Module not found." }); return; }
   const questions = parseQuiz(mod.quizJson).map(({ prompt, choices }) => ({ prompt, choices }));
-  const prior = await prisma.workshopQuizResult.findUnique({ where: { userId_moduleId: { userId: user.id, moduleId: mod.id } } });
+  const prior = await prisma.workshopQuizResult.findUnique({ where: { userId_moduleId: { userId: actor.progressUserId, moduleId: mod.id } } });
   res.json({
     slug: mod.slug,
     title: mod.title,
