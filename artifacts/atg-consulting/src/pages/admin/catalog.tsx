@@ -12,12 +12,15 @@ interface CatalogItem {
   tierFit: string; verified: boolean; reviewStatus: string;
   reviewNotes: string; enabled: boolean; createdAt: string;
   verifiedAt: string | null; verifiedBy: string | null;
+  kind?: string; maker?: string; requiresModels?: string;
+  setupDifficulty?: string; hostingRequirement?: string; safetyNote?: string;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
   grok_bot_template: "Grok Bot", claude_skill: "Claude Skill",
   claude_plugin: "Claude Plugin", chatgpt_gpt: "ChatGPT GPT",
   mcp_connector: "MCP Connector", atg_template: "ATG Template",
+  model: "Model", claw: "Claw",
 };
 const SOURCE_COLORS: Record<string, string> = {
   grok_bot_template: "rgba(59,107,255,0.1)", claude_skill: "rgba(139,92,246,0.1)",
@@ -34,6 +37,7 @@ export default function AdminCatalogPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<CatalogItem | null>(null);
   const [filter, setFilter] = useState("");
+  const [kind, setKind] = useState<"all" | "template" | "model" | "claw">("all");
   const [verifying, setVerifying] = useState<string | null>(null);
   const [batching, setBatching] = useState(false);
 
@@ -109,8 +113,15 @@ export default function AdminCatalogPage() {
     load();
   }
 
-  const displayed = tab === "queue" ? queue
-    : items.filter((i) => !filter || i.name.toLowerCase().includes(filter.toLowerCase()) || i.sourceType.includes(filter.toLowerCase()));
+  const displayed = (tab === "queue" ? queue : items).filter((item) => {
+    if (kind === "template" && (item.kind ?? "template") !== "template") return false;
+    if (kind === "model" && item.kind !== "model" && item.sourceType !== "model") return false;
+    if (kind === "claw" && item.kind !== "claw" && item.sourceType !== "claw") return false;
+    if (tab === "queue") return true;
+    if (!filter) return true;
+    const q = filter.toLowerCase();
+    return item.name.toLowerCase().includes(q) || item.sourceType.includes(q) || (item.maker ?? "").toLowerCase().includes(q);
+  });
 
   return (
     <AdminShell>
@@ -135,9 +146,20 @@ export default function AdminCatalogPage() {
         </div>
 
         {/* Filter */}
-        {tab === "all" && (
-          <input className="field-input text-sm w-full max-w-sm" placeholder="Filter by name or source type…"
-            value={filter} onChange={(e) => setFilter(e.target.value)} />
+        {(tab === "all" || tab === "queue") && (
+          <div className="flex flex-wrap items-center gap-2">
+            {tab === "all" && (
+              <input className="field-input text-sm w-full max-w-sm" placeholder="Filter by name or source type…"
+                value={filter} onChange={(e) => setFilter(e.target.value)} />
+            )}
+            {(["all", "template", "model", "claw"] as const).map((value) => (
+              <button key={value} type="button" onClick={() => setKind(value)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-md capitalize"
+                style={{ background: kind === value ? "var(--blue)" : "var(--canvas-2)", color: kind === value ? "#fff" : "var(--canvas-text-2)", border: "none", cursor: "pointer" }}>
+                {value === "all" ? "All kinds" : value === "template" ? "Templates" : value === "model" ? "Models" : "Claws"}
+              </button>
+            ))}
+          </div>
         )}
 
         {/* Import tab */}
@@ -240,7 +262,12 @@ export default function AdminCatalogPage() {
                       {item.sourceUrl && <p className="text-xs"><strong>URL:</strong> <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "var(--blue)" }}>{item.sourceUrl}</a></p>}
                       <p className="text-xs"><strong>How it helps:</strong> {item.howItHelps || "(not set)"}</p>
                       <p className="text-xs"><strong>Tags:</strong> {item.tags}</p>
+                      <p className="text-xs"><strong>Kind:</strong> {item.kind ?? "template"}{item.maker ? ` · ${item.maker}` : ""}</p>
                       <p className="text-xs"><strong>Tier:</strong> {item.tierFit} · <strong>Verified by:</strong> {item.verifiedBy ?? "—"}</p>
+                      {item.requiresModels && item.requiresModels !== "[]" && <p className="text-xs"><strong>Requires a model:</strong> {item.requiresModels}</p>}
+                      {item.setupDifficulty && <p className="text-xs"><strong>Setup:</strong> {item.setupDifficulty}</p>}
+                      {item.hostingRequirement && <p className="text-xs"><strong>Hosting:</strong> {item.hostingRequirement}</p>}
+                      {item.safetyNote && <p className="text-xs"><strong>Safety:</strong> {item.safetyNote}</p>}
                     </div>
                   )}
                 </div>

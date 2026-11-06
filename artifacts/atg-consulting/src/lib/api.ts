@@ -27,6 +27,20 @@ export function missingProfile(err: unknown): boolean {
 }
 
 const get = <T>(path: string) => req<T>("GET", path);
+
+export interface CatalogAssistant {
+  id: string;
+  name: string;
+  maker: string;
+  sourceUrl: string;
+  description: string;
+  tierFit: string;
+  kind: string;
+  requiresModels: string;
+  setupDifficulty: string;
+  hostingRequirement: string;
+  safetyNote: string;
+}
 const post = <T>(path: string, body?: unknown) => req<T>("POST", path, body);
 const put = <T>(path: string, body?: unknown) => req<T>("PUT", path, body);
 const patch = <T>(path: string, body?: unknown) => req<T>("PATCH", path, body);
@@ -81,7 +95,8 @@ export const api = {
     usage:         () => get<{ used: number; cap: number; month: string; byFeature: { feature: string; tokenCount: number; messageCount: number }[]; enabled: boolean }>("/ai-assist/usage"),
   },
 
-  catalogMatches: () => get<{ matches: { id: string; name: string; painPoint: string; why: string; url: string | null }[] }>("/client/catalog-matches"),
+  catalogMatches: () => get<{ matches: { id: string; name: string; painPoint: string; why: string; url: string | null; kind?: string; safetyNote?: string }[] }>("/client/catalog-matches"),
+  catalogByKind: (kind: "model" | "claw") => get<CatalogAssistant[]>(`/catalog?kind=${kind}`),
 
   knowledge: {
     list:           () => get<KnowledgeArticle[]>("/knowledge"),

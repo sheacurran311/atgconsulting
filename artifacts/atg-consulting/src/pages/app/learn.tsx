@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link, useRoute } from "wouter";
 import AppShell from "@/components/app/AppShell";
+import WhichAi from "@/components/app/WhichAi";
 import { api, type Module } from "@/lib/api";
 
-const TIER_LABELS: Record<string, string> = { NONE: "Free", SELF_SERVE: "Self-serve", GUIDED: "Guided", WHITE_GLOVE: "White Glove" };
+const TIER_LABELS: Record<string, string> = { NONE: "Free", SELF_SERVE: "Self-serve", GUIDED: "Guided", WHITE_GLOVE: "Done-for-you" };
 
 type ModuleWithMeta = Module & { locked: boolean; completed: boolean };
 
@@ -32,12 +33,7 @@ function ModuleList() {
             <p className="text-canvas-text text-sm mt-1">Lessons, a check you score yourself, and progress you can resume. Paid plans, or admin test mode.</p>
           </div>
         </Link>
-        {loading ? <p className="text-canvas-text">Loading…</p> : modules.length === 0 ? (
-          <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-10 text-center">
-            <p className="font-bold text-canvas-text mb-1">No modules published yet</p>
-            <p className="text-canvas-text text-sm">Shea will publish learning resources here over time.</p>
-          </div>
-        ) : (
+        {loading ? <p className="text-canvas-text">Loading…</p> : modules.length === 0 ? null : (
           <ul className="space-y-3">
             {modules.map((m) => (
               <li key={m.id}>
@@ -66,6 +62,7 @@ function ModuleList() {
             ))}
           </ul>
         )}
+        <WhichAi />
       </div>
     </AppShell>
   );

@@ -3,6 +3,7 @@ import { TEMPLATE_SEEDS, PHASE2_SEEDS, PHASE3_SEEDS } from "./templates";
 import { seedTools } from "./toolSeeds";
 import { seedKnowledgeArticles } from "./knowledgeSeeds";
 import { seedCatalog } from "./catalogSeeds";
+import { seedAssistantCatalog } from "./assistantCatalog";
 import { seedInitialContent } from "./contentAI";
 import { seedWorkshop } from "./workshopSeed";
 
@@ -28,6 +29,7 @@ export async function initializeDatabase(): Promise<void> {
   await seedTools(prisma).catch(console.error);
   await seedKnowledgeArticles(prisma).catch(console.error);
   await seedCatalog(prisma).catch(console.error);
+  await seedAssistantCatalog(prisma).catch(console.error);
   await seedInitialContent().catch(console.error);
   await seedWorkshop(prisma).catch(console.error);
 }

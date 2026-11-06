@@ -4,6 +4,7 @@
  * Affiliate disclosure shown prominently per FTC rules.
  */
 import { useState, useEffect } from "react";
+import WhichAi from "@/components/app/WhichAi";
 import { api, type ResourceTool, type ResourcesPayload } from "@/lib/api";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -54,7 +55,7 @@ function ToolCard({ tool, source }: { tool: ResourceTool; source: string }) {
 
 export default function ResourcesTab() {
   const [data, setData] = useState<ResourcesPayload | null>(null);
-  const [matches, setMatches] = useState<{ id: string; name: string; painPoint: string; why: string; url: string | null }[]>([]);
+  const [matches, setMatches] = useState<{ id: string; name: string; painPoint: string; why: string; url: string | null; kind?: string; safetyNote?: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -128,6 +129,9 @@ export default function ResourcesTab() {
                 <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)" }}>{match.name}</p>
                 {match.painPoint && <p className="font-mono text-2xs mt-1" style={{ color: "var(--blue)" }}>{match.painPoint}</p>}
                 {match.why && <p className="text-xs mt-1" style={{ color: "var(--canvas-text-2)" }}>{match.why}</p>}
+                {match.kind === "claw" && match.safetyNote && (
+                  <p className="text-xs mt-2" style={{ color: "var(--canvas-text)" }}>{match.safetyNote}</p>
+                )}
                 {match.url && (
                   <a href={match.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium mt-2 inline-block" style={{ color: "var(--blue)" }}>
                     Open source ↗
@@ -138,6 +142,8 @@ export default function ResourcesTab() {
           </div>
         )}
       </div>
+
+      <WhichAi />
 
       {!hasTools && matches.length === 0 && (
         <div className="rounded-xl p-6" style={{ border: "1px dashed var(--canvas-border)", background: "var(--canvas-2)" }}>
