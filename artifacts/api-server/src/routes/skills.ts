@@ -24,7 +24,7 @@ import {
 } from "../lib/llm";
 
 const router = Router();
-router.use(withUser, requireAuth);
+router.use("/workbench", withUser, requireAuth);
 
 function clientId(req: AuthedRequest, res: Parameters<typeof requireAuth>[1]): string | null {
   const id = req.atgUser?.clientId;

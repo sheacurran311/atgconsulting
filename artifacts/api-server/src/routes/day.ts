@@ -33,7 +33,7 @@ import {
 } from "../lib/dayPlan";
 
 const router = Router();
-router.use(withUser, requireAuth);
+router.use("/day", withUser, requireAuth);
 
 function clientId(req: AuthedRequest, res: { status: (code: number) => { json: (body: unknown) => void } }): string | null {
   const id = req.atgUser?.clientId;

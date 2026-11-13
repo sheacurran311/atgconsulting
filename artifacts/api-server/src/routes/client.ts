@@ -16,7 +16,7 @@ import { buildNextActions, workflowRowState } from "../lib/clientHome";
 import { workshopSummary } from "./workshop";
 
 const router = Router();
-router.use(withUser, requireAuth);
+router.use(["/client", "/modules"], withUser, requireAuth);
 
 function getClient(req: AuthedRequest, res: Parameters<typeof requireAuth>[1]): string | null {
   const user = req.atgUser!;

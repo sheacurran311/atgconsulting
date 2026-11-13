@@ -28,7 +28,7 @@ import { generateFollowUpDraft } from "../lib/llm";
 import { checkWorkflowAccess } from "../lib/access";
 
 const router = Router();
-router.use(withUser, requireAuth);
+router.use("/workbench", withUser, requireAuth);
 
 function clientId(req: AuthedRequest, res: Parameters<typeof requireAuth>[1]): string | null {
   const id = req.atgUser?.clientId;

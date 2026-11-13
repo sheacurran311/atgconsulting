@@ -26,7 +26,7 @@ import { generateBothOutputs, generateToolPlan } from "../lib/llm";
 import { sanitiseText } from "../lib/sanitize";
 
 const router = Router();
-router.use(withUser, requireAuth);
+router.use("/ai-assist", withUser, requireAuth);
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 
