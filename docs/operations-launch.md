@@ -22,7 +22,7 @@ Reviewed assessment reports can now be emailed explicitly by an administrator. A
 
 ## Replit release steps
 
-1. Back up the database and review the additive Prisma schema changes: OperatingPlan, OperatingEvent, and three DiscoveryIntake delivery fields. Use the existing project workflow, `pnpm db:push`, against the intended database before starting this release. Review the schema diff and stop if a destructive change is proposed; do not use accept-data-loss. This repository has no checked-in migration history for these tables.
+1. Back up the database and review the additive Prisma schema changes: OperatingPlan, OperatingEvent, and three DiscoveryIntake delivery fields. For a Replit-managed database, confirm the Shell targets development, then use `pnpm --filter @workspace/api-server db:push` there. Review any proposed changes and stop if destructive changes are proposed; do not use accept-data-loss. Replit Publish separately compares development with production, generates SQL, validates it against a production copy, and applies approved changes. Do not run schema pushes in production, deployment build commands, startup code, or the post-merge hook. This repository has no checked-in Prisma migration history for these tables. For an external database, use that provider's reviewed migration process instead.
 2. Install dependencies, generate the Prisma client, and run the normal production build. Deploy both frontend and API together. This PR does not deploy or change secrets.
 3. Configure production Clerk keys and the published domain. Email linking and admin assignment require a verified primary email. Development Clerk keys are unsuitable for public launch.
 4. Configure the existing email provider and sender settings in Replit. Send a reviewed test report to an address you control and verify provider delivery. Do not manually clear an uncertain send until checking the provider.
@@ -38,3 +38,13 @@ Reviewed assessment reports can now be emailed explicitly by an administrator. A
 - Exercise the real database, configured model, and email transport. Local automated tests mock these integrations; they do not prove production credentials or delivery.
 
 Rollback: restore the previous application release if needed and retain the additive tables/columns and their data. Do not drop them as part of an application rollback.
+
+## Publish fails on Plan_intakeId_fkey
+
+The reported statement `ALTER TABLE "Plan" DROP CONSTRAINT "Plan_intakeId_fkey"` fails when that constraint does not exist in the database being validated or migrated. The current Prisma Plan model has a nullable intakeId scalar, not an intake relation. This release does not change that model. The error alone does not establish whether Replit generated stale SQL, a prior change was partly applied, or another schema discrepancy exists.
+
+Use the Publish failure action **Ask Agent to investigate and fix the development schema**. Have Replit Agent inspect the full generated SQL, the development schema, and the read-only production schema. Compare Plan constraints by schema, name, definition, and referenced table; look for duplicate DROP statements. Preserve Plan rows and intakeId values. Do not invent a replacement foreign key merely to satisfy the DROP, reset the database, copy development over production, or mark an unverified migration applied. If regenerated SQL still drops an absent constraint despite matching live metadata, send the deployment ID and generated SQL to Replit Support.
+
+The old post-merge hook targeted the unused empty Drizzle schema. It now only installs dependencies and generates the Prisma client, without altering database structure. This prevents a competing schema push; it does not by itself repair Replit's pending generated migration.
+
+References: [Replit database separation](https://docs.replit.com/features/data-and-storage/development-and-production), [Replit Publish migration validation and recovery](https://docs.replit.com/features/data-and-storage/publish-database-changes).
