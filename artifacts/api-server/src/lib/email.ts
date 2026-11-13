@@ -1,11 +1,11 @@
 /**
- * Notifications to Shea only.
+ * ATG service notifications and explicitly approved assessment delivery.
  *
  * EMAIL_PROVIDER=console (default) | resend | postmark | smtp
  * SHEA_EMAIL defaults to shea@atgconsulting.io.
  *
- * This module never addresses a client, teammate, or approver.
- * Login mail stays with Clerk. Digests are not emailed.
+ * Prospect reports are sent only from the admin's explicit delivery action.
+ * This never sends client outreach or reads a customer's inbox. Login stays with Clerk.
  */
 
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "shea@atgconsulting.io";
@@ -49,5 +49,17 @@ export async function notifyShea(subject: string, text: string): Promise<EmailRe
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[email] Failed:", msg);
     return { sent: false, error: msg };
+  }
+}
+
+/** ATG's own reviewed deliverable, not an automation acting as the customer. */
+export async function sendAssessmentReport(to: string, text: string): Promise<EmailResult> {
+  const transport = await getTransport();
+  if (!transport) return { sent: false, error: "Configure EMAIL_PROVIDER and its credentials in Replit before emailing reports." };
+  try {
+    await transport.sendMail({ from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`, to, subject: "Your reviewed ATG assessment", text });
+    return { sent: true };
+  } catch {
+    return { sent: false, error: "The email provider did not confirm delivery. Check its logs before retrying." };
   }
 }

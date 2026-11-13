@@ -5,6 +5,7 @@
  */
 
 export interface ParsedIntake {
+  audience: "business" | "personal" | "both";
   role: string | null;
   industry: string | null;
   bizSize: string | null;
@@ -89,6 +90,7 @@ export function parseIntakeAnswers(raw: string | null | undefined): ParsedIntake
     .map((item) => item?.trim())
     .filter((item): item is string => Boolean(item));
   return {
+    audience: map.audience?.toLowerCase().includes("both") ? "both" : /personal|family/i.test(map.audience ?? "") ? "personal" : "business",
     role: map.role?.trim() || null,
     industry: map.business_type?.trim() || map.industry?.trim() || null,
     bizSize: map.team_size?.trim() || map.bizSize?.trim() || null,

@@ -37,6 +37,9 @@ interface IntakeRow {
 }
 
 interface IntakeDetail extends IntakeRow {
+  reportEmailedAt?: string | null;
+  reportEmailSendingAt?: string | null;
+  reportEmailError?: string | null;
   answers: string; // JSON
   transcript: string;
   reportDraft: string | null;
@@ -53,6 +56,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }
 };
 
 export default function AdminDiscoveryPage() {
+  const [deliveryError, setDeliveryError] = useState("");
   const [tab, setTab] = useState<"inbox" | "invites">("inbox");
   const [intakes, setIntakes] = useState<IntakeRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -187,12 +191,20 @@ export default function AdminDiscoveryPage() {
   }
 
   async function approveReport() {
+    await reportAction("approve");
+  }
+
+  async function reportAction(action: string, body?: unknown) {
     if (!selected) return;
-    setApproving(true);
-    await fetch(`/api/admin/discovery/${selected.id}/approve`, { method: "POST", credentials: "include" });
-    setSelected((s) => s ? { ...s, reportApprovedAt: new Date().toISOString(), status: "report_sent" } : s);
-    setApproving(false);
-    load();
+    setApproving(true); setDeliveryError("");
+    try {
+      const response = await fetch(`/api/admin/discovery/${selected.id}/${action}`, { method: "POST", credentials: "include", ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}) });
+      const result = await response.json();
+      const detail = await fetch(`/api/admin/discovery/${selected.id}`, { credentials: "include" });
+      if (detail.ok) setSelected(await detail.json());
+      if (!response.ok) throw new Error(result.error || "Unable to update report delivery.");
+      load();
+    } catch (error) { setDeliveryError((error as Error).message); } finally { setApproving(false); }
   }
 
   async function convertToClient() {
@@ -340,6 +352,11 @@ export default function AdminDiscoveryPage() {
                   </button>
                 )}
                 {/* Proposal actions */}
+                {selected.reportApprovedAt && !selected.reportEmailedAt && !selected.reportEmailSendingAt && <button className="btn-primary text-sm" disabled={approving} onClick={() => reportAction("email-report")}>Email reviewed report</button>}
+                {selected.reportEmailedAt && <span className="text-sm">Emailed {new Date(selected.reportEmailedAt).toLocaleDateString()}</span>}
+                {selected.reportEmailSendingAt && <div className="text-sm max-w-md"><p>Delivery is in progress or uncertain. Check the email provider before recording a result.</p><div className="flex flex-wrap gap-2 mt-2"><button className="btn-secondary" disabled={approving} onClick={() => reportAction("email-report/reconcile", { providerChecked: true, delivered: true })}>Provider confirms delivered</button><button className="btn-secondary" disabled={approving} onClick={() => reportAction("email-report/reconcile", { providerChecked: true, delivered: false })}>Provider confirms not sent; enable retry</button></div></div>}
+                {(deliveryError || selected.reportEmailError) && <p role="alert" className="text-red-700 text-sm w-full">{deliveryError || selected.reportEmailError}</p>}
+                {selected.clientId && <Link href={`/admin/clients/${selected.clientId}/operations`} className="btn-secondary text-sm">Audit & delivery playbook</Link>}
                 {!proposal && (
                   <button type="button" onClick={generateProposal} disabled={generatingProposal} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
                     {generatingProposal ? "Drafting proposal…" : "Generate proposal"}

@@ -97,6 +97,7 @@ model Client {
   dayProfile          DayProfile?
   declaredAccounts    DeclaredAccount[]
   dayBlocks           DayBlock[]
+  operatingPlan       OperatingPlan?
 }
 
 // ── Intake ─────────────────────────────────────────────────────────────────────
@@ -906,6 +907,9 @@ model DiscoveryIntake {
   reportDraft     String?
 
   reportApprovedAt DateTime?
+  reportEmailedAt DateTime?
+  reportEmailSendingAt DateTime?
+  reportEmailError String?
 
   /// new | reviewed | report_sent | converted
   status          String    @default("new")
@@ -1206,4 +1210,35 @@ model TodayItemAction {
   updatedAt   DateTime  @updatedAt
 
   @@index([action, snoozeUntil])
+}
+
+/// Reviewed operating guide. Draft and published snapshots are separate.
+model OperatingPlan {
+  id String @id @default(cuid())
+  clientId String @unique
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  content String
+  internalNotes String @default("")
+  version Int @default(1)
+  publishedContent String?
+  publishedVersion Int?
+  publishedAt DateTime?
+  acceptedVersion Int?
+  acceptedAt DateTime?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  events OperatingEvent[]
+}
+
+/// Explicit human-reported evidence, never presented as live connector telemetry.
+model OperatingEvent {
+  id String @id @default(cuid())
+  planId String
+  plan OperatingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  actorUserId String
+  kind String
+  note String
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([planId, createdAt])
 }

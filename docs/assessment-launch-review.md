@@ -13,13 +13,13 @@
 - Import without AI configuration now explains that the question-by-question form is available instead of claiming a successful empty extraction.
 - The manifest link includes credentials, as required when the preview host protects the file. Replit Shield redirects can still require preview access; validate the published domain separately.
 
-## Remaining launch issues
+## Historical launch findings (updated by operations release)
 
-1. **Prospect email delivery is not implemented.** `src/lib/email.ts` in the API server intentionally sends only to Shea. Approving an assessment sets `report_sent` but does not email the prospect. Do not promise automatic emailed results until a reviewed-report delivery flow, provider configuration, delivery error handling, and retries are implemented. The current patch describes assessment follow-up rather than claiming an email was sent.
+1. **Resolved in the operations release:** explicit reviewed-report delivery, failure handling, and reconciliation now exist. Provider configuration still requires deployment verification. Historical finding: `src/lib/email.ts` in the API server intentionally sends only to Shea. Approving an assessment sets `report_sent` but does not email the prospect. Do not promise automatic emailed results until a reviewed-report delivery flow, provider configuration, delivery error handling, and retries are implemented. The current patch describes assessment follow-up rather than claiming an email was sent.
 2. **Clerk is using development keys**, according to the supplied browser log. Configure the production Clerk instance and domain before launch. These keys are unrelated to xAI/OpenAI keys.
 3. **Verify proxy configuration on Replit.** The server defaults to not trusting forwarded IP headers. Without correct `TRUSTED_PROXY_CIDRS`, visitors behind the Replit proxy may share a rate-limit bucket. Configure only known trusted proxy ranges; do not blindly trust all forwarded headers.
-4. **Account linking deserves a separate security fix.** `resolveUser` in `src/lib/auth.ts` looks up an existing User by email and attaches a new Clerk identity before checking `emailVerified`. The verified-email check later in the function only gates provisioning. Existing-account linking and admin-role assignment should require a verified primary email.
-5. **Read-only impersonation guard order is suspect.** The global mutation guard in `routes/index.ts` runs before route-level `withUser` populates `atgUser`. Verify and enforce the guard after resolving the actor, including on mutations outside the Workbench.
+4. **Resolved in the operations release:** primary-email verification now precedes all identity linking and role assignment. Historical finding: `resolveUser` in `src/lib/auth.ts` looks up an existing User by email and attaches a new Clerk identity before checking `emailVerified`. The verified-email check later in the function only gates provisioning. Existing-account linking and admin-role assignment should require a verified primary email.
+5. **Resolved in the operations release:** the mutation guard now runs after actor resolution. Historical finding: The global mutation guard in `routes/index.ts` runs before route-level `withUser` populates `atgUser`. Verify and enforce the guard after resolving the actor, including on mutations outside the Workbench.
 
 ## AI configuration
 

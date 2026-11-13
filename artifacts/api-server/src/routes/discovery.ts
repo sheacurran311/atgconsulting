@@ -23,7 +23,8 @@
  */
 
 import { Router } from "express";
-import { notifyShea } from "../lib/email";
+import { notifyShea, sendAssessmentReport } from "../lib/email";
+import { reportEmailText } from "../lib/reportDelivery";
 import { ensureApproverInvite } from "../lib/approverInvite";
 import { maybeDraftMergedReview } from "../lib/engagementMerge";
 import { z } from "zod";
@@ -40,6 +41,7 @@ import { sanitiseText, sanitiseShortText } from "../lib/sanitize";
 import { QUESTION_BANK, QUESTION_MAP, FALLBACK_ORDER } from "../lib/questionBank";
 import { getPainChips } from "../lib/catalogAI";
 import { isAiEnabled } from "../lib/grokClient";
+import { assessmentQuestions, assessmentOrder, ALL_ASSESSMENT_QUESTIONS, ALL_ASSESSMENT_MAP } from "../lib/assessmentProfile";
 
 const router = Router();
 
@@ -104,7 +106,7 @@ async function getOrVerifySession(id: string): Promise<{ id: string; answers: An
 // ── GET /api/discovery/questions — static question bank ───────────────────────
 
 router.get("/discovery/questions", (_req, res) => {
-  res.json({ questions: QUESTION_BANK, fallbackOrder: FALLBACK_ORDER });
+  res.json({ questions: ALL_ASSESSMENT_QUESTIONS, fallbackOrder: assessmentOrder([]) });
 });
 
 // ── POST /api/discovery/start ─────────────────────────────────────────────────
@@ -154,9 +156,9 @@ router.post("/discovery/start", async (req, res) => {
   });
 
   // Skip contact details already entered or imported; continue through /next.
-  const firstIds = FALLBACK_ORDER.filter((id) => !initialAnswers.some((a) => a.id === id)).slice(0, 1);
+  const firstIds = assessmentQuestions(initialAnswers).filter((q) => !initialAnswers.some((a) => a.id === q.id)).map((q) => q.id).slice(0, 1);
   const firstQuestions = firstIds
-    .map((id) => QUESTION_MAP[id])
+    .map((id) => ALL_ASSESSMENT_MAP[id])
     .filter((q): q is NonNullable<typeof q> => !!q);
 
   // Attach helper text to the email question for the client
@@ -227,7 +229,7 @@ router.post("/discovery/next", async (req, res) => {
 
   // Combine bank questions + Grok-generated follow-ups (capped at 15–25 total)
   const bankQuestions = result.nextIds
-    .map((id) => QUESTION_MAP[id])
+    .map((id) => ALL_ASSESSMENT_MAP[id])
     .filter((q): q is NonNullable<typeof q> => !!q);
 
   const generated = result.generatedQuestions ?? [];
@@ -512,14 +514,18 @@ router.post("/admin/discovery/:id/report", withUser, requireAdmin, async (req, r
 
   const { tokensUsed, ...reportData } = draft;
 
-  await prisma.discoveryIntake.update({
-    where: { id: intake.id },
+  const savedReport = await prisma.discoveryIntake.updateMany({
+    where: { id: intake.id, reportDraft: intake.reportDraft, reportEmailSendingAt: null },
     data:  {
       reportDraft: JSON.stringify(reportData),
+      reportApprovedAt: null,
+      reportEmailedAt: null,
+      reportEmailError: null,
       status: "reviewed",
       tokensUsed: { increment: tokensUsed },
     },
   });
+  if (!savedReport.count) { res.status(409).json({ error: "Report changed or delivery is in progress. Reload and review it first." }); return; }
 
   await audit({
     actorUserId: actor.id,
@@ -542,7 +548,7 @@ router.post("/admin/discovery/:id/approve", withUser, requireAdmin, async (req, 
 
   await prisma.discoveryIntake.update({
     where: { id: intake.id },
-    data:  { reportApprovedAt: new Date(), status: "report_sent" },
+    data:  { reportApprovedAt: new Date(), status: intake.reportEmailedAt ? "report_sent" : "reviewed" },
   });
 
   if (intake.clientId) {
@@ -562,6 +568,39 @@ router.post("/admin/discovery/:id/approve", withUser, requireAdmin, async (req, 
 });
 
 // ── Admin: manual link intake to an existing client ──────────────────────────
+
+router.post("/admin/discovery/:id/email-report", withUser, requireAdmin, async (req, res) => {
+  const intake = await prisma.discoveryIntake.findUnique({ where: { id: req.params.id as string } });
+  if (!intake) { res.status(404).json({ error: "Assessment not found." }); return; }
+  if (!intake.consentGiven || !intake.reportApprovedAt || !intake.reportDraft || !z.string().email().safeParse(intake.contactEmail).success) {
+    res.status(422).json({ error: "A submitted assessment, valid email, and reviewed report are required." }); return;
+  }
+  if (intake.reportEmailedAt) { res.json({ ok: true, alreadySent: true }); return; }
+  let message: string;
+  try { message = reportEmailText(intake.reportDraft); } catch { res.status(422).json({ error: "Regenerate and review a valid report before sending." }); return; }
+  const claim = await prisma.discoveryIntake.updateMany({ where: { id: intake.id, reportDraft: intake.reportDraft, reportApprovedAt: intake.reportApprovedAt, reportEmailedAt: null, reportEmailSendingAt: null }, data: { reportEmailSendingAt: new Date(), reportEmailError: null } });
+  if (!claim.count) { res.status(409).json({ error: "Delivery is already in progress or needs reconciliation. Check the email provider before retrying." }); return; }
+  const result = await sendAssessmentReport(intake.contactEmail!, message);
+  // A provider failure can be ambiguous: retain the sending marker to avoid
+  // duplicate reports until the operator checks the provider and releases it.
+  await prisma.discoveryIntake.update({ where: { id: intake.id }, data: result.sent
+    ? { reportEmailedAt: new Date(), reportEmailSendingAt: null, reportEmailError: null, status: "report_sent" }
+    : { reportEmailError: result.error ?? "Delivery could not be confirmed." } });
+  await audit({ actorUserId: (req as AuthedRequest).atgUser!.id, action: result.sent ? "ASSESSMENT_EMAILED" : "ASSESSMENT_EMAIL_FAILED", entity: "DiscoveryIntake", entityId: intake.id });
+  if (!result.sent) { res.status(502).json({ error: result.error }); return; }
+  res.json({ ok: true });
+});
+
+router.post("/admin/discovery/:id/email-report/reconcile", withUser, requireAdmin, async (req, res) => {
+  const body = z.object({ providerChecked: z.literal(true), delivered: z.boolean() }).safeParse(req.body);
+  if (!body.success) { res.status(422).json({ error: "Check the provider and record whether delivery occurred." }); return; }
+  const result = await prisma.discoveryIntake.updateMany({ where: { id: req.params.id as string, reportEmailSendingAt: { not: null }, reportEmailedAt: null }, data: {
+    reportEmailSendingAt: null, reportEmailError: null, ...(body.data.delivered ? { reportEmailedAt: new Date(), status: "report_sent" } : {}),
+  } });
+  if (!result.count) { res.status(409).json({ error: "No uncertain delivery to reconcile. Reload the assessment." }); return; }
+  await audit({ actorUserId: (req as AuthedRequest).atgUser!.id, action: "ASSESSMENT_EMAIL_RECONCILED", entity: "DiscoveryIntake", entityId: req.params.id as string, meta: { delivered: body.data.delivered } });
+  res.json({ ok: true });
+});
 
 router.post("/admin/discovery/:id/link-client", withUser, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;

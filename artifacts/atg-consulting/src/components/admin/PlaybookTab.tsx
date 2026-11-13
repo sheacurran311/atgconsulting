@@ -47,6 +47,7 @@ interface PlaybookInstallGuides {
 }
 
 interface PlaybookContent {
+  operatingGuide?: { audience: string; desiredOutcome: string; boundaries: string; phases: { label: string; deliverable: string }[] };
   clientSummary: string;
   risksAndClarifications: string[];
   tierRationale: { recommendedTier: string; why: string; expectationsToSet: string[] };
@@ -99,6 +100,12 @@ function PlaybookView({ content, pb }: { content: PlaybookContent; pb: ClientPla
       <Section title="Client summary">
         <p className="text-sm leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>{content.clientSummary}</p>
       </Section>
+      {content.operatingGuide && <Section title="Audit, pilot & care delivery">
+        <p className="mb-2">Audience: {content.operatingGuide.audience}. Outcome: {content.operatingGuide.desiredOutcome}</p>
+        <p className="mb-3">Boundaries: {content.operatingGuide.boundaries}</p>
+        <BulletList items={content.operatingGuide.phases.map((p) => `${p.label}: ${p.deliverable}`)} />
+        <p className="mt-3 font-semibold">Use the Operations tab to record evidence, edit workflow contracts, and publish the separate customer guide. This playbook remains private.</p>
+      </Section>}
 
       <Section title="Risks and things to clarify">
         <BulletList items={content.risksAndClarifications} />

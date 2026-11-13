@@ -17,7 +17,7 @@
 import { getAuth, clerkClient } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
 import { prisma } from "./db";
-import { IMP_COOKIE } from "./impersonate";
+import { IMP_COOKIE, blockIfImpersonating } from "./impersonate";
 import { ensureClientForVerifiedUser } from "./clientProvision";
 
 export interface ATGUser {
@@ -51,11 +51,16 @@ function isAdminEmail(email: string | null): boolean {
 export async function resolveUser(req: Request): Promise<ATGUser | null> {
   const { userId: clerkId } = getAuth(req);
   if (!clerkId) return null;
+  return resolveClerkUser(req, clerkId, await clerkClient.users.getUser(clerkId));
+}
 
-  const clerkUser = await clerkClient.users.getUser(clerkId);
+export async function resolveClerkUser(req: Request, clerkId: string, clerkUser: Awaited<ReturnType<typeof clerkClient.users.getUser>>): Promise<ATGUser | null> {
   const primaryEmail = clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId);
   const email = primaryEmail?.emailAddress?.toLowerCase() ?? null;
   const emailVerified = primaryEmail?.verification?.status === "verified";
+  // Never link identities, assign admin privileges, or update an existing
+  // account using an email whose ownership Clerk has not verified.
+  if (!email || !emailVerified) return null;
   const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
   const imageUrl = clerkUser.imageUrl ?? null;
   const role = isAdminEmail(email) ? "ADMIN" : "CLIENT";
@@ -157,13 +162,14 @@ export async function resolveUser(req: Request): Promise<ATGUser | null> {
 // ── Express middleware helpers ────────────────────────────────────────────────
 
 /** Resolves the current user and attaches it to req. Does not block unauthenticated requests. */
-export async function withUser(req: Request, _res: Response, next: NextFunction) {
+export async function withUser(req: Request, res: Response, next: NextFunction) {
   try {
     (req as AuthedRequest).atgUser = await resolveUser(req);
   } catch {
     (req as AuthedRequest).atgUser = null;
   }
-  next();
+  if (/^\/api\/admin\/impersonate(?:\/|$)/.test(req.originalUrl.split("?")[0] ?? "")) { next(); return; }
+  blockIfImpersonating(req, res, next);
 }
 
 /** Blocks if not authenticated. */

@@ -53,9 +53,9 @@ function Metadata() {
       : intake ? "Map my workflow | ATG Consulting"
       : isApp ? "Client portal | ATG Consulting"
       : isAdmin ? "Admin | ATG Consulting"
-      : "ATG Consulting | We build the AI workflows. You get the hours back.";
+      : "ATG Consulting | AI audits for your business and your life";
     const desc = intake || isResult
-      ? "A personalised AI readiness snapshot for your role and business. Based in Colorado, USA."
+      ? "An AI assessment for your business, personal and family logistics, or both. No account required."
       : "Shea designs and delivers AI systems tailored to your specific role, clients, and daily life. Based in Colorado, USA.";
     document.title = title;
     for (const [attr, key, content] of [

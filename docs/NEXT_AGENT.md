@@ -1,3 +1,7 @@
+# Current release note — November 13, 2026
+
+See [operations-launch.md](operations-launch.md) for the current business/personal assessment, operating-guide delivery workflow, and required additive database rollout. This takes precedence over older product descriptions below. ATG may explicitly email its own reviewed assessment report; customer outreach and live workflow execution remain in customer-owned platforms. Draft guides and internal notes are never published automatically.
+
 # ATG Consulting — audit and next-agent handoff
 
 Read this file before changing code. It is the source of truth.

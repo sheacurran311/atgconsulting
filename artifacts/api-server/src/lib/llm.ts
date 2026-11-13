@@ -780,6 +780,7 @@ export interface AccountAccessSection {
 }
 
 export interface PlaybookContent {
+  operatingGuide?: import("./operatingPlan").OperatingPlanContent;
   /** Plain-words summary: who they are, what they want, inferred situation */
   clientSummary: string;
   /** Risk flags and things to clarify in the first call */
@@ -1404,12 +1405,30 @@ function buildInstallGuides(input: PlaybookInput): PlaybookInstallGuides | undef
 }
 
 export async function generateClientPlaybook(input: PlaybookInput): Promise<PlaybookContent & { source: "LLM" | "TEMPLATE" }> {
+  const { buildOperatingPlan } = await import("./operatingPlan");
+  const operatingGuide = buildOperatingPlan(input.answersJson);
+  const enrich = (p: PlaybookContent, source: "LLM" | "TEMPLATE") => ({
+    ...p, source, operatingGuide,
+    ...(operatingGuide.audience === "personal" ? {
+      risksAndClarifications: ["Keep children's identities and private school content out of the portal.", "Confirm household account permissions and who approves calendar changes, messages, and purchases.", "Verify schedule changes against the original source and define who handles conflicts."],
+      toolStack: [{ category: "Personal coordination", tool: "Customer's existing calendar and task tools", why: "Start with the tools the household already uses; verify available integrations before selecting an automation platform.", costNote: "Confirm current pricing and agree recurring costs before setup." }],
+      installGuides: p.installGuides ? { ...p.installGuides, entries: [], preInstallChecklist: ["Use the published workflow setup briefs for the selected family pilot.", "Confirm authorized household accounts and separate them from work accounts.", "Test a redacted schedule change, conflict, duplicate, and connection failure with the customer.", "Record the platform-specific setup, approval rules, and pause instructions in the operating guide before handoff."] } : undefined,
+    } : {}),
+    clientSummary: `${input.clientName}: ${operatingGuide.summary} Focus: ${operatingGuide.audience}.`,
+    discoveryAgenda: [
+      { duration: "10 min", topic: "Observe the current process", questions: ["Show one selected example with private details removed.", "What starts the work, how often does it happen, and how long does it take?"] },
+      { duration: "10 min", topic: "Agree the pilot and boundaries", questions: ["What should count as finished?", "Which accounts and data must stay separate?", "Which actions require approval, and who owns exceptions?"] },
+      { duration: "10 min", topic: "Define acceptance and ongoing care", questions: ["Which failure cases must pass before activation?", "What are setup, software, and care budgets?", "Who signs off and who can pause the workflow?"] },
+    ],
+    workflows: operatingGuide.workflows.map((w) => ({ name: w.name, area: w.realm, whyFirst: "Candidate pilot; confirm frequency, value, effort, and access during the audit.", steps: [w.trigger, w.actions, w.approval, w.recovery, w.success] })),
+    milestones: { day30: "Complete the agreed pilot, review test evidence and measured effort, and obtain customer acceptance.", day60: "Tune confirmed failure patterns and verify costs and connection health within the care scope.", day90: "Reassess value and decide whether to expand, simplify, or retire a workflow.", ongoingCadence: operatingGuide.care.cadence },
+  });
   const llm = getClient();
 
   // installGuides is always built from the template (not LLM) — consistent source of truth
   const installGuides = buildInstallGuides(input);
 
-  if (!llm) return { ...buildTemplatePlaybook(input), installGuides, source: "TEMPLATE" };
+  if (!llm) return enrich({ ...buildTemplatePlaybook(input), installGuides }, "TEMPLATE");
 
   try {
     const completion = await llm.chat.completions.create({
@@ -1419,20 +1438,20 @@ export async function generateClientPlaybook(input: PlaybookInput): Promise<Play
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: PLAYBOOK_SYSTEM },
-        { role: "user",   content: buildPlaybookPrompt(input) },
+        { role: "user",   content: `${buildPlaybookPrompt(input)}\nAudience: ${operatingGuide.audience}. Priorities: ${operatingGuide.summary}. Boundaries: ${operatingGuide.boundaries}. Do not assume a company for a personal/family assessment. Installation takes place in customer-owned platforms, not ATG servers.` },
       ],
     });
     const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
     const parsed = PlaybookZod.safeParse(raw);
     if (!parsed.success) {
       logFallback("generateClientPlaybook", "schema_mismatch");
-      return { ...buildTemplatePlaybook(input), installGuides, source: "TEMPLATE" };
+      return enrich({ ...buildTemplatePlaybook(input), installGuides }, "TEMPLATE");
     }
     // Merge LLM output with template-built installGuides
-    return { ...parsed.data, installGuides, source: "LLM" };
+    return enrich({ ...parsed.data, installGuides }, "LLM");
   } catch (err) {
     logFallback("generateClientPlaybook", "llm_error", err instanceof Error ? err.message : String(err));
-    return { ...buildTemplatePlaybook(input), installGuides, source: "TEMPLATE" };
+    return enrich({ ...buildTemplatePlaybook(input), installGuides }, "TEMPLATE");
   }
 }
 

@@ -3,6 +3,7 @@ import { Link, useRoute } from "wouter";
 import AdminShell from "@/components/admin/AdminShell";
 import { api, type ClientAdmin, type ClientDetail, type PrepView, type PlanAdmin, type SessionBriefView } from "@/lib/api";
 import PlaybookTab from "@/components/admin/PlaybookTab";
+import OperatingGuide from "@/components/app/OperatingGuide";
 import SessionsTab from "@/components/admin/SessionsTab";
 import AccessLogPanel from "@/components/admin/AccessLogPanel";
 
@@ -102,7 +103,7 @@ function ClientList() {
 
 // ── Client detail ─────────────────────────────────────────────────────────────
 
-const TABS = ["overview", "brief", "prep", "playbook", "sessions", "access", "plan", "consultations", "documents", "reports", "outputs", "workflows"];
+const TABS = ["overview", "operations", "brief", "prep", "playbook", "sessions", "access", "plan", "consultations", "documents", "reports", "outputs", "workflows"];
 
 function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
   const [client, setClient] = useState<ClientDetail | null>(null);
@@ -172,6 +173,7 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
         {tab === "brief" && <BriefTab clientId={id} />}
         {tab === "prep" && <PrepTab prep={prep} />}
         {tab === "playbook" && <PlaybookTabWrapper clientId={id} intakeId={client.intakes[0]?.id} />}
+        {tab === "operations" && <OperatingGuide clientId={id} />}
         {tab === "sessions" && <SessionsTab clientId={id} />}
         {tab === "access" && <AccessLogTabWrapper clientId={id} tier={client.tier} />}
         {tab === "plan" && <PlanTab plan={client.plans[0] ?? null} />}

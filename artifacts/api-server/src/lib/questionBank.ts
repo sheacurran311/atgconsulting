@@ -119,7 +119,7 @@ export const QUESTION_BANK: Question[] = [
   {
     id: "top_problems",
     category: "company",
-    text: "Describe what eats your time or goes wrong in your business. Be as specific as you can — name the tasks, people, or systems involved.",
+    text: "What are the three tasks or recurring problems you most want help with, at work or at home? Describe the process without sharing private records.",
     type: "text",
     core: true,
     followUpIds: ["ops_manual_steps", "sales_pipeline_stage", "invoicing_bottleneck"],

@@ -78,6 +78,7 @@ export default function IntakePage() {
   const editMode  = searchParams.get("edit") === "true";
   const requestedTier = searchParams.get("tier");
   const requestedSessions = searchParams.get("sessions");
+  const requestedAudience = searchParams.get("audience");
   const inviteToken = matchInvite ? paramsInvite?.token : null;
   const engMemberToken = matchEngMember ? paramsEngMember?.token : null;
 
@@ -195,6 +196,8 @@ export default function IntakePage() {
     }
 
     const preAnswers = [...importedAnswers];
+    const audienceLabels: Record<string, string> = { business: "My business", personal: "My personal and family life", both: "Both business and personal life" };
+    if (requestedAudience && audienceLabels[requestedAudience] && !preAnswers.some((a) => a.id === "audience")) preAnswers.push({ id: "audience", category: "goals", question: "Where would you like help?", answer: audienceLabels[requestedAudience]! });
     if (prefilledName) preAnswers.push({ id: "contact_name", category: "contact", question: "What's your name?", answer: prefilledName });
     if (prefilledCompany) preAnswers.push({ id: "company_name", category: "company", question: "What's your company name?", answer: prefilledCompany });
     const r = await fetch("/api/discovery/start", {
@@ -231,7 +234,7 @@ export default function IntakePage() {
     }
 
     setLoading(false);
-  }, [prefilledName, prefilledCompany, contactEmail, requestedTier, requestedSessions]);
+  }, [prefilledName, prefilledCompany, contactEmail, requestedTier, requestedSessions, requestedAudience]);
 
   // Auto-start when arriving via engagement member token
   useEffect(() => {
@@ -420,11 +423,11 @@ export default function IntakePage() {
 
               <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>FREE DISCOVERY ASSESSMENT</p>
               <h1 className="font-extrabold mb-3" style={{ color: "var(--ink-text)", fontSize: "clamp(24px, 6vw, 36px)", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
-                Let's map your business before we talk.
+                Let's map what needs handling.
               </h1>
               <p className="text-sm mb-6" style={{ color: "var(--ink-text-2)", lineHeight: 1.65 }}>
-                Answer 15–20 questions about how your business runs today.
-                Shea reviews your answers personally and prepares a tailored proposal before your call.
+                Tell us about your business, personal and family logistics, or both. The questions adapt to your needs.
+                Shea reviews your priorities, current tools, and boundaries to prepare your audit and consultation.
               </p>
 
               {/* Saved progress banner */}
@@ -818,7 +821,7 @@ export default function IntakePage() {
                 Received. Shea will review personally.
               </h2>
               <p className="text-sm mb-6" style={{ color: "var(--ink-text-2)", lineHeight: 1.65, maxWidth: "360px", margin: "0 auto 24px" }}>
-                Shea is notified to review your answers. You and your team are not emailed. She will reach out when a proposal is ready.
+                Your assessment is saved for review. Shea can email your reviewed findings to the address you provided. You do not need to create an account to receive that follow-up.
               </p>
               {approverInviteUrl && (
                 <div style={{ display: "block", padding: "12px 16px", borderRadius: "10px", background: "var(--ink-2)", border: "1px solid var(--ink-border)", margin: "0 auto 16px", maxWidth: "420px", textAlign: "left" }}>

@@ -113,14 +113,15 @@ test("configured AI selects questions and falls back on provider failure", async
     process.env.NODE_ENV = "test";
     process.env.LLM_BASE_URL = `http://127.0.0.1:${address.port}/v1`;
     process.env.AI_ASSIST_ENABLED = "true";
-    const selected = await nextQuestion([], 0);
+    const answered = ["contact_name", "contact_email", "audience"].map((id) => ({ id, category: "contact", question: id, answer: id === "audience" ? "My business" : "Example" }));
+    const selected = await nextQuestion(answered, 0);
     assert.deepEqual(selected.nextIds, ["top_problems"]);
     assert.equal(selected.tokensUsed, 12);
     assert.equal(calls, 1);
     fail = true;
-    const fallback = await nextQuestion([], 0);
+    const fallback = await nextQuestion(answered, 0);
     assert.equal(fallback.fromFallback, true);
-    assert.deepEqual(fallback.nextIds, ["contact_name"]);
+    assert.deepEqual(fallback.nextIds, ["top_problems"]);
     assert.equal(calls, 2);
   } finally {
     names.forEach((name, i) => { if (saved[i] === undefined) delete process.env[name]; else process.env[name] = saved[i]; });
