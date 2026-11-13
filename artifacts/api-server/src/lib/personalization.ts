@@ -63,6 +63,7 @@ export async function personalizeClientWorkspace(clientId: string): Promise<void
   // Score every workflow slug that is accessible at this client's tier
   const scores: Record<string, number> = {};
   for (const seed of ALL_SEEDS) {
+    if (intakeParsed.audience === "personal" && !["inbox-triage", "money-snapshot"].includes(seed.slug)) continue;
     if (slugAccessibleForTier(seed.slug, clientTier)) {
       scores[seed.slug] = 0;
     }

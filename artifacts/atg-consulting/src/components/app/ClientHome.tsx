@@ -43,6 +43,10 @@ export default function ClientHome({ home }: { home: ClientHomePayload }) {
 
   return (
     <div className="grid lg:grid-cols-2 gap-4">
+      <Card kicker="YOUR AI TEAM & OPERATING GUIDE">
+        <p className="text-sm mb-3">Follow the audit, pilot, testing, and care milestones. Review your workflow contracts, report an issue, and download your published guide.</p>
+        <a href="/app?tab=operations" className="text-sm font-semibold" style={{ color: "var(--blue-btn)" }}>Open my team & guide →</a>
+      </Card>
       <Card kicker="WHERE YOU ARE">
         <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)" }}>{whereCopy(home)}</p>
         {home.where.intakeAt && (

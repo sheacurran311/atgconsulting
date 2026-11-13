@@ -60,3 +60,6 @@ Thumbs.db
 /generated-artifacts/
 dist/
 .next/
+
+# Local browser verification artifacts
+.test-output/

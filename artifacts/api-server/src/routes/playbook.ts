@@ -33,7 +33,7 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
   if (!client) return null;
 
   const intake = intakeId
-    ? await prisma.discoveryIntake.findFirst({ where: { id: intakeId ?? "" } })
+    ? await prisma.discoveryIntake.findFirst({ where: { id: intakeId ?? "", clientId } })
     : await prisma.discoveryIntake.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" } });
 
   const parsed = parseIntakeAnswers(intake?.answers);

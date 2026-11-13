@@ -12,11 +12,13 @@
  */
 
 import OpenAI from "openai";
+import { buildOperatingPlan } from "./operatingPlan";
 import { getGrokClient, GROK_MODEL, GROK_VISION_MODEL, logFallback, isAiEnabled, AI_CAP_INTAKE } from "./grokClient";
 import {
   QUESTION_BANK, CORE_QUESTIONS, FALLBACK_ORDER, CATEGORY_LABELS,
   QUESTION_MAP, type Question,
 } from "./questionBank";
+import { assessmentQuestions, ALL_ASSESSMENT_MAP, ALL_ASSESSMENT_QUESTIONS, audienceFrom } from "./assessmentProfile";
 
 export interface AnsweredQuestion {
   id: string;
@@ -90,8 +92,11 @@ export async function nextQuestion(
   if (done) return { nextIds: [], done: true, tokensUsed: 0 };
 
   const alreadyAnswered = answeredIds(answered);
-  const available = QUESTION_BANK.filter((q) => !alreadyAnswered.has(q.id));
+  const available = assessmentQuestions(answered).filter((q) => !alreadyAnswered.has(q.id));
   if (available.length === 0) return { nextIds: [], done: true, tokensUsed: 0 };
+  if (["contact_name", "contact_email", "audience"].some((id) => !alreadyAnswered.has(id))) {
+    return fallbackNextQuestion(answered, alreadyAnswered);
+  }
 
   // Token cap or kill-switch → fallback order
   const overCap = sessionTokensUsed >= AI_CAP_INTAKE;
@@ -110,7 +115,7 @@ export async function nextQuestion(
   ).join("\n\n");
 
   // List available questions by category
-  const availableSummary = Object.entries(CATEGORY_LABELS).map(([cat, label]) => {
+  const availableSummary = Object.entries({ ...CATEGORY_LABELS, personal: "Personal and family logistics" }).map(([cat, label]) => {
     const qs = available.filter((q) => q.category === cat);
     if (qs.length === 0) return null;
     return `${label} [${cat}]:\n${qs.map((q) => `  - id:${q.id} "${q.text.slice(0, 80)}"`).join("\n")}`;
@@ -120,6 +125,7 @@ export async function nextQuestion(
 
 
   const prompt = `You are helping run an ATG Consulting discovery intake for a prospect.
+Audience: ${audienceFrom(answered)}. Stay within the supplied question list. Never ask for children's names, private messages, passwords, or customer records.
 Questions answered so far: ${answered.length} / ~20 total target.
 Covered categories: ${coveredCategories.join(", ") || "none yet"}
 Uncovered categories: ${Object.keys(CATEGORY_LABELS).filter((c) => !coveredCategories.includes(c)).join(", ")}
@@ -166,8 +172,8 @@ If no new questions, set generatedQuestions to [].`;
     const tokensUsed = completion.usage?.total_tokens ?? 0;
 
     const nextIds = (raw.nextIds ?? [])
-      .filter((id): id is string => typeof id === "string" && QUESTION_MAP[id] !== undefined && !alreadyAnswered.has(id))
-      .slice(0, 3);
+      .filter((id): id is string => typeof id === "string" && available.some((q) => q.id === id))
+      .slice(0, 1);
 
     // Validate and sanitize generated questions
     const MAX_NEW = 2;
@@ -187,11 +193,13 @@ If no new questions, set generatedQuestions to [].`;
         generated: true as const,
       }));
 
-    if (nextIds.length === 0 && generatedQuestions.length === 0 && !raw.done) {
+    if (nextIds.length === 0) {
       logFallback("nextQuestion", "empty_response");
       return fallbackNextQuestion(answered, alreadyAnswered);
     }
-    return { nextIds, generatedQuestions, done: raw.done ?? false, tokensUsed };
+    // One question is displayed at a time. Do not let generated follow-ups
+    // crowd out the audit essentials or leak business questions into family intake.
+    return { nextIds, generatedQuestions: [], done: false, tokensUsed };
   } catch (err) {
     logFallback("nextQuestion", "llm_error", err instanceof Error ? err.message : String(err));
     return fallbackNextQuestion(answered, alreadyAnswered);
@@ -200,7 +208,7 @@ If no new questions, set generatedQuestions to [].`;
 
 
 function fallbackNextQuestion(answered: AnsweredQuestion[], alreadyAnswered: Set<string>): NextQuestionResult {
-  const nextId = FALLBACK_ORDER.find((id) => !alreadyAnswered.has(id));
+  const nextId = assessmentQuestions(answered).find((q) => !alreadyAnswered.has(q.id))?.id;
   return {
     nextIds: nextId ? [nextId] : [],
     done: !nextId,
@@ -225,7 +233,7 @@ export async function extractFromDocument(text: string): Promise<ExtractResult> 
     return { answers: [], gapIds: FALLBACK_ORDER.slice(0, 8), tokensUsed: 0 };
   }
 
-  const questionList = QUESTION_BANK.slice(0, 30).map((q) =>
+  const questionList = ALL_ASSESSMENT_QUESTIONS.map((q) =>
     `id:${q.id} [${q.category}] "${q.text.slice(0, 80)}"`
   ).join("\n");
 
@@ -289,6 +297,7 @@ export async function generateReportDraft(
   const prompt = `You are writing an internal ATG Consulting discovery report draft for Shea Curran.
 This is for a prospect named ${contactName} at ${companyName}.
 
+Audience: ${audienceFrom(answers)}. Personal/family assessments are not businesses. Distinguish planned workflows from installed systems; execution is in the customer's platforms.
 Their discovery answers:
 ${qaSummary}
 
@@ -337,6 +346,7 @@ Return ONLY valid JSON matching this schema. No jargon. No invented stats or tes
 }
 
 function buildFallbackReport(answers: AnsweredQuestion[], contactName: string, companyName: string): ReportDraft {
+  const guide = buildOperatingPlan(JSON.stringify(answers));
   const companyA = answers.find((a) => a.id === "business_type")?.answer ?? "their business";
   const teamA = answers.find((a) => a.id === "team_size")?.answer ?? "a small team";
   const problemsA = answers.find((a) => a.id === "top_problems")?.answer ?? "various operational challenges";
@@ -349,21 +359,18 @@ function buildFallbackReport(answers: AnsweredQuestion[], contactName: string, c
     budgetA.includes("2,000") ? "GUIDED" : "SELF_SERVE";
 
   return {
-    summary: `${contactName} runs ${companyA} with ${teamA}. They're looking to address: ${problemsA.slice(0, 200)}.`,
+    summary: `${contactName} is looking for help with ${guide.audience === "personal" ? "personal and family logistics" : guide.audience === "both" ? "work and personal logistics" : "business operations"}: ${problemsA.slice(0, 200)}. These are candidate workflows to confirm in consultation.`,
     keyFindings: [
-      `Core system: ${systemA.slice(0, 100)}`,
-      `Team size: ${teamA}`,
+      `Desired outcome: ${guide.desiredOutcome}`,
+      `Information boundaries: ${guide.boundaries}`,
       `Primary problems: ${problemsA.slice(0, 150)}`,
-      aiA ? `AI tools today: ${aiA.slice(0, 100)}` : "No AI tools in use currently",
+      aiA ? `AI tools today: ${aiA.slice(0, 100)}` : "Current AI tools were not stated",
     ],
     painPoints: problemsA.split(/[.,;]/).map((s) => s.trim()).filter((s) => s.length > 10).slice(0, 4),
-    recommendedWorkflows: [
-      { slug: "follow-up", name: "Lead follow-up", why: "High-frequency task with clear automation potential" },
-      { slug: "invoice-triage", name: "Invoice triage", why: "Common bottleneck for small business ops" },
-    ],
+    recommendedWorkflows: guide.workflows.map((w) => ({ slug: w.id, name: w.name, why: "Candidate for the pilot; verify value, access, effort, and acceptance criteria together." })),
     suggestedTier: tier,
     tierRationale: `Based on the intake, ${tier === "WHITE_GLOVE" ? "the scope and budget suggest a full Done-for-you engagement" : tier === "GUIDED" ? "Guided sessions would allow hands-on build with appropriate oversight" : "Self-serve is a good starting point"}.`,
-    proposalScope: `Initial engagement: assess ${companyA} workflows, deliver a personalised tool plan and setup guides. Recommend 1–2 key workflows for immediate impact.`,
+    proposalScope: "Audit the selected processes, agree one pilot, document workflow contracts, and deliver an operating guide. Installation, training, and care depend on the agreed tier and scope.",
     discoveryQuestions: [
       "Can you walk me through a typical week in detail?",
       `Tell me more about how ${systemA} is used day to day.`,

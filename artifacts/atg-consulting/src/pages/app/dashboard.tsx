@@ -19,6 +19,7 @@ import InfoTab from "@/components/app/InfoTab";
 import AICoachPanel from "@/components/app/AICoachPanel";
 import TroubleshooterPanel from "@/components/app/TroubleshooterPanel";
 import ClientHome from "@/components/app/ClientHome";
+import OperatingGuide from "@/components/app/OperatingGuide";
 import type { ClientHomePayload } from "@/lib/api";
 
 const BOOKING_URL = typeof window !== "undefined" ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book") : "#book";
@@ -85,6 +86,7 @@ function HoursSavedTab({ tier }: { tier: string }) {
 
 const TABS = [
   { id: "home",      label: "Home" },
+  { id: "operations", label: "My AI team & guide" },
   { id: "today",     label: "Today" },
   { id: "workflows", label: "My workflows" },
   { id: "history",   label: "Run history" },
@@ -158,6 +160,7 @@ export default function DashboardPage() {
           : <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>{homeError ?? "Loading your home…"}</p>
         )}
         {tab === "today" && tier === "GUIDED" && <GuidedSessionsPanel />}
+        {tab === "operations" && <OperatingGuide />}
         {tab === "today" && <DayView tier={tier} testMode={testMode} />}
         {tab === "workflows" && (
           <div className="max-w-content">

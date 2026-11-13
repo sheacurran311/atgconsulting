@@ -29,7 +29,9 @@ import catalogRouter from "./catalog";
 import contentRouter from "./content";
 import adminTodayRouter from "./adminToday";
 import workshopRouter from "./workshop";
-import { blockIfImpersonating } from "../lib/impersonate";
+import operationsRouter from "./operations";
+import { IMP_COOKIE } from "../lib/impersonate";
+import { withUser } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -37,8 +39,8 @@ const router: IRouter = Router();
 // Admin routes are excluded (impersonation toggle itself must pass through).
 // GET/HEAD always pass through.
 router.use((req, res, next) => {
-  if (req.path.startsWith("/admin/impersonate")) { next(); return; }
-  blockIfImpersonating(req, res, next);
+  if (req.cookies?.[IMP_COOKIE]) { void withUser(req, res, next); return; }
+  next();
 });
 
 router.use(healthRouter);
@@ -71,5 +73,6 @@ router.use(catalogRouter);
 router.use(contentRouter);
 router.use(adminTodayRouter);
 router.use(workshopRouter);
+router.use(operationsRouter);
 
 export default router;
