@@ -18,7 +18,7 @@
  * Cost controls:
  *   - INTAKE_ENABLED env (default true) kill switch
  *   - AI_CAP_INTAKE per-session token budget
- *   - Rate limit: max 5 start/next/submit requests per IP per minute (in-process)
+ *   - Separate per-IP limits for starts, answers, submissions, and imports
  *   - Honeypot field on submit
  */
 
@@ -38,6 +38,8 @@ import {
 } from "../lib/discoveryAI";
 import { sanitiseText, sanitiseShortText } from "../lib/sanitize";
 import { QUESTION_BANK, QUESTION_MAP, FALLBACK_ORDER } from "../lib/questionBank";
+import { getPainChips } from "../lib/catalogAI";
+import { isAiEnabled } from "../lib/grokClient";
 
 const router = Router();
 
@@ -57,11 +59,14 @@ function hashIpDiscovery(ip: string | undefined): string | null {
 
 const ipRateMap = new Map<string, number[]>();
 
-function checkIpRate(ip: string | undefined, max = 5): boolean {
+function checkIpRate(ip: string | undefined, action: string, max: number): boolean {
   if (!ip) return true;
-  const key = hashIpDiscovery(ip) ?? ip;
+  const key = `${action}:${hashIpDiscovery(ip) ?? ip}`;
   const now = Date.now();
   const window = 60_000;
+  for (const [bucket, entries] of ipRateMap) {
+    if (entries.every((t) => now - t >= window)) ipRateMap.delete(bucket);
+  }
   const timestamps = (ipRateMap.get(key) ?? []).filter((t) => now - t < window);
   if (timestamps.length >= max) return false;
   timestamps.push(now);
@@ -75,7 +80,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const ok = ["application/pdf", "text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.mimetype);
+    const ok = ["application/pdf", "text/plain"].includes(file.mimetype);
     cb(null, ok);
   },
 });
@@ -90,8 +95,8 @@ const AnswerSchema = z.object({
 });
 
 async function getOrVerifySession(id: string): Promise<{ id: string; answers: AnsweredQuestion[]; tokensUsed: number } | null> {
-  const rec = await prisma.discoveryIntake.findUnique({ where: { id }, select: { id: true, answers: true, tokensUsed: true } });
-  if (!rec) return null;
+  const rec = await prisma.discoveryIntake.findUnique({ where: { id }, select: { id: true, answers: true, tokensUsed: true, expiresAt: true } });
+  if (!rec || (rec.expiresAt && rec.expiresAt <= new Date())) return null;
   const answers: AnsweredQuestion[] = (() => { try { return JSON.parse(rec.answers) as AnsweredQuestion[]; } catch { return []; } })();
   return { id: rec.id, answers, tokensUsed: rec.tokensUsed };
 }
@@ -110,16 +115,25 @@ router.post("/discovery/start", async (req, res) => {
     return;
   }
   const ip = req.ip;
-  if (!checkIpRate(ip, 10)) {
+  if (!checkIpRate(ip, "start", 10)) {
     res.status(429).json({ error: "Too many requests. Please wait a moment." });
     return;
   }
 
   const expires = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
   const startBody = z.object({
+    contactEmail: z.string().trim().email().toLowerCase().optional(),
+    answers: z.array(AnswerSchema).max(30).optional(),
     requestedTier: z.enum(["self_serve", "guided", "done_for_you"]).optional(),
     requestedSessions: z.union([z.literal(3), z.literal(5), z.literal("3"), z.literal("5")]).optional(),
   }).safeParse(req.body ?? {});
+  if (!startBody.success) { res.status(422).json({ error: "Please enter a valid email address and assessment options." }); return; }
+  const initialAnswers: AnsweredQuestion[] = [...new Map([
+    ...(startBody.data.answers ?? []).map((a) => ({ ...a, question: sanitiseShortText(a.question), answer: sanitiseText(a.answer, 4000) })),
+    ...(startBody.data.contactEmail
+      ? [{ id: "contact_email", category: "contact", question: "What's your email?", answer: startBody.data.contactEmail }]
+      : []),
+  ].map((a) => [a.id, a])).values()];
   const tierMap = { self_serve: "SELF_SERVE", guided: "GUIDED", done_for_you: "WHITE_GLOVE" } as const;
   const requestedTier = startBody.success && startBody.data.requestedTier
     ? tierMap[startBody.data.requestedTier]
@@ -132,13 +146,15 @@ router.post("/discovery/start", async (req, res) => {
     data: {
       ipHash: hashIpDiscovery(ip),
       expiresAt: expires,
+      contactEmail: startBody.data.contactEmail ?? null,
+      answers: JSON.stringify(initialAnswers),
+      transcript: buildTranscript(initialAnswers),
       ...(requestedTier ? { requestedTier, requestedSessions } : {}),
     },
   });
 
-  // First two questions: name then email (required + validated server-side on submit)
-  // Then continue with the rest of the core questions via /next
-  const firstIds = ["contact_name", "contact_email"];
+  // Skip contact details already entered or imported; continue through /next.
+  const firstIds = FALLBACK_ORDER.filter((id) => !initialAnswers.some((a) => a.id === id)).slice(0, 1);
   const firstQuestions = firstIds
     .map((id) => QUESTION_MAP[id])
     .filter((q): q is NonNullable<typeof q> => !!q);
@@ -146,20 +162,20 @@ router.post("/discovery/start", async (req, res) => {
   // Attach helper text to the email question for the client
   const questionsWithMeta = firstQuestions.map((q) =>
     q.id === "contact_email"
-      ? { ...q, helperText: "Use the email you'll log in with later, usually your business email." }
+      ? { ...q, helperText: "Use your preferred address for assessment follow-up. An account is optional." }
       : q
   );
 
   // Get suggested chips for the top_problems question (based on business type from invite/request)
-  const businessType = (req.body as Record<string, string | undefined>).businessType ?? null;
-  const { getPainChips } = await import("../lib/catalogAI");
+  const businessType = typeof req.body?.businessType === "string" ? req.body.businessType : null;
   const painChips = getPainChips(businessType);
 
   res.json({
     sessionId: intake.id,
     questions: questionsWithMeta,
-    totalAsked: 0,
-    done: false,
+    answers: initialAnswers,
+    totalAsked: initialAnswers.length,
+    done: firstIds.length === 0 || initialAnswers.length >= 25,
     emailFirst: true,
     painChips, // suggested chips for the top_problems free-text field
   });
@@ -169,15 +185,15 @@ router.post("/discovery/start", async (req, res) => {
 
 const NextBody = z.object({
   sessionId: z.string().min(1),
-  answers:   z.array(AnswerSchema).min(1).max(30),
+  answers:   z.array(AnswerSchema).max(30),
 });
 
 router.post("/discovery/next", async (req, res) => {
   if (!intakeEnabled()) { res.status(503).json({ error: "Intake unavailable." }); return; }
-  if (!checkIpRate(req.ip)) { res.status(429).json({ error: "Too many requests." }); return; }
+  if (!checkIpRate(req.ip, "next", 60)) { res.status(429).json({ error: "Please wait a minute before continuing. Your saved answers are safe." }); return; }
 
   const parsed = NextBody.safeParse(req.body);
-  if (!parsed.success) { res.status(422).json({ error: "sessionId and at least one answer are required." }); return; }
+  if (!parsed.success) { res.status(422).json({ error: "A sessionId and a valid answers list are required." }); return; }
 
   const session = await getOrVerifySession(parsed.data.sessionId);
   if (!session) { res.status(404).json({ error: "Session not found. Start a new intake." }); return; }
@@ -190,11 +206,7 @@ router.post("/discovery/next", async (req, res) => {
     answer:   sanitiseText(a.answer, 4000),
   }));
 
-  const existingIds = new Set(session.answers.map((a) => a.id));
-  const merged = [
-    ...session.answers,
-    ...newAnswers.filter((a) => !existingIds.has(a.id)),
-  ];
+  const merged = [...new Map([...session.answers, ...newAnswers].map((a) => [a.id, a])).values()];
 
   // Save merged answers
   await prisma.discoveryIntake.update({
@@ -223,13 +235,14 @@ router.post("/discovery/next", async (req, res) => {
 
   res.json({
     questions: allNext,
+    answers: merged,
     totalAsked: merged.length,
     done: result.done || merged.length >= 25,
     fromFallback: result.fromFallback ?? false,
     aiUsed: !result.fromFallback,
     // Include chips alongside the top_problems question
     painChips: allNext.some((q) => q.id === "top_problems")
-      ? (() => { const { getPainChips } = require("../lib/catalogAI") as typeof import("../lib/catalogAI"); return getPainChips(merged.find((a) => a.id === "business_type")?.answer ?? null); })()
+      ? getPainChips(merged.find((a) => a.id === "business_type")?.answer ?? null)
       : undefined,
   });
 });
@@ -248,7 +261,7 @@ const SubmitBody = z.object({
 
 router.post("/discovery/submit", async (req, res) => {
   if (!intakeEnabled()) { res.status(503).json({ error: "Intake unavailable." }); return; }
-  if (!checkIpRate(req.ip, 3)) { res.status(429).json({ error: "Too many submissions. Wait a moment." }); return; }
+  if (!checkIpRate(req.ip, "submit", 3)) { res.status(429).json({ error: "Too many submissions. Please wait a minute and try again." }); return; }
 
   const parsed = SubmitBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
@@ -264,20 +277,21 @@ router.post("/discovery/submit", async (req, res) => {
 
   // Email is required for account linking
   const contactEmailFromBody = parsed.data.contactEmail;
-  const emailFromAnswers2 = parsed.data.finalAnswers?.find((a) => a.id === "contact_email")?.answer;
+  const emailFromAnswers2 = parsed.data.finalAnswers?.find((a) => a.id === "contact_email")?.answer
+    ?? session.answers.find((a) => a.id === "contact_email")?.answer;
   if (!contactEmailFromBody && !emailFromAnswers2) {
     res.status(422).json({ error: "An email address is required to submit the intake." });
     return;
   }
 
-  const allAnswers: AnsweredQuestion[] = [
+  const allAnswers: AnsweredQuestion[] = [...new Map([
     ...session.answers,
-    ...parsed.data.finalAnswers.filter((a) => !session.answers.find((e) => e.id === a.id)).map((a) => ({
+    ...parsed.data.finalAnswers.map((a) => ({
       id: a.id, category: a.category,
       question: sanitiseShortText(a.question),
       answer: sanitiseText(a.answer, 4000),
     })),
-  ];
+  ].map((a) => [a.id, a])).values()];
 
   const email = parsed.data.contactEmail;
   const name = parsed.data.contactName
@@ -288,6 +302,9 @@ router.post("/discovery/submit", async (req, res) => {
   const rawEmail = email ?? (typeof emailFromAnswers === "string" ? emailFromAnswers : null);
   // Always store email lowercased for reliable matching in account linking
   const finalEmail = rawEmail ? rawEmail.toLowerCase().trim() : null;
+  if (!z.string().email().safeParse(finalEmail).success) {
+    res.status(422).json({ error: "Please enter a valid email address." }); return;
+  }
 
   // Extract decision authority data from answers
   const decisionAuthorityAnswer = allAnswers.find((a) => a.id === "decision_authority")?.answer ?? null;
@@ -386,19 +403,23 @@ router.post("/discovery/submit", async (req, res) => {
 
 router.post("/discovery/extract", upload.single("file"), async (req, res) => {
   if (!intakeEnabled()) { res.status(503).json({ error: "Intake unavailable." }); return; }
-  if (!checkIpRate(req.ip, 5)) { res.status(429).json({ error: "Too many requests." }); return; }
+  if (!checkIpRate(req.ip, "extract", 5)) { res.status(429).json({ error: "Too many requests." }); return; }
+  if (!isAiEnabled() || !process.env.XAI_API_KEY?.trim()) {
+    res.status(503).json({ error: "Document import is not available yet. Please use the question-by-question assessment; it works without AI." }); return;
+  }
 
   let text = "";
 
   if (req.file) {
     if (req.file.mimetype === "application/pdf") {
       try {
-        // pdf-parse exports differ across module systems; use a type-safe cast
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const pdfMod: any = await import("pdf-parse");
-        const pdfParse = (pdfMod.default ?? pdfMod) as (buf: Buffer) => Promise<{ text: string }>;
-        const data = await pdfParse(req.file.buffer);
-        text = data.text;
+        const { PDFParse } = await import("pdf-parse");
+        const parser = new PDFParse({ data: req.file.buffer });
+        try {
+          text = (await parser.getText()).text;
+        } finally {
+          await parser.destroy();
+        }
       } catch {
         res.status(422).json({ error: "Could not extract text from PDF. Try pasting the content instead." });
         return;

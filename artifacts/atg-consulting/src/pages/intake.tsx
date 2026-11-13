@@ -59,6 +59,12 @@ function saveTLS(sessionId: string, answeredCount: number) {
 
 function clearLS() { try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ } }
 
+async function responseError(response: Response | null, fallback: string): Promise<string> {
+  if (!response) return fallback;
+  const body = await response.json().catch(() => null) as { error?: string } | null;
+  return body?.error || fallback;
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function IntakePage() {
@@ -157,7 +163,7 @@ export default function IntakePage() {
   }, [inviteToken]);
 
   // ── Start session ─────────────────────────────────────────────────────────
-  const startSession = useCallback(async (fromSavedId?: string) => {
+  const startSession = useCallback(async (fromSavedId?: string, importedAnswers: AnsweredQuestion[] = []) => {
     setLoading(true);
     setError(null);
 
@@ -169,8 +175,10 @@ export default function IntakePage() {
         body: JSON.stringify({ sessionId: fromSavedId, answers: [] }),
       }).catch(() => null);
       if (r?.ok) {
-        const d = await r.json() as { questions: Question[]; totalAsked: number; done: boolean };
+        const d = await r.json() as { questions: Question[]; answers: AnsweredQuestion[]; totalAsked: number; done: boolean };
         setSessionId(fromSavedId);
+        setAnswered(d.answers);
+        setContactEmail(d.answers.find((a) => a.id === "contact_email")?.answer ?? "");
         setTotalAsked(d.totalAsked);
         if (d.done || d.questions.length === 0) {
           setPhase("submit");
@@ -181,12 +189,20 @@ export default function IntakePage() {
         setLoading(false);
         return;
       }
+      setError(await responseError(r, "Could not resume your assessment. Please try again."));
+      setLoading(false);
+      return;
     }
 
+    const preAnswers = [...importedAnswers];
+    if (prefilledName) preAnswers.push({ id: "contact_name", category: "contact", question: "What's your name?", answer: prefilledName });
+    if (prefilledCompany) preAnswers.push({ id: "company_name", category: "company", question: "What's your company name?", answer: prefilledCompany });
     const r = await fetch("/api/discovery/start", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        answers: preAnswers,
+        ...(contactEmail ? { contactEmail: contactEmail.trim().toLowerCase() } : {}),
         inviteToken: currentInviteToken.current,
         engMemberToken: currentEngMemberToken.current,
         ...(requestedTier ? { requestedTier } : {}),
@@ -194,14 +210,16 @@ export default function IntakePage() {
       }),
     }).catch(() => null);
 
-    if (!r?.ok) { setError("Could not start the intake. Please try again."); setLoading(false); return; }
-    const data = await r.json() as { sessionId: string; questions: Question[]; totalAsked: number; painChips?: string[] };
+    if (!r?.ok) { setError(await responseError(r, "Could not start the intake. Please try again.")); setLoading(false); return; }
+    const data = await r.json() as { sessionId: string; questions: Question[]; answers: AnsweredQuestion[]; totalAsked: number; done: boolean; painChips?: string[] };
     setSessionId(data.sessionId);
     setTotalAsked(data.totalAsked);
     setCurrentQ(data.questions[0] ?? null);
     if (data.painChips) setPainChips(data.painChips);
-    setPhase("questions");
-    saveTLS(data.sessionId, 0);
+    setPhase(data.done ? "submit" : "questions");
+    setAnswered(data.answers);
+    setContactEmail(data.answers.find((a) => a.id === "contact_email")?.answer ?? contactEmail);
+    saveTLS(data.sessionId, data.totalAsked);
 
     // Mark invite as in-progress
     if (currentInviteToken.current) {
@@ -212,15 +230,8 @@ export default function IntakePage() {
       }).catch(() => null);
     }
 
-    // Pre-answer name/email/company from invite context (skip those questions)
-    const preAnswers: AnsweredQuestion[] = [];
-    if (prefilledName) preAnswers.push({ id: "contact_name", category: "contact", question: "What's your name?", answer: prefilledName });
-    if (contactEmail) preAnswers.push({ id: "contact_email", category: "contact", question: "What's your email?", answer: contactEmail });
-    if (prefilledCompany) preAnswers.push({ id: "company_name", category: "company", question: "What's your company name?", answer: prefilledCompany });
-    if (preAnswers.length > 0) setAnswered(preAnswers);
-
     setLoading(false);
-  }, [prefilledName, prefilledCompany]);
+  }, [prefilledName, prefilledCompany, contactEmail, requestedTier, requestedSessions]);
 
   // Auto-start when arriving via engagement member token
   useEffect(() => {
@@ -279,14 +290,8 @@ export default function IntakePage() {
       id: currentQ.id, category: currentQ.category,
       question: currentQ.text, answer: answer || "(skipped)",
     };
-    const updatedAnswered = [...answered, newAnswer];
-    setAnswered(updatedAnswered);
-    setInputValue("");
-    setSelectedOptions([]);
+    const updatedAnswered = [...answered.filter((a) => a.id !== newAnswer.id), newAnswer];
     setError(null);
-
-    // Autosave
-    saveTLS(sessionId, updatedAnswered.length);
 
     setLoading(true);
     const r = await fetch("/api/discovery/next", {
@@ -295,8 +300,13 @@ export default function IntakePage() {
       body: JSON.stringify({ sessionId, answers: updatedAnswered }),
     }).catch(() => null);
 
-    if (!r?.ok) { setError("Network error. Try again."); setLoading(false); return; }
+    if (!r?.ok) { setError(await responseError(r, "Could not save your answer. Please try again.")); setLoading(false); return; }
     const data = await r.json() as { questions: Question[]; totalAsked: number; done: boolean; painChips?: string[] };
+    setAnswered(updatedAnswered);
+    if (newAnswer.id === "contact_email") setContactEmail(newAnswer.answer.trim().toLowerCase());
+    setInputValue("");
+    setSelectedOptions([]);
+    saveTLS(sessionId, data.totalAsked);
     setTotalAsked(data.totalAsked);
     if (data.painChips) setPainChips(data.painChips);
 
@@ -323,7 +333,7 @@ export default function IntakePage() {
         engMemberToken: currentEngMemberToken.current }),
     }).catch(() => null);
 
-    if (!r?.ok) { setError("Could not submit. Please try again."); setSubmitting(false); return; }
+    if (!r?.ok) { setError(await responseError(r, "Could not submit. Please try again.")); setSubmitting(false); return; }
     const submitted = await r.json().catch(() => ({})) as { approverInviteUrl?: string | null };
     setApproverInviteUrl(submitted.approverInviteUrl ?? null);
 
@@ -357,10 +367,14 @@ export default function IntakePage() {
         body: JSON.stringify({ text: pasteText }),
       }).catch(() => null);
     }
-    if (!r?.ok) { setError("Could not extract. Try pasting directly."); setExtracting(false); return; }
+    if (!r?.ok) { setError(await responseError(r, "Could not extract. Try pasting directly.")); setExtracting(false); return; }
     const data = await r.json() as { answers: AnsweredQuestion[] };
-    setAnswered(data.answers);
-    await startSession();
+    if (!data.answers.length) {
+      setError("No answers could be extracted. Please use the question-by-question assessment.");
+      setExtracting(false);
+      return;
+    }
+    await startSession(undefined, data.answers);
     setExtracting(false);
   }, [pasteText, uploadFile, startSession]);
 
@@ -472,7 +486,7 @@ export default function IntakePage() {
                 What's your email address?
               </h2>
               <p className="text-sm mb-5" style={{ color: "var(--ink-text-2)", lineHeight: 1.6 }}>
-                Use the email you'll log in with later, usually your business email.
+                We'll use this address for your assessment follow-up. No account is required. You can create one later with the same email to link your assessment.
               </p>
               <input
                 autoFocus
@@ -481,7 +495,7 @@ export default function IntakePage() {
                 value={contactEmail}
                 onChange={(e) => setContactEmail(e.target.value.toLowerCase().trim())}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
+                  if (e.key === "Enter" && !loading) {
                     e.preventDefault();
                     if (contactEmail.includes("@") && contactEmail.includes(".")) {
                       startSession();
@@ -775,7 +789,7 @@ export default function IntakePage() {
                 }}
               />
               <div className="flex items-center gap-3 mt-3 mb-5">
-                <input ref={fileRef} type="file" accept=".pdf,.txt,.docx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setUploadFile(f); }} />
+                <input ref={fileRef} type="file" accept=".pdf,.txt" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setUploadFile(f); }} />
                 <button type="button" onClick={() => fileRef.current?.click()}
                   style={{ padding: "12px 16px", borderRadius: "10px", background: "var(--ink-2)", border: "1px solid var(--ink-border)", color: "var(--ink-text-2)", cursor: "pointer", fontSize: "14px" }}>
                   {uploadFile ? `📎 ${uploadFile.name}` : "Upload PDF or TXT"}
@@ -817,11 +831,12 @@ export default function IntakePage() {
                 <div style={{ display: "inline-block", padding: "12px 16px", borderRadius: "10px", background: "rgba(59,107,255,0.1)", border: "1px solid rgba(59,107,255,0.25)", margin: "0 auto 16px", maxWidth: "380px" }}>
                   <p style={{ color: "var(--blue)", fontSize: "13px", fontWeight: 600, marginBottom: "2px" }}>When your proposal is ready:</p>
                   <p style={{ color: "var(--ink-text-2)", fontSize: "13px", lineHeight: 1.5 }}>
-                    Sign up at atgconsulting.io with <strong style={{ color: "var(--ink-text)" }}>{contactEmail}</strong> to view it in your portal.
+                    Optionally create an account with <strong style={{ color: "var(--ink-text)" }}>{contactEmail}</strong>. Verify that email to link your assessment and view approved results in your portal.
                   </p>
                 </div>
               )}
               <div className="flex flex-col gap-3" style={{ maxWidth: "280px", margin: "0 auto" }}>
+                <Link to="/sign-up"><span className="btn-primary w-full">Create an account (optional)</span></Link>
                 <Link to="/"><span style={{ display: "block", padding: "14px 20px", borderRadius: "12px", background: "var(--ink-2)", color: "var(--ink-text-2)", textAlign: "center", fontWeight: 600, textDecoration: "none" }}>Back to site</span></Link>
                 <a href="mailto:shea@atgconsulting.io" style={{ display: "block", padding: "14px 20px", borderRadius: "12px", border: "1px solid var(--ink-border)", color: "var(--ink-text-3)", textAlign: "center", fontSize: "14px", textDecoration: "none" }}>
                   Questions? Email Shea

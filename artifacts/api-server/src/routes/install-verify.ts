@@ -26,7 +26,7 @@ import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/
 import { checkWorkflowAccess } from "../lib/access";
 
 const router = Router();
-router.use(withUser, requireAuth);
+router.use("/workbench", withUser, requireAuth);
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
 const CODE_LENGTH = 4;
