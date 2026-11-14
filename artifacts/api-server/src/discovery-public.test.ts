@@ -69,7 +69,7 @@ test("public discovery completes and resumes without an account or AI key", asyn
     assert.ok(next.body.done);
     assert.ok(count > 5);
     assert.ok(next.body.answers.some((a: any) => a.id === "top_problems"));
-    const submitted = await request(app).post("/api/discovery/submit").send({ sessionId, finalAnswers: [], consentGiven: true });
+    const submitted = await request(app).post("/api/discovery/submit").send({ sessionId, finalAnswers: [], contactEmail: " Prospect@Example.com ", consentGiven: true, engMemberToken: null });
     assert.equal(submitted.status, 200, "prior question requests must not consume submission quota");
     assert.equal(rows.get(sessionId).contactEmail, "prospect@example.com");
     assert.equal(rows.get(sessionId).consentGiven, true);

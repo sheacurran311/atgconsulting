@@ -240,11 +240,11 @@ router.post("/discovery/next", async (req, res) => {
 const SubmitBody = z.object({
   sessionId:      z.string().min(1),
   finalAnswers:   z.array(AnswerSchema),
-  contactEmail:   z.string().email().toLowerCase().optional(),
+  contactEmail:   z.string().trim().email().toLowerCase().optional(),
   contactName:    z.string().max(100).optional(),
   consentGiven:   z.boolean(),
   honeypot:       z.string().max(0).optional(), // must be empty
-  engMemberToken: z.string().max(100).optional(), // engagement member token for linking
+  engMemberToken: z.string().min(1).max(100).nullish(), // absent for ordinary visitors
 });
 
 router.post("/discovery/submit", async (req, res) => {
@@ -252,7 +252,13 @@ router.post("/discovery/submit", async (req, res) => {
   if (!checkIpRate(req.ip, "submit", 3)) { res.status(429).json({ error: "Too many submissions. Please wait a minute and try again." }); return; }
 
   const parsed = SubmitBody.safeParse(req.body);
-  if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const message = issue?.path[0] === "contactEmail"
+      ? "Please check your email address before submitting."
+      : "We could not validate the assessment. Your answers are saved. Please refresh and resume to try again.";
+    res.status(422).json({ error: message, issues: parsed.error.flatten() }); return;
+  }
   if (parsed.data.honeypot) { res.json({ ok: true }); return; } // silent reject
 
   const session = await getOrVerifySession(parsed.data.sessionId);
