@@ -110,6 +110,12 @@ try {
   await next();
   await page.getByRole("checkbox", { name: "Sales follow-ups and outreach" }).check();
   await page.getByRole("checkbox", { name: "Family and sports travel" }).check();
+  await page.getByRole("heading", { name: "Business", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Personal & household", exact: true }).waitFor();
+  await page.getByRole("checkbox", { name: "Customer requests and admin" }).check();
+  await page.getByRole("checkbox", { name: "School and sports schedules" }).check();
+  assert.equal(await page.getByRole("button", { name: /^Continue/ }).isEnabled(), true);
+
   await page.getByRole("button", { name: /Back/ }).click();
   assert.ok(await page.getByRole("radio", { name: "Both business and personal life" }).isChecked());
   await next();

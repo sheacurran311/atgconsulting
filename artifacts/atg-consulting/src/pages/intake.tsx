@@ -358,8 +358,8 @@ export default function IntakePage() {
     const r = await fetch("/api/discovery/submit", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, finalAnswers: answered.map((a) => a.id === "contact_email" ? { ...a, answer: contactEmail.trim().toLowerCase() } : a), contactEmail, consentGiven: true, honeypot: "",
-        engMemberToken: currentEngMemberToken.current }),
+      body: JSON.stringify({ sessionId, finalAnswers: answered.map((a) => a.id === "contact_email" ? { ...a, answer: contactEmail.trim().toLowerCase() } : a), contactEmail: contactEmail.trim().toLowerCase(), consentGiven: true, honeypot: "",
+        ...(currentEngMemberToken.current ? { engMemberToken: currentEngMemberToken.current } : {}) }),
     }).catch(() => null);
 
     if (!r?.ok) { setError(await responseError(r, "Could not submit. Please try again.")); setSubmitting(false); return; }

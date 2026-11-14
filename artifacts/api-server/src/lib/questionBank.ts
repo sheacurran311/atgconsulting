@@ -17,6 +17,7 @@ export interface Question {
   text: string;
   type: QuestionType;
   options?: string[];
+  optionGroups?: Array<{ label: string; options: string[] }>;
   allowOther?: boolean;
   helperText?: string;
   /** True = always ask (core question). False = follow-up only. */

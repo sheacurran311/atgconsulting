@@ -50,7 +50,16 @@ export function assessmentQuestions(answers: Answer[]): Question[] {
   const priorities = values.top_problems ?? "";
   return assessmentOrder(answers).map((id): Question | undefined => {
     const base = AUDIT_MAP[id] ?? QUESTION_MAP[id];
-    if (id === "top_problems") return { ...base!, text: "What would you most like help with? Choose up to three priorities.", type: "multiselect", allowOther: true, options: [...(audience !== "personal" ? businessTasks : []), ...(audience !== "business" ? personalTasks : [])] };
+    if (id === "top_problems") {
+      const optionGroups = [
+        ...(audience !== "personal" ? [{ label: "Business", options: businessTasks }] : []),
+        ...(audience !== "business" ? [{ label: "Personal & household", options: personalTasks }] : []),
+      ];
+      return {
+        ...base!, text: "What would you like help with?", type: "multiselect",
+        allowOther: true, optionGroups, options: optionGroups.flatMap((group) => group.options),
+      };
+    }
     const selection = selectionQuestions[id];
     if (selection) return { id, category: base?.category ?? "goals", core: base?.core ?? true, ...selection, type: selection.type ?? "multiselect", allowOther: true };
     return base;
