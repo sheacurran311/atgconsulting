@@ -17,12 +17,8 @@ export default function Calculator() {
 
   const vertical = VERTICALS.find((v) => v.id === verticalId) ?? VERTICALS[0]!;
 
-  // Estimated fraction of hours the selected tasks represent
-  const selectedWorkflows = vertical.workflows.filter((w) => selected.includes(w.name));
-  const estimatedHoursBack = selectedWorkflows.reduce((sum, wf) => {
-    const mid = (wf.hoursPerWeek[0] + wf.hoursPerWeek[1]) / 2;
-    return sum + Math.min(mid, hoursPerWeek * 0.8); // cap at 80% of stated hours
-  }, 0);
+  // A what-if scenario using the visitor's target, never a promised saving.
+  const estimatedHoursBack = selected.length ? hoursPerWeek : 0;
   const hoursPerMonth = Math.round(estimatedHoursBack * 4.3);
   const valuePerMonth = Math.round(hoursPerMonth * hourlyValue);
 
@@ -110,7 +106,7 @@ export default function Calculator() {
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>
-                  HOURS LOST PER WEEK
+                  TARGET HOURS TO RECOVER PER WEEK
                 </label>
                 <span className="font-mono font-bold text-xl" style={{ color: "var(--blue)" }}>{hoursPerWeek}h</span>
               </div>
@@ -166,7 +162,7 @@ export default function Calculator() {
                     </div>
                   </div>
                   <p className="font-mono text-2xs mb-5" style={{ color: selected.length > 0 ? "var(--ink-text-3)" : "var(--canvas-text-3)" }}>
-                    Based on {hoursPerWeek}h/week × your ${hourlyValue}/hr value × estimated automation rate. Results vary.
+                    Based on {hoursPerWeek}h/week × your ${hourlyValue}/hr value if you recover those hours. Illustrative goal, not a forecast.
                   </p>
                 </>
               )}

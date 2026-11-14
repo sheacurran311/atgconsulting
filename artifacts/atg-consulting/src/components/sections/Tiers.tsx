@@ -1,8 +1,8 @@
 import { Link } from "wouter";
 
 const BOOKING_URL = typeof window !== "undefined"
-  ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book")
-  : "#book";
+  ? (import.meta.env.VITE_BOOKING_URL as string ?? "/intake")
+  : "/intake";
 
 const TIERS = [
   {
@@ -18,7 +18,7 @@ const TIERS = [
     external: false,
     includes: [
       "Grok-drafted diagnosis, reviewed by Shea before you see it",
-      "Personalised tool plan — which tools to use and why, for your specific business",
+      "Personalised tool plan — which tools to use and why, for your work or household",
       "Platform setup guides (Grok Bot, Claude, or ChatGPT) with exact steps",
       "Recommended workflows to install first, as SKILL.md files",
       "Self-serve workflows in the Workbench: lead follow-up, inbox triage, review requests, social calendar, and SEO audit",

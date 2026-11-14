@@ -349,7 +349,7 @@ function buildFallbackReport(answers: AnsweredQuestion[], contactName: string, c
   const guide = buildOperatingPlan(JSON.stringify(answers));
   const companyA = answers.find((a) => a.id === "business_type")?.answer ?? "their business";
   const teamA = answers.find((a) => a.id === "team_size")?.answer ?? "a small team";
-  const problemsA = answers.find((a) => a.id === "top_problems")?.answer ?? "various operational challenges";
+  const problemsA = guide.summary;
   const systemA = answers.find((a) => a.id === "core_system")?.answer ?? "existing systems";
   const aiA = answers.find((a) => a.id === "ai_tools_today")?.answer ?? "";
   const budgetA = answers.find((a) => a.id === "budget_range")?.answer ?? "to be confirmed";
@@ -366,7 +366,7 @@ function buildFallbackReport(answers: AnsweredQuestion[], contactName: string, c
       `Primary problems: ${problemsA.slice(0, 150)}`,
       aiA ? `AI tools today: ${aiA.slice(0, 100)}` : "Current AI tools were not stated",
     ],
-    painPoints: problemsA.split(/[.,;]/).map((s) => s.trim()).filter((s) => s.length > 10).slice(0, 4),
+    painPoints: problemsA.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean).slice(0, 4),
     recommendedWorkflows: guide.workflows.map((w) => ({ slug: w.id, name: w.name, why: "Candidate for the pilot; verify value, access, effort, and acceptance criteria together." })),
     suggestedTier: tier,
     tierRationale: `Based on the intake, ${tier === "WHITE_GLOVE" ? "the scope and budget suggest a full Done-for-you engagement" : tier === "GUIDED" ? "Guided sessions would allow hands-on build with appropriate oversight" : "Self-serve is a good starting point"}.`,

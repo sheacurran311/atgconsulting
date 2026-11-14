@@ -4,7 +4,7 @@
  */
 import { useState } from "react";
 
-type OutputType = "briefing" | "email_draft" | "lead_list" | "social_post" | "quote_followup" | "review_request";
+type OutputType = "family_brief" | "briefing" | "email_draft" | "lead_list" | "social_post" | "quote_followup" | "review_request";
 
 interface Sample {
   type: OutputType;
@@ -15,6 +15,7 @@ interface Sample {
 }
 
 const SAMPLES: Sample[] = [
+  { type: "family_brief", label: "Family schedule", vertical: "Household coordination", subject: "Saturday tournament · schedule change", content: <div className="text-sm space-y-2"><p><strong>Changed:</strong> Warm-up now starts at 8:30 instead of 9:00.</p><p><strong>Conflict:</strong> The earlier departure overlaps the planned pickup.</p><p><strong>For review:</strong> Confirm a driver before updating the shared calendar. No changes have been made.</p></div> },
   {
     type: "briefing",
     label: "Morning briefing",
@@ -176,7 +177,7 @@ export default function OutputGallery() {
                 >
                   EXAMPLE OUTPUT
                 </span>
-                <span className="text-xs" style={{ color: "var(--canvas-text-3)" }}>Fictional placeholder businesses. Not a real client.</span>
+                <span className="text-xs" style={{ color: "var(--canvas-text-3)" }}>Illustrative examples. No real customer or household data.</span>
               </div>
               <span className="font-mono text-2xs px-2 py-0.5 rounded" style={{ background: "rgba(59,107,255,0.08)", color: "var(--blue)", letterSpacing: "0.06em" }}>
                 PENDING REVIEW

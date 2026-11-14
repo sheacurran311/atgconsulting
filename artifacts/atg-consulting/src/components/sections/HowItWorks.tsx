@@ -8,7 +8,7 @@ const STEPS = [
   {
     n: "01",
     cmd: "intake",
-    desc: "Two minutes of questions about your role, where you lose the most time, and how you prefer to work. No tech background required.",
+    desc: "Choose the work or household tasks that cost you time. Each choice opens relevant follow-ups. No tech background required.",
     note: "→ async · no call needed yet",
   },
   {
@@ -25,9 +25,9 @@ const STEPS = [
   },
   {
     n: "04",
-    cmd: "we build & run it",
-    desc: "Shea sets up the system, tests it with real data, tunes it to your voice and clients, then walks you through it.",
-    note: "→ 30-day tuning period included in White Glove",
+    cmd: "install, test & hand off",
+    desc: "For an installation engagement, Shea configures the pilot in your accounts, tests it with approved examples, and hands over an operating guide.",
+    note: "→ confirm acceptance and agree the care scope",
   },
   {
     n: "05",

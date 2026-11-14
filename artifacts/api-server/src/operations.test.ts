@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import express from "express";
 import request from "supertest";
 import { buildOperatingPlan, OperatingPlanSchema, operatingPlanMarkdown } from "./lib/operatingPlan";
-import { assessmentQuestions } from "./lib/assessmentProfile";
+import { assessmentQuestions, assessmentStep, applicableAnswers } from "./lib/assessmentProfile";
 import { createOperationsRouter } from "./routes/operations";
 import { prisma } from "./lib/db";
 import { resolveClerkUser, type AuthedRequest } from "./lib/auth";
@@ -87,4 +87,14 @@ test("report delivery does not claim success without a configured mail provider"
   const message = reportEmailText(JSON.stringify({ summary: "Summary", keyFindings: ["Finding"], painPoints: ["Time"], recommendedWorkflows: [{ name: "Pilot", why: "Test fit" }], nextSteps: ["Review"], privateNotes: "Do not expose" }));
   assert.ok(!message.includes("Do not expose"));
   assert.match(message, /Creating an account is optional/);
+});
+
+test("guided assessment branches by priorities and clears deselected paths", () => {
+  const a = [{ id: "audience", answer: "Both business and personal life" }, { id: "top_problems", answer: '["Family and sports travel","Sales follow-ups and outreach"]' }];
+  const plan = assessmentQuestions(a);
+  assert.ok(plan.filter(q => !q.id.startsWith("contact_")).every(q => ["choice", "multiselect"].includes(q.type) && q.options?.length));
+  assert.ok(plan.some(q => q.id === "travel_needs") && plan.some(q => q.id === "sales_pipeline_stage"));
+  assert.equal(assessmentStep(a, "audience").questions[0]?.id, "top_problems");
+  const changed = [{ id: "audience", answer: "My personal and family life" }, { id: "top_problems", answer: '["School and sports schedules"]' }, { id: "sales_pipeline_stage", answer: "stale" }, { id: "travel_needs", answer: "stale" }];
+  assert.deepEqual(applicableAnswers(changed).map(a => a.id), ["audience", "top_problems"]);
 });

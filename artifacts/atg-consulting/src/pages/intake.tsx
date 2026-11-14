@@ -10,6 +10,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
+import AssessmentQuestion from "@/components/AssessmentQuestion";
 import LogoLockup from "@/components/LogoLockup";
 import { Link } from "wouter";
 
@@ -21,6 +22,8 @@ interface Question {
   text: string;
   type: "text" | "choice" | "multiselect" | "number";
   options?: string[];
+  allowOther?: boolean;
+  helperText?: string;
 }
 
 interface AnsweredQuestion {
@@ -90,7 +93,10 @@ export default function IntakePage() {
   const [currentQ, setCurrentQ] = useState<Question | null>(null);
   const [answered, setAnswered] = useState<AnsweredQuestion[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const [questionPlan, setQuestionPlan] = useState<Question[]>([]);
+  const drafts = useRef<Record<string, string>>({});
+  const answerBusy = useRef(false);
+  const [resumeNotice, setResumeNotice] = useState("");
   const [totalAsked, setTotalAsked] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -176,9 +182,12 @@ export default function IntakePage() {
         body: JSON.stringify({ sessionId: fromSavedId, answers: [] }),
       }).catch(() => null);
       if (r?.ok) {
-        const d = await r.json() as { questions: Question[]; answers: AnsweredQuestion[]; totalAsked: number; done: boolean };
+        const d = await r.json() as { questions: Question[]; questionPlan?: Question[]; answers: AnsweredQuestion[]; totalAsked: number; done: boolean };
         setSessionId(fromSavedId);
         setAnswered(d.answers);
+        setQuestionPlan(d.questionPlan ?? d.questions);
+        setInputValue("");
+        drafts.current = {};
         setContactEmail(d.answers.find((a) => a.id === "contact_email")?.answer ?? "");
         setTotalAsked(d.totalAsked);
         if (d.done || d.questions.length === 0) {
@@ -214,8 +223,11 @@ export default function IntakePage() {
     }).catch(() => null);
 
     if (!r?.ok) { setError(await responseError(r, "Could not start the intake. Please try again.")); setLoading(false); return; }
-    const data = await r.json() as { sessionId: string; questions: Question[]; answers: AnsweredQuestion[]; totalAsked: number; done: boolean; painChips?: string[] };
+    const data = await r.json() as { sessionId: string; questions: Question[]; questionPlan?: Question[]; answers: AnsweredQuestion[]; totalAsked: number; done: boolean; painChips?: string[] };
     setSessionId(data.sessionId);
+    setQuestionPlan(data.questionPlan ?? data.questions);
+    setInputValue("");
+    drafts.current = {};
     setTotalAsked(data.totalAsked);
     setCurrentQ(data.questions[0] ?? null);
     if (data.painChips) setPainChips(data.painChips);
@@ -282,8 +294,8 @@ export default function IntakePage() {
 
   // ── Submit answer + get next question ─────────────────────────────────────
   const advance = useCallback(async (choiceAnswer?: string) => {
-    if (!currentQ) return;
-    const answer = choiceAnswer ?? (currentQ.type === "multiselect" ? selectedOptions.join(", ") : inputValue.trim());
+    if (!currentQ || answerBusy.current) return;
+    const answer = choiceAnswer ?? inputValue.trim();
     if (!answer && !currentQ.text.toLowerCase().includes("optional")) {
       setError("Please enter an answer before continuing.");
       return;
@@ -296,19 +308,23 @@ export default function IntakePage() {
     const updatedAnswered = [...answered.filter((a) => a.id !== newAnswer.id), newAnswer];
     setError(null);
 
+    answerBusy.current = true;
     setLoading(true);
     const r = await fetch("/api/discovery/next", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, answers: updatedAnswered }),
+      body: JSON.stringify({ sessionId, answers: updatedAnswered, afterQuestionId: currentQ.id }),
     }).catch(() => null);
 
-    if (!r?.ok) { setError(await responseError(r, "Could not save your answer. Please try again.")); setLoading(false); return; }
-    const data = await r.json() as { questions: Question[]; totalAsked: number; done: boolean; painChips?: string[] };
-    setAnswered(updatedAnswered);
+    if (!r?.ok) { setError(await responseError(r, "Could not save your answer. Please try again.")); setLoading(false); answerBusy.current = false; return; }
+    const data = await r.json() as { questions: Question[]; questionPlan?: Question[]; answers?: AnsweredQuestion[]; totalAsked: number; done: boolean; painChips?: string[] };
+    const savedAnswers = data.answers ?? updatedAnswered;
+    setAnswered(savedAnswers);
+    setQuestionPlan(data.questionPlan ?? questionPlan);
+    delete drafts.current[currentQ.id];
     if (newAnswer.id === "contact_email") setContactEmail(newAnswer.answer.trim().toLowerCase());
     setInputValue("");
-    setSelectedOptions([]);
+    setInputValue(data.questions[0] ? (drafts.current[data.questions[0].id] ?? savedAnswers.find((a) => a.id === data.questions[0].id)?.answer ?? "") : "");
     saveTLS(sessionId, data.totalAsked);
     setTotalAsked(data.totalAsked);
     if (data.painChips) setPainChips(data.painChips);
@@ -320,7 +336,17 @@ export default function IntakePage() {
       setCurrentQ(data.questions[0] ?? null);
     }
     setLoading(false);
-  }, [currentQ, answered, inputValue, selectedOptions, sessionId]);
+    answerBusy.current = false;
+  }, [currentQ, answered, inputValue, sessionId, questionPlan]);
+
+  const editQuestion = (q: Question) => {
+    if (loading) return;
+    if (currentQ) drafts.current[currentQ.id] = inputValue;
+    setCurrentQ(q);
+    setInputValue(drafts.current[q.id] ?? answered.find((a) => a.id === q.id)?.answer ?? "");
+    setError(null);
+    setPhase("questions");
+  };
 
   // ── Final submit ──────────────────────────────────────────────────────────
   const submit = useCallback(async () => {
@@ -332,7 +358,7 @@ export default function IntakePage() {
     const r = await fetch("/api/discovery/submit", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, finalAnswers: answered, contactEmail, consentGiven: true, honeypot: "",
+      body: JSON.stringify({ sessionId, finalAnswers: answered.map((a) => a.id === "contact_email" ? { ...a, answer: contactEmail.trim().toLowerCase() } : a), contactEmail, consentGiven: true, honeypot: "",
         engMemberToken: currentEngMemberToken.current }),
     }).catch(() => null);
 
@@ -396,20 +422,22 @@ export default function IntakePage() {
           {phase === "questions" && resumeLink && (
             <button
               type="button"
-              onClick={() => { navigator.clipboard.writeText(resumeLink).catch(() => null); }}
+              onClick={async () => { try { await navigator.clipboard.writeText(resumeLink); setResumeNotice("Resume link copied. Keep it private; it opens your saved assessment."); } catch { setResumeNotice("Your progress is saved on this device. Return here to resume."); } }}
               className="text-xs font-mono"
               style={{ color: "var(--ink-text-3)", background: "none", border: "none", cursor: "pointer" }}
               title="Copy resume link"
             >
-              Save progress
+              Copy resume link
             </button>
           )}
         </div>
       </header>
 
+      {resumeNotice && <p role="status" style={{ color: "#C6C6CB", padding: "12px 20px", textAlign: "center" }}>{resumeNotice}</p>}
+
       {/* Main content — full screen each phase */}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px" }}>
-        <div style={{ maxWidth: "480px", width: "100%", margin: "0 auto" }}>
+        <div style={{ maxWidth: "620px", width: "100%", margin: "0 auto" }}>
 
           {/* ── Start ── */}
           {phase === "start" && (
@@ -426,7 +454,7 @@ export default function IntakePage() {
                 Let's map what needs handling.
               </h1>
               <p className="text-sm mb-6" style={{ color: "var(--ink-text-2)", lineHeight: 1.65 }}>
-                Tell us about your business, personal and family logistics, or both. The questions adapt to your needs.
+                Choose what needs help: your business, personal and family logistics, or both. Your selections determine the next questions; no long written answers required.
                 Shea reviews your priorities, current tools, and boundaries to prepare your audit and consultation.
               </p>
 
@@ -451,7 +479,7 @@ export default function IntakePage() {
               )}
 
               <div className="space-y-2 mb-7">
-                {["~10–15 minutes on any device", "No passwords, tokens, or confidential client data", "Shea reviews before any follow-up"].map((p) => (
+                {["Mostly quick selections — about 5 minutes", "No passwords, tokens, or confidential client data", "Shea reviews before any follow-up"].map((p) => (
                   <p key={p} className="flex gap-2 text-sm" style={{ color: "var(--ink-text-2)" }}>
                     <span style={{ color: "var(--blue)" }}>›</span>{p}
                   </p>
@@ -550,157 +578,35 @@ export default function IntakePage() {
             </div>
           )}
 
-          {/* ── Questions ── */}
-          {phase === "questions" && currentQ && (
-            <div>
-              {/* Progress */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>
-                    {currentQ.category.replace("_", " ").toUpperCase()}
-                  </p>
-                  <p className="font-mono text-2xs" style={{ color: "var(--ink-text-3)" }}>~{progress}%</p>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--ink-2)" }}>
-                  <div style={{ width: `${progress}%`, background: "var(--blue)", height: "100%", borderRadius: "999px", transition: "width 400ms" }} />
-                </div>
-              </div>
-
-              {/* Question */}
-              <h2 style={{ color: "var(--ink-text)", fontSize: "clamp(18px, 5vw, 26px)", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.3, marginBottom: "24px" }}>
-                {currentQ.text}
-              </h2>
-
-              {/* Choice: big tap targets */}
-              {currentQ.type === "choice" && currentQ.options && (
-                <div className="space-y-3">
-                  {currentQ.options.map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      disabled={loading}
-                      onClick={() => advance(opt)}
-                      className="w-full text-left transition-all"
-                      style={{
-                        padding: "18px 20px",
-                        borderRadius: "14px",
-                        border: "1px solid var(--ink-border)",
-                        background: "var(--ink-1)",
-                        color: "var(--ink-text)",
-                        fontSize: "15px",
-                        fontWeight: 500,
-                        cursor: "pointer",
-                        minHeight: "58px",
-                        WebkitTapHighlightColor: "transparent",
-                      }}
-                      onTouchStart={(e) => { (e.currentTarget.style.background = "rgba(59,107,255,0.1)"); (e.currentTarget.style.borderColor = "var(--blue)"); }}
-                      onTouchEnd={(e) => { (e.currentTarget.style.background = "var(--ink-1)"); (e.currentTarget.style.borderColor = "var(--ink-border)"); }}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Text input */}
-              {(currentQ.type === "text" || currentQ.type === "number") && (
-                <div>
-                  <textarea
-                    autoFocus
-                    rows={4}
-                    className="w-full"
-                    placeholder="Your answer…"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); advance(); } }}
-                    style={{
-                      padding: "16px",
-                      borderRadius: "12px",
-                      border: "1px solid var(--ink-border)",
-                      background: "var(--ink-1)",
-                      color: "var(--ink-text)",
-                      fontSize: "16px",
-                      lineHeight: 1.6,
-                      resize: "vertical",
-                      minHeight: "120px",
-                      width: "100%",
-                      fontFamily: "var(--font-sans)",
-                      outline: "none",
-                    }}
-                    onFocus={(e) => { e.target.style.borderColor = "var(--blue)"; }}
-                    onBlur={(e) => { e.target.style.borderColor = "var(--ink-border)"; }}
-                  />
-                  <p className="font-mono text-xs mt-2" style={{ color: "var(--ink-text-3)" }}>⌘ + Enter to continue</p>
-                  {/* Pain chips — shown only for the top_problems question */}
-                  {currentQ?.id === "top_problems" && painChips.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs mb-2" style={{ color: "var(--ink-text-3)" }}>Common examples (tap to add):</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {painChips.map((chip) => (
-                          <button
-                            key={chip}
-                            type="button"
-                            onClick={() => setInputValue((v) => v ? `${v}; ${chip}` : chip)}
-                            style={{
-                              padding: "5px 10px", borderRadius: "6px", fontSize: "12px",
-                              border: "1px solid var(--ink-border)", background: "var(--ink-2)",
-                              color: "var(--ink-text-2)", cursor: "pointer", WebkitTapHighlightColor: "transparent",
-                            }}
-                          >
-                            {chip}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {error && <p className="text-sm mt-3" style={{ color: "#DC2626" }}>{error}</p>}
-
-              {currentQ.type !== "choice" && (
-                <div className="flex gap-3 mt-5">
-                  <button
-                    type="button"
-                    onClick={() => advance()}
-                    disabled={loading}
-                    style={{
-                      flex: 1, padding: "16px", borderRadius: "12px",
-                      background: "var(--blue)", color: "#fff",
-                      fontSize: "16px", fontWeight: 700, border: "none",
-                      cursor: "pointer", minHeight: "54px",
-                      opacity: loading ? 0.6 : 1,
-                    }}
-                  >
-                    {loading ? "…" : "Continue →"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => advance("(skipped)")}
-                    style={{
-                      padding: "16px 18px", borderRadius: "12px",
-                      background: "var(--ink-2)", color: "var(--ink-text-3)",
-                      fontSize: "14px", border: "1px solid var(--ink-border)",
-                      cursor: "pointer", minHeight: "54px",
-                    }}
-                  >
-                    Skip
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Guided selections, with explicit navigation and editable saved answers. */}
+          {phase === "questions" && currentQ && <AssessmentQuestion
+            question={currentQ} value={inputValue} onChange={(value) => { setInputValue(value); setError(null); }}
+            busy={loading} error={error} index={Math.max(0, questionPlan.findIndex((q) => q.id === currentQ.id))}
+            total={questionPlan.length || 1} onContinue={advance}
+            onBack={questionPlan.findIndex((q) => q.id === currentQ.id) > 0 ? () => editQuestion(questionPlan[questionPlan.findIndex((q) => q.id === currentQ.id) - 1]!) : undefined}
+          />}
 
           {/* ── Submit (no more questions) ── */}
           {phase === "submit" && (
             <div>
               <h2 style={{ color: "var(--ink-text)", fontSize: "clamp(20px, 5vw, 28px)", fontWeight: 800, letterSpacing: "-0.025em", marginBottom: "8px" }}>
-                Almost done.
+                Review your assessment.
               </h2>
               <p className="text-sm mb-6" style={{ color: "var(--ink-text-2)", lineHeight: 1.6 }}>
-                We'll save your answers so Shea can review them. You will not get an automated email.
+                Check your selections below. After you submit, our analyzer prepares a draft for Shea to review, connecting your priorities to a practical pilot and the right level of help. Nothing is purchased or activated.
               </p>
 
+              <div className="space-y-3 mb-6" aria-label="Review your answers">
+                {questionPlan.filter((q) => q.id !== "contact_email").map((q) => {
+                  const a = answered.find((a) => a.id === q.id)?.answer;
+                  let display = a ?? "Not answered";
+                  try { const list = JSON.parse(display); if (Array.isArray(list)) display = list.join(" · "); } catch {}
+                  return <div key={q.id} style={{ padding: 16, border: "1px solid #45454F", borderRadius: 12, color: "#FAFAF9" }}>
+                    <p className="font-semibold text-sm">{q.text}</p><p className="text-sm mt-2" style={{ color: "#C6C6CB", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{display}</p>
+                    <button type="button" disabled={submitting} onClick={() => editQuestion(q)} className="text-sm underline mt-2" style={{ color: "#9CB6FF" }} aria-label={`Edit: ${q.text}`}>Edit answer</button>
+                  </div>;
+                })}
+              </div>
               <div className="space-y-4 mb-5">
                 <div>
                   <label className="font-mono text-2xs block mb-2" style={{ color: "var(--ink-text-3)", letterSpacing: "0.06em" }}>
@@ -723,18 +629,7 @@ export default function IntakePage() {
                 </div>
 
                 <label style={{ display: "flex", alignItems: "flex-start", gap: "12px", cursor: "pointer" }}>
-                  <div
-                    style={{
-                      width: "24px", height: "24px", borderRadius: "6px", flexShrink: 0, marginTop: "1px",
-                      border: `2px solid ${consentGiven ? "var(--blue)" : "var(--ink-border)"}`,
-                      background: consentGiven ? "var(--blue)" : "transparent",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer", transition: "all 150ms",
-                    }}
-                    onClick={() => setConsentGiven(!consentGiven)}
-                  >
-                    {consentGiven && <span style={{ color: "#fff", fontSize: "14px", fontWeight: 700 }}>✓</span>}
-                  </div>
+                  <input type="checkbox" checked={consentGiven} onChange={(e) => setConsentGiven(e.target.checked)} disabled={submitting} style={{ width: 24, height: 24, flexShrink: 0, accentColor: "#87A6FF" }} />
                   <span style={{ color: "var(--ink-text-2)", fontSize: "14px", lineHeight: 1.6 }}>
                     I agree that ATG Consulting may store my answers for up to 90 days.
                     I've read the{" "}
@@ -761,7 +656,7 @@ export default function IntakePage() {
                   minHeight: "58px", opacity: submitting ? 0.6 : 1,
                 }}
               >
-                {submitting ? "Submitting…" : "Submit my assessment →"}
+                {submitting ? "Submitting and preparing your assessment…" : "Submit my assessment →"}
               </button>
             </div>
           )}

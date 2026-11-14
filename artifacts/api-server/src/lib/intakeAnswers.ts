@@ -37,7 +37,12 @@ export function answerMap(raw: string | null | undefined): Record<string, string
       const id = (row as { id?: unknown }).id;
       const answer = (row as { answer?: unknown }).answer;
       if (typeof id !== "string" || !id) continue;
-      if (typeof answer === "string" || typeof answer === "number") out[id] = String(answer);
+      if (typeof answer === "string" || typeof answer === "number") {
+        out[id] = String(answer);
+        if (typeof answer === "string" && answer.startsWith("[") && !["areas", "aiPlatforms", "timeSinks"].includes(id)) {
+          try { const list: unknown = JSON.parse(answer); if (Array.isArray(list) && list.every((v) => typeof v === "string")) out[id] = list.join("; "); } catch { /* legacy free text */ }
+        }
+      }
     }
     return out;
   }

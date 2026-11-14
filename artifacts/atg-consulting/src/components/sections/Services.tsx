@@ -6,6 +6,10 @@
  */
 
 const WORKFLOW_GROUPS = [
+  { group: "Family schedules & travel", description: "Coordinate the moving parts at home.", color: "rgba(59,107,255,0.08)", border: "rgba(59,107,255,0.2)", dot: "var(--blue)", workflows: [
+    { name: "School and sports coordinator", what: "Collect authorized updates, flag conflicts, and prepare calendar changes for review.", output: "Weekly family brief · proposed calendar changes" },
+    { name: "Travel preparation", what: "Organize confirmed dates, departure reminders, and packing tasks. Purchases stay with you.", output: "Trip checklist · draft itinerary" },
+  ] },
   {
     group: "Leads & follow-up",
     description: "Turn new contacts into responses without chasing.",
@@ -163,7 +167,7 @@ export default function Services() {
           </p>
           <h2 id="services-heading" className="display-lg mb-4" style={{ color: "var(--canvas-text)", letterSpacing: "-0.03em" }}>
             Ready-made workflows for{" "}
-            <span style={{ color: "var(--blue)" }}>your kind of business</span>
+            <span style={{ color: "var(--blue)" }}>your kind of day</span>
           </h2>
           <p className="text-md mx-auto" style={{ color: "var(--canvas-text-2)", maxWidth: "520px" }}>
             Ready-made workflows you can try in the Workbench. Higher plans add live setup or Done-for-you operation.
@@ -232,7 +236,7 @@ export default function Services() {
           </p>
           <p className="text-sm" style={{ color: "var(--canvas-text-2)", maxWidth: "520px", margin: "0 auto" }}>
             Any workflow Shea builds for you can be exported as a <code style={{ fontFamily: "var(--font-mono)", color: "var(--blue)", fontSize: "12px" }}>SKILL.md</code> and run inside Grok Bot, Claude, or any other AI tool you subscribe to.
-            You own your workflows. ChatGPT, Claude, and Grok can all connect to apps — ATG's value is that someone designs the right ones for your business and keeps them running.
+            You own your workflows. ChatGPT, Claude, and Grok can all connect to apps — ATG's value is that someone designs the right ones for your work or household and teaches you how to run them.
           </p>
         </div>
       </div>

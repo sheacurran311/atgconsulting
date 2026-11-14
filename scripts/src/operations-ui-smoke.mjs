@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
+import { assessmentStep, applicableAnswers } from "../../artifacts/api-server/src/lib/assessmentProfile.ts";
 import { buildOperatingPlan } from "../../artifacts/api-server/src/lib/operatingPlan.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -23,7 +24,7 @@ config.content = [path.join(front, "src/**/*.{ts,tsx}").replaceAll("\\", "/")];
 const cssInput = (await readFile(path.join(front, "src/index.css"), "utf8")).replace(/^@import.*;$/gm, "");
 const css = (await postcss([tailwind(config)]).process(cssInput, { from: undefined })).css;
 const bundle = await build({
-  stdin: { contents: `import React from 'react'; import { createRoot } from 'react-dom/client'; import Home from './src/components/OperationsHome'; import Guide from './src/components/app/OperatingGuide'; import Intake from './src/pages/intake'; const view = new URLSearchParams(location.search).get('view'); createRoot(document.getElementById('root')).render(view === 'intake' ? <Intake /> : view === 'admin' ? <div style={{padding:24}}><Guide clientId="client-a" /></div> : view === 'guide' ? <div style={{padding:24}}><Guide /></div> : <Home />);`, resolveDir: front, loader: "tsx" },
+  stdin: { contents: `import React from 'react'; import { createRoot } from 'react-dom/client'; import Home from './src/pages/home'; import Guide from './src/components/app/OperatingGuide'; import Intake from './src/pages/intake'; const view = new URLSearchParams(location.search).get('view'); createRoot(document.getElementById('root')).render(view === 'intake' ? <Intake /> : view === 'admin' ? <div style={{padding:24}}><Guide clientId="client-a" /></div> : view === 'guide' ? <div style={{padding:24}}><Guide /></div> : <Home />);`, resolveDir: front, loader: "tsx" },
   bundle: true, write: false, format: "iife", jsx: "automatic", alias: { "@": path.join(front, "src") }, define: { "import.meta.env": JSON.stringify({ BASE_URL: "/" }), "process.env.NODE_ENV": '"production"' },
 });
 const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div id="root"></div><script>${bundle.outputFiles[0].text.replaceAll("</script", "<\\/script")}</script></body></html>`;
@@ -39,11 +40,16 @@ await page.route("**/*", async (route) => {
   const url = new URL(route.request().url());
   if (url.pathname.startsWith("/api/")) {
     const method = route.request().method(); const body = route.request().postDataJSON(); requests.push({ path: url.pathname, method, body });
-    if (url.pathname.endsWith("/discovery/start")) return route.fulfill({ json: { sessionId: "test-intake", answers: [{ id: "contact_email", category: "contact", question: "Email", answer: body.contactEmail }], questions: [{ id: "contact_name", category: "contact", text: "What's your name?", type: "text" }], totalAsked: 1, done: false } });
+    if (url.pathname.endsWith("/discovery/start")) {
+      const answers = [...body.answers, { id: "contact_email", category: "contact", question: "Email", answer: body.contactEmail }];
+      return route.fulfill({ json: { sessionId: "test-intake", answers, totalAsked: answers.length, ...assessmentStep(answers) } });
+    }
     if (url.pathname.endsWith("/discovery/next")) {
       if (failNext) { failNext = false; return route.fulfill({ status: 429, json: { error: "Please wait. Your answer is safe." } }); }
-      return route.fulfill({ json: { answers: body.answers, questions: [], totalAsked: 2, done: true } });
+      const answers = applicableAnswers(body.answers);
+      return route.fulfill({ json: { answers, totalAsked: answers.length, ...assessmentStep(answers, body.afterQuestionId) } });
     }
+    if (url.pathname.endsWith("/discovery/submit")) return route.fulfill({ json: { ok: true } });
     if (url.pathname.endsWith("/accept")) { record.acceptedVersion = body.version; record.acceptedAt = new Date().toISOString(); return route.fulfill({ json: { ok: true } }); }
     if (url.pathname.endsWith("/events") && method === "POST") { record.events.push({ id: "event-a", ...body, createdAt: new Date().toISOString(), resolvedAt: null }); return route.fulfill({ status: 201, json: { ok: true } }); }
     if (method === "PUT") { record.content = JSON.stringify(body.content); record.version++; return route.fulfill({ json: { ok: true } }); }
@@ -57,9 +63,10 @@ await page.route("**/*", async (route) => {
 try {
   await page.goto("https://atg.test/");
   await page.getByRole("heading", { level: 1 }).waitFor();
-  await page.getByRole("button", { name: "For your life", exact: true }).click();
-  await page.getByRole("heading", { name: "Make room for the people who matter." }).waitFor();
-  assert.equal(await page.locator('a[href="/intake?audience=personal"]').count(), 1);
+  await page.locator("#who-we-help").getByRole("button", { name: /Personal & family/i }).click();
+  await page.locator("#who-we-help").getByText("Tournament travel plan").waitFor();
+  await page.locator("#calculator").waitFor();
+  await page.getByRole("button", { name: /Family schedule/i }).first().click();
   await page.screenshot({ path: path.join(out, "homepage-desktop.png"), fullPage: false });
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
@@ -92,10 +99,33 @@ try {
   await page.getByText("What's your name?", { exact: true }).waitFor();
   const start = requests.find((r) => r.path.endsWith("/discovery/start"));
   assert.equal(start.body.answers.find((a) => a.id === "audience").answer, "My personal and family life");
-  const input = page.locator("textarea").first(); await input.fill("Test visitor"); failNext = true;
+  const input = page.getByPlaceholder("Your name"); await input.fill("Test visitor"); failNext = true;
   await page.getByRole("button", { name: /Next|Continue/i }).first().click();
   await page.getByText("Please wait. Your answer is safe.").waitFor();
   assert.equal(await input.inputValue(), "Test visitor");
+  const next = () => page.getByRole("button", { name: /^Continue/ }).click();
+  await next();
+  await page.getByRole("radio", { name: "Both business and personal life" }).check();
+  assert.equal(await page.getByRole("radio", { name: "Both business and personal life" }).isChecked(), true);
+  await next();
+  await page.getByRole("checkbox", { name: "Sales follow-ups and outreach" }).check();
+  await page.getByRole("checkbox", { name: "Family and sports travel" }).check();
+  await page.getByRole("button", { name: /Back/ }).click();
+  assert.ok(await page.getByRole("radio", { name: "Both business and personal life" }).isChecked());
+  await next();
+  assert.ok(await page.getByRole("checkbox", { name: "Family and sports travel" }).isChecked());
+  await next();
+  for (let step = 0; step < 30; step++) {
+    if (await page.getByRole("heading", { name: "Review your assessment." }).count()) break;
+    const option = page.locator('fieldset input[type=radio], fieldset input[type=checkbox]').first();
+    await option.check(); const title = await page.locator("#assessment-question").textContent(); await next();
+    await page.waitForFunction((prev) => document.querySelector("#assessment-question")?.textContent !== prev, title);
+  }
+  await page.getByRole("heading", { name: "Review your assessment." }).waitFor();
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: /Submit my assessment/ }).click();
+  await page.getByText("Create an account (optional)").waitFor();
+  assert.ok(requests.find((r) => r.path.endsWith("/discovery/submit")).body.finalAnswers.some((a) => a.id === "travel_needs"));
   assert.deepEqual(errors, []);
   console.log("UI smoke passed: desktop/mobile homepage, audience links, guide permissions, acceptance, feedback, draft/publish, and intake retry.");
 } finally { await browser.close(); }

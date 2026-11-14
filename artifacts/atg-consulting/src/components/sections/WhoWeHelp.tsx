@@ -57,11 +57,11 @@ export default function WhoWeHelp() {
         <div className="mb-10">
           <p className="eyebrow mb-3">Who we help</p>
           <h2 id="who-heading" className="section-heading mb-3" style={{ color: "var(--canvas-text)" }}>
-            Built for any business owner{" "}
-            <span style={{ color: "var(--blue)" }}>who has more to do than time to do it.</span>
+            Built for people{" "}
+            <span style={{ color: "var(--blue)" }}>who have more to do than time to do it.</span>
           </h2>
           <p className="text-base" style={{ color: "var(--canvas-text-2)" }}>
-            You don&apos;t need to know anything about AI. Shea handles the setup. You handle the business.
+            You don&apos;t need to know anything about AI. Shea handles the setup. You decide what needs handling at work or home.
           </p>
         </div>
 
@@ -69,7 +69,7 @@ export default function WhoWeHelp() {
           {/* Vertical selector */}
           <div>
             <p className="font-mono text-2xs mb-3" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}>
-              YOUR BUSINESS TYPE
+              YOUR WORK OR HOUSEHOLD
             </p>
             <div className="flex flex-col gap-1.5">
               {VERTICALS.map((v) => (
@@ -112,7 +112,7 @@ export default function WhoWeHelp() {
         </div>
 
         <p className="mt-6 text-xs" style={{ color: "var(--canvas-text-3)" }}>
-          Don&apos;t see your type? Every business is different. Shea will map yours on your first call.
+          Don&apos;t see your type? Every routine is different. Shea will map yours on your first call.
         </p>
       </div>
     </section>

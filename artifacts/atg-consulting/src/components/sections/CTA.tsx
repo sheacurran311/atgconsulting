@@ -2,8 +2,8 @@ import { Link } from "wouter";
 
 export default function CTA() {
   const bookingUrl = typeof window !== "undefined"
-    ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book")
-    : "#book";
+    ? (import.meta.env.VITE_BOOKING_URL as string ?? "/intake")
+    : "/intake";
 
   return (
     <section
@@ -39,7 +39,7 @@ export default function CTA() {
 
         <p className="mt-5 text-md max-w-xl mx-auto leading-relaxed" style={{ color: "var(--ink-text-2)" }}>
           Book a free 20-minute call. Shea will review your situation and map out exactly what a
-          tailored AI setup would look like for your business — no obligation.
+          tailored AI setup would look like for your business or household — no obligation.
         </p>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -50,7 +50,7 @@ export default function CTA() {
             className="btn-primary"
             style={{ fontSize: "15px", padding: "12px 24px" }}
           >
-            Book a 1:1 with Shea
+            {bookingUrl.startsWith("http") ? "Book a 1:1 with Shea" : "Request a consultation"}
           </a>
           <Link to="/intake">
             <span
@@ -62,7 +62,7 @@ export default function CTA() {
           </Link>
         </div>
         <p className="mt-3 text-xs" style={{ color: "var(--ink-text-3)" }}>
-          Booking opens an external page.
+          {bookingUrl.startsWith("http") ? "Booking opens an external page." : "Start with the free assessment. No account required."}
         </p>
 
         <p className="mt-8 text-sm" style={{ color: "var(--ink-text-3)" }}>
