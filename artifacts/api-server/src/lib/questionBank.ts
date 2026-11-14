@@ -17,6 +17,8 @@ export interface Question {
   text: string;
   type: QuestionType;
   options?: string[];
+  allowOther?: boolean;
+  helperText?: string;
   /** True = always ask (core question). False = follow-up only. */
   core: boolean;
   /** If this is answered, which IDs are especially relevant next? */

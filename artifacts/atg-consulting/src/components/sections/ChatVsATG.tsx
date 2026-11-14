@@ -11,7 +11,7 @@ export default function ChatVsATG() {
     { label: "Setup",          chat: "You figure out the prompts",      atg: "Shea designs and sets it up for you" },
     { label: "Portability",    chat: "Tied to one chat interface",       atg: "Export any workflow as a SKILL.md, run in Grok Bot or Claude" },
     { label: "Support",        chat: "Community forums or self-help",   atg: "Email (self-serve) or direct with Shea (guided/DFY)" },
-    { label: "A person",       chat: "No one to call",                  atg: "Shea — who knows your specific business" },
+    { label: "A person",       chat: "No one to call",                  atg: "Shea — who knows your work or household" },
   ];
 
   return (
@@ -31,7 +31,7 @@ export default function ChatVsATG() {
           <p className="text-base leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>
             ChatGPT, Claude, and Grok are excellent tools — and they can connect to apps, write emails,
             and do a lot. The difference is that ATG builds a <em>designed workflow</em> around your
-            specific business, runs it on a schedule, and hands you finished work to approve. You
+            work or household, runs it on a schedule, and hands you finished work to approve. You
             don&apos;t have to prompt it, manage it, or think about it.
           </p>
         </div>

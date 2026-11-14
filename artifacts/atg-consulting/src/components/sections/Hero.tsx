@@ -10,8 +10,8 @@ import LogoMark from "@/components/LogoMark";
 import { VERTICALS } from "@/content/verticals";
 
 const BOOKING_URL = typeof window !== "undefined"
-  ? (import.meta.env.VITE_BOOKING_URL as string ?? "#book")
-  : "#book";
+  ? (import.meta.env.VITE_BOOKING_URL as string ?? "/intake")
+  : "/intake";
 
 // One representative workflow per vertical for the hero demo
 const VERTICAL_DEMOS = VERTICALS.map((v) => ({
@@ -58,14 +58,14 @@ export default function Hero() {
             </h1>
 
             <p className="text-md leading-relaxed mb-4" style={{ color: "var(--ink-text-2)", maxWidth: "480px" }}>
-              Shea designs AI workflows for your business — admin, marketing, sales, and customer support.
+              Shea designs AI workflows for your work and home: sales follow-ups, school schedules, sports travel, and the admin in between.
               Self-serve means you install them from a diagnosis he reviews. Guided means he joins you on calls.
-              Done-for-you means he runs them. You approve the output. Nothing is sent automatically.
+              Done-for-you means he installs and tests them in your accounts. You approve the output. Nothing is sent automatically.
             </p>
 
             <div className="space-y-2 mb-7">
               {[
-                "Approval-first — every output lands in your inbox for review",
+                "Approval-first — you decide which actions need review",
                 "Portable — take any workflow as a skill into Grok Bot or Claude",
                 "Three ways to work — run it yourself, build it with Shea, or have him run it",
               ].map((point) => (
@@ -89,7 +89,7 @@ export default function Hero() {
                 className="btn-secondary-white"
                 style={{ fontSize: "15px", padding: "12px 22px" }}
               >
-                Book a 1:1 with Shea
+                {BOOKING_URL.startsWith("http") ? "Book a 1:1 with Shea" : "Request a consultation"}
               </a>
             </div>
 

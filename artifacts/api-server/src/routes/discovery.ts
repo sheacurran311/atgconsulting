@@ -34,14 +34,14 @@ import { prisma } from "../lib/db";
 import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { audit } from "../lib/audit";
 import {
-  nextQuestion, extractFromDocument, generateReportDraft, buildTranscript,
+  extractFromDocument, generateReportDraft, buildTranscript,
   type AnsweredQuestion,
 } from "../lib/discoveryAI";
 import { sanitiseText, sanitiseShortText } from "../lib/sanitize";
 import { QUESTION_BANK, QUESTION_MAP, FALLBACK_ORDER } from "../lib/questionBank";
 import { getPainChips } from "../lib/catalogAI";
 import { isAiEnabled } from "../lib/grokClient";
-import { assessmentQuestions, assessmentOrder, ALL_ASSESSMENT_QUESTIONS, ALL_ASSESSMENT_MAP } from "../lib/assessmentProfile";
+import { assessmentQuestions, assessmentOrder, assessmentStep, applicableAnswers, ALL_ASSESSMENT_QUESTIONS, ALL_ASSESSMENT_MAP } from "../lib/assessmentProfile";
 
 const router = Router();
 
@@ -96,11 +96,11 @@ const AnswerSchema = z.object({
   answer:   z.string().min(1).max(4000),
 });
 
-async function getOrVerifySession(id: string): Promise<{ id: string; answers: AnsweredQuestion[]; tokensUsed: number } | null> {
-  const rec = await prisma.discoveryIntake.findUnique({ where: { id }, select: { id: true, answers: true, tokensUsed: true, expiresAt: true } });
+async function getOrVerifySession(id: string): Promise<{ id: string; answers: AnsweredQuestion[]; tokensUsed: number; consentGiven: boolean } | null> {
+  const rec = await prisma.discoveryIntake.findUnique({ where: { id }, select: { id: true, answers: true, tokensUsed: true, expiresAt: true, consentGiven: true } });
   if (!rec || (rec.expiresAt && rec.expiresAt <= new Date())) return null;
   const answers: AnsweredQuestion[] = (() => { try { return JSON.parse(rec.answers) as AnsweredQuestion[]; } catch { return []; } })();
-  return { id: rec.id, answers, tokensUsed: rec.tokensUsed };
+  return { id: rec.id, answers, tokensUsed: rec.tokensUsed, consentGiven: rec.consentGiven };
 }
 
 // ── GET /api/discovery/questions — static question bank ───────────────────────
@@ -156,10 +156,7 @@ router.post("/discovery/start", async (req, res) => {
   });
 
   // Skip contact details already entered or imported; continue through /next.
-  const firstIds = assessmentQuestions(initialAnswers).filter((q) => !initialAnswers.some((a) => a.id === q.id)).map((q) => q.id).slice(0, 1);
-  const firstQuestions = firstIds
-    .map((id) => ALL_ASSESSMENT_MAP[id])
-    .filter((q): q is NonNullable<typeof q> => !!q);
+  const firstQuestions = assessmentStep(initialAnswers).questions;
 
   // Attach helper text to the email question for the client
   const questionsWithMeta = firstQuestions.map((q) =>
@@ -175,9 +172,10 @@ router.post("/discovery/start", async (req, res) => {
   res.json({
     sessionId: intake.id,
     questions: questionsWithMeta,
+    questionPlan: assessmentQuestions(initialAnswers),
     answers: initialAnswers,
     totalAsked: initialAnswers.length,
-    done: firstIds.length === 0 || initialAnswers.length >= 25,
+    done: firstQuestions.length === 0,
     emailFirst: true,
     painChips, // suggested chips for the top_problems free-text field
   });
@@ -188,6 +186,7 @@ router.post("/discovery/start", async (req, res) => {
 const NextBody = z.object({
   sessionId: z.string().min(1),
   answers:   z.array(AnswerSchema).max(30),
+  afterQuestionId: z.string().max(100).optional(),
 });
 
 router.post("/discovery/next", async (req, res) => {
@@ -200,6 +199,8 @@ router.post("/discovery/next", async (req, res) => {
   const session = await getOrVerifySession(parsed.data.sessionId);
   if (!session) { res.status(404).json({ error: "Session not found. Start a new intake." }); return; }
 
+  if (session.consentGiven) { res.status(409).json({ error: "This assessment was already submitted. Start a new assessment to make changes." }); return; }
+
   // Sanitise and merge new answers
   const newAnswers: AnsweredQuestion[] = parsed.data.answers.map((a) => ({
     id:       a.id,
@@ -208,7 +209,7 @@ router.post("/discovery/next", async (req, res) => {
     answer:   sanitiseText(a.answer, 4000),
   }));
 
-  const merged = [...new Map([...session.answers, ...newAnswers].map((a) => [a.id, a])).values()];
+  const merged = applicableAnswers([...new Map([...session.answers, ...newAnswers].map((a) => [a.id, a])).values()]);
 
   // Save merged answers
   await prisma.discoveryIntake.update({
@@ -216,32 +217,17 @@ router.post("/discovery/next", async (req, res) => {
     data:  { answers: JSON.stringify(merged), transcript: buildTranscript(merged) },
   });
 
-  // Get next questions from AI
-  const result = await nextQuestion(merged, session.tokensUsed);
-
-  // Update token count
-  if (result.tokensUsed > 0) {
-    await prisma.discoveryIntake.update({
-      where: { id: session.id },
-      data:  { tokensUsed: { increment: result.tokensUsed } },
-    });
-  }
-
-  // Combine bank questions + Grok-generated follow-ups (capped at 15–25 total)
-  const bankQuestions = result.nextIds
-    .map((id) => ALL_ASSESSMENT_MAP[id])
-    .filter((q): q is NonNullable<typeof q> => !!q);
-
-  const generated = result.generatedQuestions ?? [];
-  const allNext = [...bankQuestions, ...generated]; // bank first, generated after
+  const step = assessmentStep(merged, parsed.data.afterQuestionId);
+  const allNext = step.questions;
 
   res.json({
     questions: allNext,
+    questionPlan: step.questionPlan,
     answers: merged,
     totalAsked: merged.length,
-    done: result.done || merged.length >= 25,
-    fromFallback: result.fromFallback ?? false,
-    aiUsed: !result.fromFallback,
+    done: step.done,
+    fromFallback: false,
+    aiUsed: false,
     // Include chips alongside the top_problems question
     painChips: allNext.some((q) => q.id === "top_problems")
       ? getPainChips(merged.find((a) => a.id === "business_type")?.answer ?? null)
@@ -272,6 +258,7 @@ router.post("/discovery/submit", async (req, res) => {
   const session = await getOrVerifySession(parsed.data.sessionId);
   if (!session) { res.status(404).json({ error: "Session not found." }); return; }
 
+  if (session.consentGiven) { res.json({ ok: true, alreadySubmitted: true }); return; }
   if (!parsed.data.consentGiven) {
     res.status(422).json({ error: "You must agree to our privacy policy to submit." });
     return;
@@ -286,14 +273,14 @@ router.post("/discovery/submit", async (req, res) => {
     return;
   }
 
-  const allAnswers: AnsweredQuestion[] = [...new Map([
+  const allAnswers: AnsweredQuestion[] = applicableAnswers([...new Map([
     ...session.answers,
     ...parsed.data.finalAnswers.map((a) => ({
       id: a.id, category: a.category,
       question: sanitiseShortText(a.question),
       answer: sanitiseText(a.answer, 4000),
     })),
-  ].map((a) => [a.id, a])).values()];
+  ].map((a) => [a.id, a])).values()]);
 
   const email = parsed.data.contactEmail;
   const name = parsed.data.contactName
@@ -320,8 +307,8 @@ router.post("/discovery/submit", async (req, res) => {
   const approverEmail = allAnswers.find((a) => a.id === "approver_email")?.answer?.toLowerCase().trim() ?? null;
   const approverRole  = allAnswers.find((a) => a.id === "approver_role")?.answer ?? null;
 
-  await prisma.discoveryIntake.update({
-    where: { id: session.id },
+  const claim = await prisma.discoveryIntake.updateMany({
+    where: { id: session.id, consentGiven: false },
     data:  {
       answers:           JSON.stringify(allAnswers),
       transcript:        buildTranscript(allAnswers),
@@ -335,6 +322,8 @@ router.post("/discovery/submit", async (req, res) => {
       approverRole:      approverRole,
     },
   });
+
+  if (!claim.count) { res.json({ ok: true, alreadySubmitted: true }); return; }
 
   // If this person already has a verified account, attach the intake in the
   // same request. A later login also links it, but that misses a submit that
@@ -398,6 +387,15 @@ router.post("/discovery/submit", async (req, res) => {
     ].filter(Boolean).join("\n"),
   ).catch((err) => console.error("[email] intake notice failed", err));
 
+  // Analyze once after consent. The admin may retry if the provider is down.
+  try {
+    const analysisAnswers = allAnswers.filter((a) => !["contact_name", "contact_email", "approver_name", "approver_email"].includes(a.id));
+    const templates = await prisma.workflowTemplate.findMany({ where: { enabled: true }, select: { slug: true } });
+    const { tokensUsed, ...draft } = await generateReportDraft(analysisAnswers, "This prospect", "their work or household", templates.map((t) => t.slug));
+    await prisma.discoveryIntake.updateMany({ where: { id: session.id, reportDraft: null, reportApprovedAt: null }, data: { reportDraft: JSON.stringify(draft), tokensUsed: { increment: tokensUsed } } });
+  } catch (err) {
+    console.error("[intake] final analysis unavailable", err instanceof Error ? err.name : "error");
+  }
   res.json({ ok: true, sessionId: session.id, approverInviteUrl });
 });
 

@@ -16,7 +16,7 @@ const faqs = [
   },
   {
     q: "What is Done-for-you?",
-    a: "Shea designs, builds, runs, and tunes up to 3 custom workflows for your specific business. You approve what comes out — Shea handles everything else. By application only because it requires Shea's ongoing time. Limited spots; a waitlist opens when full.",
+    a: "Shea designs, builds, runs, and tunes up to 3 custom workflows in your own accounts for business or personal routines. You approve what comes out — Shea handles everything else. By application only because it requires Shea's ongoing time. Limited spots; a waitlist opens when full.",
   },
   {
     q: "Will anything be sent automatically on my behalf?",

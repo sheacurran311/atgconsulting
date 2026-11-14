@@ -27,6 +27,10 @@ export interface Vertical {
 }
 
 export const VERTICALS: Vertical[] = [
+  { id: "household", label: "Personal & family", tagline: "School, sports, travel, and household coordination", workflows: [
+    { name: "Weekly family briefing", what: "Collect permitted schedule updates in one weekly checklist and flag calendar conflicts for you to resolve.", area: "ea", outputType: "briefing", hoursPerWeek: [0, 0] },
+    { name: "Tournament travel plan", what: "Turn a confirmed event schedule into a packing list, itinerary, and proposed reminders. You approve bookings and changes.", area: "ea", outputType: "briefing", hoursPerWeek: [0, 0] },
+  ] },
   {
     id: "trades",
     label: "Home services & trades",

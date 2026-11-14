@@ -17,7 +17,7 @@ test("public discovery completes and resumes without an account or AI key", asyn
   process.env.INTAKE_ENABLED = "true";
   process.env.EMAIL_PROVIDER = "console";
   const rows = new Map<string, any>();
-  const original = { create: prisma.discoveryIntake.create, findUnique: prisma.discoveryIntake.findUnique, update: prisma.discoveryIntake.update, userFind: prisma.user.findUnique };
+  const original = { create: prisma.discoveryIntake.create, findUnique: prisma.discoveryIntake.findUnique, update: prisma.discoveryIntake.update, updateMany: prisma.discoveryIntake.updateMany, templates: prisma.workflowTemplate.findMany, userFind: prisma.user.findUnique };
   prisma.discoveryIntake.create = (async ({ data }: any) => {
     const row = { id: `test-${rows.size}`, tokensUsed: 0, ...data };
     rows.set(row.id, row);
@@ -28,6 +28,8 @@ test("public discovery completes and resumes without an account or AI key", asyn
     Object.assign(rows.get(where.id), data);
     return rows.get(where.id);
   }) as any;
+  prisma.workflowTemplate.findMany = (async () => []) as any;
+  prisma.discoveryIntake.updateMany = (async ({ where, data }: any) => { const row = rows.get(where.id); if (!row || (where.consentGiven === false && row.consentGiven)) return { count: 0 }; Object.assign(row, data); return { count: 1 }; }) as any;
   prisma.user.findUnique = (async () => null) as any;
   const app = express();
   app.use(express.json());
@@ -53,7 +55,7 @@ test("public discovery completes and resumes without an account or AI key", asyn
     let next = await request(app).post("/api/discovery/next").send({ sessionId, answers: [] });
     assert.equal(next.status, 200);
     assert.equal(next.body.answers[0].answer, "prospect@example.com");
-    assert.equal(next.body.fromFallback, true);
+    assert.equal(next.body.aiUsed, false);
     let count = 0;
     while (!next.body.done && count++ < 30) {
       const q = next.body.questions[0];
@@ -71,12 +73,8 @@ test("public discovery completes and resumes without an account or AI key", asyn
     assert.equal(submitted.status, 200, "prior question requests must not consume submission quota");
     assert.equal(rows.get(sessionId).contactEmail, "prospect@example.com");
     assert.equal(rows.get(sessionId).consentGiven, true);
-    const resumed = await request(app).post("/api/discovery/next").send({ sessionId, answers: [] });
-    assert.equal(resumed.status, 200);
-    assert.equal(resumed.body.answers.length, next.body.answers.length);
-    const name = QUESTION_MAP.contact_name!;
-    const edited = await request(app).post("/api/discovery/next").send({ sessionId, answers: [{ id: name.id, category: name.category, question: name.text, answer: "Corrected name" }] });
-    assert.equal(edited.body.answers.find((a: any) => a.id === name.id).answer, "Corrected name");
+    assert.ok(rows.get(sessionId).reportDraft);
+    assert.equal((await request(app).post("/api/discovery/next").send({ sessionId, answers: [] })).status, 409);
     rows.get(sessionId).expiresAt = new Date(0);
     assert.equal((await request(app).post("/api/discovery/next").send({ sessionId, answers: [] })).status, 404);
     const extraction = await request(app).post("/api/discovery/extract").send({ text: "Some questionnaire answers" });
@@ -86,6 +84,8 @@ test("public discovery completes and resumes without an account or AI key", asyn
     prisma.discoveryIntake.create = original.create;
     prisma.discoveryIntake.findUnique = original.findUnique;
     prisma.discoveryIntake.update = original.update;
+    prisma.discoveryIntake.updateMany = original.updateMany;
+    prisma.workflowTemplate.findMany = original.templates;
     prisma.user.findUnique = original.userFind;
     if (oldKey === undefined) delete process.env.XAI_API_KEY; else process.env.XAI_API_KEY = oldKey;
     if (oldEnabled === undefined) delete process.env.INTAKE_ENABLED; else process.env.INTAKE_ENABLED = oldEnabled;
