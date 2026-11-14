@@ -1,9 +1,7 @@
 import { Link } from "wouter";
 
 export default function CTA() {
-  const bookingUrl = typeof window !== "undefined"
-    ? (import.meta.env.VITE_BOOKING_URL as string ?? "/intake")
-    : "/intake";
+
 
   return (
     <section
@@ -38,19 +36,18 @@ export default function CTA() {
         </h2>
 
         <p className="mt-5 text-md max-w-xl mx-auto leading-relaxed" style={{ color: "var(--ink-text-2)" }}>
-          Book a free 20-minute call. Shea will review your situation and map out exactly what a
-          tailored AI setup would look like for your business or household — no obligation.
+          Complete the assessment first. On a free 20-minute fit call, Shea helps you decide whether a
+          Guided or Done-for-you pilot makes sense for your business or household.
         </p>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <a
-            href={bookingUrl}
-            target={bookingUrl.startsWith("http") ? "_blank" : undefined}
+            href="/intake"
             rel="noopener noreferrer"
             className="btn-primary"
             style={{ fontSize: "15px", padding: "12px 24px" }}
           >
-            {bookingUrl.startsWith("http") ? "Book a 1:1 with Shea" : "Request a consultation"}
+            Request a fit call
           </a>
           <Link to="/intake">
             <span
@@ -62,7 +59,7 @@ export default function CTA() {
           </Link>
         </div>
         <p className="mt-3 text-xs" style={{ color: "var(--ink-text-3)" }}>
-          {bookingUrl.startsWith("http") ? "Booking opens an external page." : "Start with the free assessment. No account required."}
+          Complete the assessment to arrange your fit call.
         </p>
 
         <p className="mt-8 text-sm" style={{ color: "var(--ink-text-3)" }}>

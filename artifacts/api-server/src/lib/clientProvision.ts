@@ -41,7 +41,7 @@ export async function ensureClientForVerifiedUser(
     }
   }
 
-  await prisma.discoveryIntake.updateMany({
+  const linked = await prisma.discoveryIntake.updateMany({
     where: {
       contactEmail: { equals: normalized, mode: "insensitive" },
       clientId: null,
@@ -49,5 +49,9 @@ export async function ensureClientForVerifiedUser(
     data: { clientId },
   });
 
+  if (linked.count) {
+    const { draftPlaybookIfMissing } = await import("../routes/playbook");
+    await draftPlaybookIfMissing(clientId).catch(() => console.error("[playbook] linked assessment pending operator retry"));
+  }
   return clientId;
 }

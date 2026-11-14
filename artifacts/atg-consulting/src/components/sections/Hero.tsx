@@ -9,9 +9,6 @@ import { Link } from "wouter";
 import LogoMark from "@/components/LogoMark";
 import { VERTICALS } from "@/content/verticals";
 
-const BOOKING_URL = typeof window !== "undefined"
-  ? (import.meta.env.VITE_BOOKING_URL as string ?? "/intake")
-  : "/intake";
 
 // One representative workflow per vertical for the hero demo
 const VERTICAL_DEMOS = VERTICALS.map((v) => ({
@@ -83,13 +80,12 @@ export default function Hero() {
                 </span>
               </Link>
               <a
-                href={BOOKING_URL}
-                target={BOOKING_URL.startsWith("http") ? "_blank" : undefined}
+                href="/intake"
                 rel="noopener noreferrer"
                 className="btn-secondary-white"
                 style={{ fontSize: "15px", padding: "12px 22px" }}
               >
-                {BOOKING_URL.startsWith("http") ? "Book a 1:1 with Shea" : "Request a consultation"}
+                Request a fit call
               </a>
             </div>
 

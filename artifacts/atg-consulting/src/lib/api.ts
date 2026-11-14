@@ -212,6 +212,8 @@ export const api = {
     supportTickets:    (status?: string) => get<SupportTicket[]>(`/admin/support${status ? `?status=${status}` : ""}`),
     updateSupportTicket: (id: string, status: string) => patch<SupportTicket>(`/admin/support/${id}`, { status }),
     // Playbook
+    masterPlaybook: () => get<Array<{ stage: string; action: string }>>("/admin/playbook/master"),
+    confirmPlaybookPayment: (clientId: string) => post<{ created: boolean }>(`/admin/clients/${clientId}/playbook/confirm-payment`, { confirmed: true }),
     generatePlaybook:          (clientId: string, intakeId?: string) => post<ClientPlaybook>(`/admin/clients/${clientId}/playbook`, intakeId ? { intakeId } : {}),
     generatePlaybookFromIntake: (intakeId: string) => post<ClientPlaybook>(`/admin/intakes/${intakeId}/playbook`, {}),
     getPlaybook:               (clientId: string) => get<ClientPlaybook>(`/admin/clients/${clientId}/playbook`),

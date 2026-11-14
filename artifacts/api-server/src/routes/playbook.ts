@@ -12,6 +12,7 @@
  * POST /api/admin/intakes/:id/playbook          — generate from intake context
  */
 
+import { masterPlaybook } from "../lib/masterPlaybook";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
@@ -25,17 +26,20 @@ router.use(gateAdminRouter);
 
 // ── Build the LLM input from a client + optional intake ─────────────────────
 
-async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<PlaybookInput | null> {
+async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<(PlaybookInput & { intakeId: string }) | null> {
   const client = await prisma.client.findUnique({
     where: { id: clientId },
     include: { user: true },
   });
-  if (!client) return null;
+  if (!client || client.tier === "NONE") return null;
+  const paid = await prisma.auditLog.findFirst({ where: { entity: "Client", entityId: clientId, action: "PAYMENT_CONFIRMED" }, select: { id: true } });
+  if (!paid) return null;
 
   const intake = intakeId
-    ? await prisma.discoveryIntake.findFirst({ where: { id: intakeId ?? "", clientId } })
-    : await prisma.discoveryIntake.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" } });
+    ? await prisma.discoveryIntake.findFirst({ where: { id: intakeId, clientId, consentGiven: true } })
+    : await prisma.discoveryIntake.findFirst({ where: { clientId, consentGiven: true }, orderBy: { createdAt: "desc" } });
 
+  if (!intake) return null;
   const parsed = parseIntakeAnswers(intake?.answers);
 
   // Load recent session summaries to inform playbook
@@ -60,6 +64,7 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
   }).filter(Boolean) as SessionSummarySnippet[];
 
   return {
+    intakeId: intake.id,
     clientName: client.user.name ?? intake?.contactName ?? "Client",
     role:       sanitiseShortText(parsed.role ?? client.roleTitle ?? "business owner"),
     industry:   sanitiseShortText(parsed.industry ?? client.industry ?? "not stated"),
@@ -99,23 +104,26 @@ export async function draftPlaybookIfMissing(clientId: string, intakeId?: string
   const input = await buildPlaybookInput(clientId, intakeId);
   if (!input) return false;
   const content = await generateClientPlaybook(input);
-  const latestVersion = await prisma.clientPlaybook.findFirst({
-    where: { clientId },
-    orderBy: { version: "desc" },
-    select: { version: true },
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Client" WHERE id = ${clientId} FOR UPDATE`;
+    if (await tx.clientPlaybook.findFirst({ where: { clientId }, select: { id: true } })) return false;
+    await tx.clientPlaybook.create({ data: { clientId, intakeId: input.intakeId, version: 1, status: "draft", content: JSON.stringify(content), source: content.source } });
+    return true;
   });
-  await prisma.clientPlaybook.create({
-    data: {
-      clientId,
-      intakeId: intakeId ?? null,
-      version: (latestVersion?.version ?? 0) + 1,
-      status: "draft",
-      content: JSON.stringify(content),
-      source: content.source,
-    },
-  });
-  return true;
 }
+
+router.get("/admin/playbook/master", (_req, res) => { res.json(masterPlaybook); });
+
+// Explicit operator attestation supports invoices and payments received before this release.
+router.post("/admin/clients/:id/playbook/confirm-payment", async (req, res) => {
+  if (req.body?.confirmed !== true) { res.status(422).json({ error: "Verify receipt of payment first." }); return; }
+  const clientId = req.params.id as string;
+  const client = await prisma.client.findUnique({ where: { id: clientId } });
+  if (!client || client.tier === "NONE") { res.status(422).json({ error: "Assign the purchased tier before confirming payment." }); return; }
+  await prisma.auditLog.create({ data: { actorUserId: (req as AuthedRequest).atgUser!.id, entity: "Client", entityId: clientId, action: "PAYMENT_CONFIRMED", meta: JSON.stringify({ source: "operator", tier: client.tier }) } });
+  const created = await draftPlaybookIfMissing(clientId);
+  res.json({ created });
+});
 
 const SECRET_IN_NOTES = /password\s*[:=]|api[_-]?key\s*[:=]|secret\s*[:=]|bearer\s+[a-z0-9]|token\s*[:=]/i;
 
@@ -130,7 +138,7 @@ router.post("/admin/clients/:id/playbook", async (req, res) => {
   const { intakeId } = req.body as { intakeId?: string };
 
   const input = await buildPlaybookInput(clientId, intakeId);
-  if (!input) { res.status(404).json({ error: "Client not found." }); return; }
+  if (!input) { res.status(422).json({ error: "Confirm payment, assign the purchased tier and link a submitted assessment before generating the client playbook." }); return; }
 
   const content = await generateClientPlaybook(input);
 
@@ -145,7 +153,7 @@ router.post("/admin/clients/:id/playbook", async (req, res) => {
   const playbook = await prisma.clientPlaybook.create({
     data: {
       clientId,
-      intakeId: intakeId ?? null,
+      intakeId: input.intakeId,
       version,
       status: "draft",
       content: JSON.stringify(content),
@@ -162,7 +170,7 @@ router.post("/admin/intakes/:id/playbook", async (req, res) => {
   if (!intake.clientId) { res.status(422).json({ error: "Intake has not been claimed to a client yet." }); return; }
 
   const input = await buildPlaybookInput(intake.clientId, intake.id);
-  if (!input) { res.status(404).json({ error: "Client not found." }); return; }
+  if (!input) { res.status(422).json({ error: "Confirm payment, assign the purchased tier and link a submitted assessment before generating the client playbook." }); return; }
 
   const content = await generateClientPlaybook(input);
   const latestVersion = await prisma.clientPlaybook.findFirst({
@@ -269,7 +277,7 @@ router.get("/admin/clients/:id/access-log", async (req, res) => {
 router.post("/admin/clients/:id/access-log", async (req, res) => {
   const clientId = req.params.id as string;
   const client = await prisma.client.findUnique({ where: { id: clientId } });
-  if (!client) { res.status(404).json({ error: "Client not found." }); return; }
+  if (!client) { res.status(422).json({ error: "Confirm payment, assign the purchased tier and link a submitted assessment before generating the client playbook." }); return; }
   const parsed = AccessLogBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
   if (notesLookLikeCredentials(parsed.data.notes)) {
