@@ -26,14 +26,9 @@ const COMMANDS: Command[] = [
   {
     id: "book",
     label: "Book a 1:1 with Shea",
-    sub: "Schedule a free 20-minute call",
+    sub: "Complete your assessment before the free fit call",
     shortcut: "B",
-    action: () => {
-      const url = (window as Window & { __VITE_BOOKING_URL__?: string }).__VITE_BOOKING_URL__
-        ?? import.meta.env.VITE_BOOKING_URL as string
-        ?? "#book";
-      if (url !== "#book") window.open(url, "_blank", "noopener");
-    },
+    action: (nav) => nav("/intake"),
   },
   {
     id: "services",

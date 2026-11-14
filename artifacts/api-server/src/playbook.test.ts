@@ -409,3 +409,23 @@ test("installGuides uses ROUTINE_PROMPTS as source of truth (routine prompt matc
     }
   }
 });
+
+test("an assigned tier alone cannot generate a client playbook", async () => {
+  const { draftPlaybookIfMissing } = await import("./routes/playbook");
+  const { prisma } = await import("./lib/db");
+  const saved = [prisma.clientPlaybook.findFirst, prisma.client.findUnique, prisma.auditLog.findFirst, prisma.discoveryIntake.findFirst] as const;
+  let intakeReads = 0;
+  try {
+    prisma.clientPlaybook.findFirst = (async () => null) as typeof prisma.clientPlaybook.findFirst;
+    prisma.client.findUnique = (async () => ({ tier: "GUIDED" })) as unknown as typeof prisma.client.findUnique;
+    prisma.auditLog.findFirst = (async () => null) as typeof prisma.auditLog.findFirst;
+    prisma.discoveryIntake.findFirst = (async () => { intakeReads++; return null; }) as typeof prisma.discoveryIntake.findFirst;
+    assert.equal(await draftPlaybookIfMissing("client"), false);
+    assert.equal(intakeReads, 0);
+    prisma.auditLog.findFirst = (async () => ({ id: "receipt" })) as unknown as typeof prisma.auditLog.findFirst;
+    assert.equal(await draftPlaybookIfMissing("client"), false);
+    assert.equal(intakeReads, 1);
+  } finally {
+    [prisma.clientPlaybook.findFirst, prisma.client.findUnique, prisma.auditLog.findFirst, prisma.discoveryIntake.findFirst] = saved;
+  }
+});

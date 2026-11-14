@@ -1,3 +1,4 @@
+import MasterPlaybook from "@/components/admin/MasterPlaybook";
 import { useState, useEffect } from "react";
 import { Link, useRoute } from "wouter";
 import AdminShell from "@/components/admin/AdminShell";
@@ -43,6 +44,7 @@ function ClientList() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-extrabold text-canvas-text">Clients</h1>
+          <MasterPlaybook />
         </div>
 
         <div className="flex flex-wrap gap-3 mb-6">

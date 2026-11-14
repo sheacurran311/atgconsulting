@@ -134,7 +134,7 @@ router.get("/billing/portal", withUser, requireAuth, async (req, res) => {
 async function handleCheckoutComplete(session: Stripe.Checkout.Session): Promise<void> {
   const clientId = session.metadata?.clientId;
   const tier = session.metadata?.tier as CheckoutTier | undefined;
-  if (!clientId || !tier) return;
+  if (!clientId || !tier || session.payment_status !== "paid") return;
 
   await prisma.client.update({
     where: { id: clientId },
@@ -154,6 +154,12 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session): Promise
       ...(session.subscription ? { stripeSubscriptionId: String(session.subscription) } : {}),
     },
   });
+  await prisma.auditLog.upsert({
+    where: { id: session.id }, update: {},
+    create: { id: session.id, action: "PAYMENT_CONFIRMED", entity: "Client", entityId: clientId, meta: JSON.stringify({ source: "stripe", tier }) },
+  });
+  const { draftPlaybookIfMissing } = await import("./playbook");
+  await draftPlaybookIfMissing(clientId);
 }
 
 async function handleSubscriptionUpdate(sub: Stripe.Subscription): Promise<void> {
@@ -194,6 +200,7 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
 
   try {
     switch (event.type) {
+      case "checkout.session.async_payment_succeeded":
       case "checkout.session.completed":
         await handleCheckoutComplete(event.data.object as Stripe.Checkout.Session);
         break;

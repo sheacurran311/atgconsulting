@@ -396,6 +396,11 @@ router.post("/discovery/submit", async (req, res) => {
   } catch (err) {
     console.error("[intake] final analysis unavailable", err instanceof Error ? err.name : "error");
   }
+  const linked = await prisma.discoveryIntake.findUnique({ where: { id: session.id }, select: { clientId: true } });
+  if (linked?.clientId) {
+    const { draftPlaybookIfMissing } = await import("./playbook");
+    await draftPlaybookIfMissing(linked.clientId, session.id).catch(() => console.error("[playbook] draft pending operator retry"));
+  }
   res.json({ ok: true, sessionId: session.id, approverInviteUrl });
 });
 

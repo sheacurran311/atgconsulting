@@ -734,6 +734,7 @@ export default function IntakePage() {
                 </div>
               )}
               <div className="flex flex-col gap-3" style={{ maxWidth: "280px", margin: "0 auto" }}>
+                <a className="btn-primary w-full" href={import.meta.env.VITE_BOOKING_URL || "mailto:shea@atgconsulting.io?subject=Assessment%20complete%20-%20fit%20call%20request"}>Arrange a free 20-minute fit call</a>
                 <Link to="/sign-up"><span className="btn-primary w-full">Create an account (optional)</span></Link>
                 <Link to="/"><span style={{ display: "block", padding: "14px 20px", borderRadius: "12px", background: "var(--ink-2)", color: "var(--ink-text-2)", textAlign: "center", fontWeight: 600, textDecoration: "none" }}>Back to site</span></Link>
                 <a href="mailto:shea@atgconsulting.io" style={{ display: "block", padding: "14px 20px", borderRadius: "12px", border: "1px solid var(--ink-border)", color: "var(--ink-text-3)", textAlign: "center", fontSize: "14px", textDecoration: "none" }}>

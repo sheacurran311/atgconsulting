@@ -1,3 +1,4 @@
+import { masterPlaybook } from "./masterPlaybook";
 /**
  * LLM layer — provider-agnostic via OpenAI-compatible API.
  * Produces TWO separate outputs from every intake:
@@ -1437,7 +1438,7 @@ export async function generateClientPlaybook(input: PlaybookInput): Promise<Play
       max_tokens: 2000,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: PLAYBOOK_SYSTEM },
+        { role: "system", content: PLAYBOOK_SYSTEM + "\n" + masterPlaybook.map((s) => s.stage + ". " + s.action).join("\n") },
         { role: "user",   content: `${buildPlaybookPrompt(input)}\nAudience: ${operatingGuide.audience}. Priorities: ${operatingGuide.summary}. Boundaries: ${operatingGuide.boundaries}. Do not assume a company for a personal/family assessment. Installation takes place in customer-owned platforms, not ATG servers.` },
       ],
     });

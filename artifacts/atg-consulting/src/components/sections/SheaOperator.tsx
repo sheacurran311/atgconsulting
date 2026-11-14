@@ -40,9 +40,7 @@ function SheaAvatar({ size = 80 }: { size?: number }) {
 }
 
 export default function SheaOperator() {
-  const bookingUrl = typeof window !== "undefined"
-    ? (import.meta.env.VITE_BOOKING_URL as string ?? "/intake")
-    : "/intake";
+
 
   return (
     <section
@@ -90,13 +88,12 @@ export default function SheaOperator() {
 
             <div className="mt-8 flex flex-wrap gap-3">
               <a
-                href={bookingUrl}
-                target={bookingUrl.startsWith("http") ? "_blank" : undefined}
+                href="/intake"
                 rel="noopener noreferrer"
                 className="btn-primary"
                 style={{ fontSize: "15px", padding: "12px 22px" }}
               >
-                {bookingUrl.startsWith("http") ? "Book a 1:1 with Shea" : "Request a consultation"}
+                Request a fit call
               </a>
               <Link to="/intake">
                 <span className="btn-secondary-white" style={{ fontSize: "15px", padding: "12px 22px" }}>

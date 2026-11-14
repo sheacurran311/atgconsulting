@@ -1,3 +1,4 @@
+import MasterPlaybook from "./MasterPlaybook";
 /**
  * Playbook tab — admin-only operator playbook for a client.
  * Generate, view, inline-edit, mark final, and view version history.
@@ -357,6 +358,7 @@ export default function PlaybookTab({ clientId, intakeId }: Props) {
   const [playbook, setPlaybook] = useState<ClientPlaybook | null>(null);
   const [versions, setVersions] = useState<ClientPlaybook[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState("");
   const [generating, setGenerating] = useState(false);
   const [finalising, setFinalising] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -387,7 +389,7 @@ export default function PlaybookTab({ clientId, intakeId }: Props) {
       setVersions((v) => [pb, ...v]);
       setEditNotes(pb.adminNotes ?? "");
     } catch (e) {
-      console.error(e);
+      setNotice(e instanceof Error ? e.message : "Could not generate playbook.");
     } finally {
       setGenerating(false);
     }
@@ -448,6 +450,15 @@ KPIs: ${content.kpisAndUpsell.kpis.join(" · ")}`;
 
   return (
     <div>
+      <MasterPlaybook />
+      {!playbook && <details className="my-4"><summary>Confirm a previously received payment</summary><p className="text-sm">Check your invoice or payment receipt and assign the purchased tier first. This records payment verification and generates a draft when the assessment is linked.</p>
+        <button className="btn-secondary mt-2" disabled={generating} onClick={async () => {
+          setGenerating(true);
+          try { const result = await api.admin.confirmPlaybookPayment(clientId); setNotice(result.created ? "Payment confirmed and draft created." : "Payment confirmed. A linked assessment is required for a new draft."); load(); }
+          catch (e) { setNotice(e instanceof Error ? e.message : "Payment confirmation failed."); }
+          finally { setGenerating(false); }
+        }}>I verified receipt of payment</button></details>}
+      {notice && <p role="status">{notice}</p>}
       {/* Header / actions */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
