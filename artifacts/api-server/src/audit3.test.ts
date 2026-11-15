@@ -37,6 +37,17 @@ test("parseIntakeAnswers still reads a flat object", () => {
   assert.equal(parsed.hoursLost, 6);
 });
 
+test("parseIntakeAnswers keeps areas, budget and current software", () => {
+  const parsed = parseIntakeAnswers(JSON.stringify([
+    { id: "core_system", answer: "Gmail / Google Workspace" },
+    { id: "budget_range", answer: "$2,000–$5,000" },
+    { id: "areas", answer: JSON.stringify(["sales", "executive_assistant"]) },
+  ]));
+  assert.equal(parsed.toolBudget, "$2,000–$5,000");
+  assert.equal(parsed.tools, "Gmail / Google Workspace");
+  assert.deepEqual(parsed.areas, ["sales", "executive_assistant"]);
+});
+
 test("statedHours ignores prose and zero", () => {
   assert.equal(statedHours("about 10 hours"), null);
   assert.equal(statedHours("0"), null);

@@ -81,8 +81,8 @@ No new variables were added for models or claws.
 | `STRIPE_SECRET_KEY` | Stripe secret. Required only if billing is on | unset |
 | `STRIPE_WEBHOOK_SECRET` | Webhook signature secret | unset |
 | `STRIPE_PRICE_SELF_SERVE` | Price id, one-time Self-serve | unset |
-| `STRIPE_PRICE_GUIDED` | Price id, one-time Guided package. Checkout still charges this price. | unset |
-| `STRIPE_PRICE_GUIDED_5` | Optional. If the purchased price id matches this, the webhook sets 5 Guided sessions. Otherwise the count comes from the intake request (5, else 3). | unset |
+| `STRIPE_PRICE_GUIDED` | Price id, one-time 3-session Guided package | unset |
+| `STRIPE_PRICE_GUIDED_5` | Price id, one-time 5-session Guided package. Required to sell the 5-session option. | unset |
 | `STRIPE_PRICE_DFY_SETUP` | Price id, Done-for-you setup (`WHITE_GLOVE`) | unset |
 | `STRIPE_PRICE_DFY_MONTHLY` | Optional monthly care price id | unset |
 | `CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` | Clerk | Replit sets the publishable key from the host |
@@ -100,7 +100,7 @@ No new variables were added for models or claws.
 | `AI_RATE_LIMIT_PER_MIN` | Assist requests per minute | `5` |
 | `AI_CHAT_LOG_RETENTION_DAYS` | How long assist logs are kept | `30` |
 | `AI_TOKEN_PRICE_INPUT` / `AI_TOKEN_PRICE_OUTPUT` | Internal cost estimate, not a customer price | `0.002` / `0.006` |
-| `VITE_BOOKING_URL` | Guided booking link | `#book` |
+| `VITE_BOOKING_URL` | Free 20-minute fit-call booking link; the intake falls back to a mailto request | unset |
 | `VITE_LINKEDIN_URL` | Footer link, only if it is an http(s) URL | unset |
 | `VITE_LEGAL_PUBLISHED` | Legal pages leave draft state when `true` | off |
 | `PORT` / `BASE_PATH` | Set by Replit. Do not override | Replit |
@@ -131,6 +131,8 @@ Optional new env var: `STRIPE_PRICE_GUIDED_5`. `CRON_SECRET` already exists. Lea
 The daily cron date is America/Denver. Approved blog posts publish when `publishAt` is empty or already due. A future `publishAt` waits. Catalog link checks do not disable a verified row. An unverified row is disabled only on HTTP 404 or 410.
 
 Done-for-you spots use `DfyApplication.acceptedAt`. Editing notes later does not consume another spot.
+
+Accepting a Done-for-you application does not grant `WHITE_GLOVE`; the tier is granted when the setup payment completes, or when Shea assigns it before recording an offline payment. Canceling the optional monthly care plan sets `Client.status` to `PAUSED` or `CHURNED` but does not clear `tier`. The one-time setup is the purchased entitlement, so the workflows stay available and the daily-report cron stops. Downgrade the tier explicitly if access should end.
 
 ## Daily report cron
 
@@ -168,7 +170,7 @@ When he is ready:
 - Checkout: `POST /api/billing/checkout` with `tier` of `SELF_SERVE`, `GUIDED`, or `WHITE_GLOVE`. Done-for-you requires an accepted application. One-time mode unless `STRIPE_PRICE_DFY_MONTHLY` is set, in which case checkout is a subscription and includes that price.
 - Portal: `GET /api/billing/portal`.
 - Webhook: `POST /api/stripe/webhook`, raw body, signature from `STRIPE_WEBHOOK_SECRET`. Processed ids are stored on `StripeEvent` (`id`, `type`, `processedAt` only).
-- Price env vars: `STRIPE_PRICE_SELF_SERVE`, `STRIPE_PRICE_GUIDED`, `STRIPE_PRICE_DFY_SETUP`, `STRIPE_PRICE_DFY_MONTHLY`.
+- Price env vars: `STRIPE_PRICE_SELF_SERVE`, `STRIPE_PRICE_GUIDED`, `STRIPE_PRICE_GUIDED_5`, `STRIPE_PRICE_DFY_SETUP`, `STRIPE_PRICE_DFY_MONTHLY`.
 - Done-for-you money should follow the written offer: 30% deposit, then milestones on the statement of work, optional $750/mo care, $150/hr for approved out-of-scope work. The webhook sets `guidedSessionsTotal` to 3 or 5. It does not set 4. It still does not model the deposit or milestones. Do not turn billing on until he is ready.
 
 ## Known gaps and backlog

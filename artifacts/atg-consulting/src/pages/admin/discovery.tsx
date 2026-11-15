@@ -48,7 +48,128 @@ interface IntakeDetail extends IntakeRow {
 }
 
 interface AnsweredQuestion { id: string; category: string; question: string; answer: string }
-interface ReportDraft { summary: string; keyFindings: string[]; painPoints: string[]; suggestedTier: string; tierRationale: string; proposalScope: string; recommendedWorkflows: { slug: string; name: string; why: string }[]; discoveryQuestions: string[]; risks: string[]; nextSteps: string[] }
+interface ReportWorkflow { slug: string; name: string; why: string }
+interface ReportDraft {
+  summary: string;
+  keyFindings: string[];
+  painPoints: string[];
+  suggestedTier: string;
+  tierRationale: string;
+  proposalScope: string;
+  recommendedWorkflows: ReportWorkflow[];
+  discoveryQuestions: string[];
+  risks: string[];
+  nextSteps: string[];
+  proposedFirstPilot?: ReportWorkflow | null;
+}
+
+interface ReportForm {
+  summary: string;
+  keyFindings: string;
+  painPoints: string;
+  suggestedTier: string;
+  tierRationale: string;
+  proposalScope: string;
+  recommendedWorkflowsJson: string;
+  discoveryQuestions: string;
+  risks: string;
+  nextSteps: string;
+  proposedPilotSlug: string;
+  proposedPilotWhy: string;
+}
+
+function lines(value: string): string[] {
+  return value.split("\n").map((line) => line.trim()).filter(Boolean);
+}
+
+function parseWorkflowOptions(raw: string): ReportWorkflow[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is ReportWorkflow =>
+      !!item && typeof item === "object" &&
+      typeof (item as ReportWorkflow).slug === "string" &&
+      typeof (item as ReportWorkflow).name === "string" &&
+      typeof (item as ReportWorkflow).why === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function formFromReport(report: ReportDraft): ReportForm {
+  return {
+    summary: report.summary,
+    keyFindings: report.keyFindings.join("\n"),
+    painPoints: report.painPoints.join("\n"),
+    suggestedTier: report.suggestedTier,
+    tierRationale: report.tierRationale,
+    proposalScope: report.proposalScope,
+    recommendedWorkflowsJson: JSON.stringify(report.recommendedWorkflows, null, 2),
+    discoveryQuestions: report.discoveryQuestions.join("\n"),
+    risks: report.risks.join("\n"),
+    nextSteps: report.nextSteps.join("\n"),
+    proposedPilotSlug: report.proposedFirstPilot?.slug ?? "",
+    proposedPilotWhy: report.proposedFirstPilot?.why ?? "",
+  };
+}
+
+function ReportEditor({ form, onChange }: { form: ReportForm; onChange: (patch: Partial<ReportForm>) => void }) {
+  const workflows = parseWorkflowOptions(form.recommendedWorkflowsJson);
+  const field = (label: string, value: string, key: keyof ReportForm, rows = 3, mono = false) => (
+    <div>
+      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>{label}</p>
+      <textarea
+        className="field-input text-sm w-full"
+        rows={rows}
+        value={value}
+        onChange={(e) => onChange({ [key]: e.target.value })}
+        style={mono ? { fontFamily: "var(--font-mono)", fontSize: "12px" } : undefined}
+      />
+    </div>
+  );
+
+  return (
+    <div className="p-4 space-y-4 text-sm">
+      {field("SUMMARY", form.summary, "summary", 3)}
+      {field("KEY FINDINGS · ONE PER LINE", form.keyFindings, "keyFindings", 5)}
+      {field("PAIN POINTS · ONE PER LINE", form.painPoints, "painPoints", 4)}
+      <div>
+        <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>SUGGESTED TIER</p>
+        <select
+          className="field-input text-sm w-full"
+          value={form.suggestedTier}
+          onChange={(e) => onChange({ suggestedTier: e.target.value })}
+        >
+          <option value="SELF_SERVE">Self-serve</option>
+          <option value="GUIDED">Guided</option>
+          <option value="WHITE_GLOVE">White Glove</option>
+        </select>
+      </div>
+      {field("TIER RATIONALE", form.tierRationale, "tierRationale", 2)}
+      {field("PROPOSAL SCOPE", form.proposalScope, "proposalScope", 3)}
+      {field("RECOMMENDED WORKFLOWS · JSON ARRAY", form.recommendedWorkflowsJson, "recommendedWorkflowsJson", 7, true)}
+      <div>
+        <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>PROPOSED FIRST PILOT</p>
+        <select
+          className="field-input text-sm w-full"
+          value={form.proposedPilotSlug}
+          onChange={(e) => {
+            const selected = workflows.find((w) => w.slug === e.target.value);
+            onChange({ proposedPilotSlug: e.target.value, ...(selected ? { proposedPilotWhy: selected.why } : {}) });
+          }}
+        >
+          <option value="">No first pilot selected</option>
+          {workflows.map((w) => <option key={w.slug} value={w.slug}>{w.name} ({w.slug})</option>)}
+        </select>
+      </div>
+      {form.proposedPilotSlug && field("WHY THIS PILOT FIRST", form.proposedPilotWhy, "proposedPilotWhy", 2)}
+      {field("DISCOVERY CALL QUESTIONS · ONE PER LINE", form.discoveryQuestions, "discoveryQuestions", 4)}
+      {field("RISKS AND THINGS TO CONFIRM · ONE PER LINE", form.risks, "risks", 4)}
+      {field("NEXT STEPS · ONE PER LINE", form.nextSteps, "nextSteps", 4)}
+    </div>
+  );
+}
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   new:          { label: "New", color: "#D97706", bg: "rgba(217,119,6,0.1)" },
@@ -75,6 +196,10 @@ export default function AdminDiscoveryPage() {
   const [generatingProposal, setGeneratingProposal] = useState(false);
   const [proposal, setProposal] = useState<ProposalRow | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  const [editingReport, setEditingReport] = useState(false);
+  const [reportForm, setReportForm] = useState<ReportForm | null>(null);
+  const [savingReport, setSavingReport] = useState(false);
+  const [reportEditError, setReportEditError] = useState("");
 
   // Invite management state
   const [invites, setInvites] = useState<InviteRow[]>([]);
@@ -108,6 +233,9 @@ export default function AdminDiscoveryPage() {
   async function openDetail(id: string) {
     const d = await adminJson<IntakeDetail>(`/api/admin/discovery/${id}`);
     setSelected(d);
+    setEditingReport(false);
+    setReportForm(null);
+    setReportEditError("");
     setProposal(null);
     // Load proposal if it exists
     fetch(`/api/admin/discovery/${id}/proposal`, { credentials: "include" })
@@ -191,6 +319,81 @@ export default function AdminDiscoveryPage() {
     }
     setGenerating(false);
     load();
+  }
+
+  function beginReportEdit(report: ReportDraft) {
+    setReportForm(formFromReport(report));
+    setReportEditError("");
+    setEditingReport(true);
+  }
+
+  function cancelReportEdit() {
+    setEditingReport(false);
+    setReportForm(null);
+    setReportEditError("");
+  }
+
+  async function saveReportEdit() {
+    if (!selected || !reportForm) return;
+    let workflows: ReportWorkflow[];
+    try {
+      const parsed: unknown = JSON.parse(reportForm.recommendedWorkflowsJson);
+      if (!Array.isArray(parsed)) throw new Error("not an array");
+      workflows = parsed.filter((item): item is ReportWorkflow =>
+        !!item && typeof item === "object" &&
+        typeof (item as ReportWorkflow).slug === "string" &&
+        typeof (item as ReportWorkflow).name === "string" &&
+        typeof (item as ReportWorkflow).why === "string",
+      );
+      if (workflows.length !== parsed.length) throw new Error("bad workflow");
+    } catch {
+      setReportEditError("Recommended workflows must be a JSON array of { slug, name, why } objects.");
+      return;
+    }
+
+    const pilot = reportForm.proposedPilotSlug
+      ? workflows.find((workflow) => workflow.slug === reportForm.proposedPilotSlug) ?? null
+      : null;
+    if (reportForm.proposedPilotSlug && !pilot) {
+      setReportEditError("Select a first pilot from the recommended workflows, or clear the selection.");
+      return;
+    }
+
+    const report: ReportDraft = {
+      summary: reportForm.summary.trim(),
+      keyFindings: lines(reportForm.keyFindings),
+      painPoints: lines(reportForm.painPoints),
+      suggestedTier: reportForm.suggestedTier,
+      tierRationale: reportForm.tierRationale.trim(),
+      proposalScope: reportForm.proposalScope.trim(),
+      recommendedWorkflows: workflows,
+      discoveryQuestions: lines(reportForm.discoveryQuestions),
+      risks: lines(reportForm.risks),
+      nextSteps: lines(reportForm.nextSteps),
+      proposedFirstPilot: pilot ? { ...pilot, why: reportForm.proposedPilotWhy.trim() || pilot.why } : null,
+    };
+
+    setSavingReport(true);
+    setReportEditError("");
+    try {
+      const response = await fetch(`/api/admin/discovery/${selected.id}/report`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedReportDraft: selected.reportDraft, report }),
+      });
+      const result = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Could not save the report draft.");
+      const detail = await fetch(`/api/admin/discovery/${selected.id}`, { credentials: "include" });
+      if (detail.ok) setSelected(await detail.json() as IntakeDetail);
+      setEditingReport(false);
+      setReportForm(null);
+      load();
+    } catch (error) {
+      setReportEditError((error as Error).message);
+    } finally {
+      setSavingReport(false);
+    }
   }
 
   async function approveReport() {
@@ -350,8 +553,13 @@ export default function AdminDiscoveryPage() {
                   </button>
                 )}
                 {report && !selected.reportApprovedAt && (
-                  <button type="button" onClick={approveReport} disabled={approving} className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
+                  <button type="button" onClick={approveReport} disabled={approving || editingReport} className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
                     {approving ? "Approving…" : "Approve report"}
+                  </button>
+                )}
+                {report && !selected.reportEmailedAt && !selected.reportEmailSendingAt && !editingReport && (
+                  <button type="button" onClick={() => beginReportEdit(report)} className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
+                    Edit draft
                   </button>
                 )}
                 {/* Proposal actions */}
@@ -477,53 +685,97 @@ export default function AdminDiscoveryPage() {
               <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--canvas-border)" }}>
                 <div className="px-4 py-3 flex items-center justify-between" style={{ background: "var(--canvas-2)", borderBottom: "1px solid var(--canvas-border)" }}>
                   <p className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>REPORT DRAFT</p>
-                  {selected.reportApprovedAt && (
-                    <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: "rgba(22,163,74,0.08)", color: "#16A34A" }}>
-                      APPROVED {new Date(selected.reportApprovedAt).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-                <div className="p-4 space-y-4 text-sm">
-                  <div>
-                    <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>SUMMARY</p>
-                    <p style={{ color: "var(--canvas-text)" }}>{report.summary}</p>
-                  </div>
-                  <div>
-                    <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>SUGGESTED TIER</p>
-                    <p className="font-semibold" style={{ color: "var(--canvas-text)" }}>{report.suggestedTier} — {report.tierRationale}</p>
-                  </div>
-                  <div>
-                    <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>PAIN POINTS</p>
-                    <ul className="list-disc pl-4 space-y-0.5">
-                      {report.painPoints.map((p, i) => <li key={i} style={{ color: "var(--canvas-text-2)" }}>{p}</li>)}
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>RECOMMENDED WORKFLOWS</p>
-                    {report.recommendedWorkflows.map((w) => (
-                      <div key={w.slug} className="flex gap-2 text-sm">
-                        <span className="font-mono text-xs text-canvas-text-3">{w.slug}</span>
-                        <span style={{ color: "var(--canvas-text-2)" }}>— {w.why}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>PROPOSAL SCOPE</p>
-                    <p style={{ color: "var(--canvas-text)" }}>{report.proposalScope}</p>
-                  </div>
-                  <div>
-                    <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>DISCOVERY CALL QUESTIONS</p>
-                    <ul className="list-disc pl-4 space-y-0.5">
-                      {report.discoveryQuestions.map((q, i) => <li key={i} style={{ color: "var(--canvas-text-2)" }}>{q}</li>)}
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>NEXT STEPS</p>
-                    <ul className="list-disc pl-4 space-y-0.5">
-                      {report.nextSteps.map((s, i) => <li key={i} style={{ color: "var(--canvas-text-2)" }}>{s}</li>)}
-                    </ul>
+                  <div className="flex items-center gap-2">
+                    {selected.reportApprovedAt && !editingReport && (
+                      <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: "rgba(22,163,74,0.08)", color: "#16A34A" }}>
+                        APPROVED {new Date(selected.reportApprovedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                    {editingReport && (
+                      <>
+                        <button type="button" onClick={cancelReportEdit} disabled={savingReport} className="btn-ghost text-xs" style={{ padding: "5px 10px" }}>Cancel</button>
+                        <button type="button" onClick={saveReportEdit} disabled={savingReport} className="btn-primary text-xs" style={{ padding: "5px 10px" }}>
+                          {savingReport ? "Saving…" : "Save draft"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
+                {editingReport && reportForm ? (
+                  <>
+                    {reportEditError && <p role="alert" className="px-4 pt-3 text-red-700 text-sm">{reportEditError}</p>}
+                    <ReportEditor
+                      form={reportForm}
+                      onChange={(patch) => setReportForm((current) => current ? { ...current, ...patch } : current)}
+                    />
+                  </>
+                ) : (
+                  <div className="p-4 space-y-4 text-sm">
+                    <div>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>SUMMARY</p>
+                      <p style={{ color: "var(--canvas-text)" }}>{report.summary}</p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>KEY FINDINGS</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        {report.keyFindings.map((finding, i) => <li key={i} style={{ color: "var(--canvas-text-2)" }}>{finding}</li>)}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>SUGGESTED TIER</p>
+                      <p className="font-semibold" style={{ color: "var(--canvas-text)" }}>{report.suggestedTier} — {report.tierRationale}</p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>PAIN POINTS</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        {report.painPoints.map((p, i) => <li key={i} style={{ color: "var(--canvas-text-2)" }}>{p}</li>)}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>RECOMMENDED WORKFLOWS</p>
+                      {report.recommendedWorkflows.map((w) => (
+                        <div key={w.slug} className="flex gap-2 text-sm">
+                          <span className="font-mono text-xs text-canvas-text-3">{w.slug}</span>
+                          <span style={{ color: "var(--canvas-text-2)" }}>— {w.why}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>PROPOSED FIRST PILOT</p>
+                      {report.proposedFirstPilot ? (
+                        <p style={{ color: "var(--canvas-text)" }}>
+                          <strong>{report.proposedFirstPilot.name}</strong>
+                          <span className="font-mono text-xs text-canvas-text-3"> · {report.proposedFirstPilot.slug}</span>
+                          <br />{report.proposedFirstPilot.why}
+                        </p>
+                      ) : (
+                        <p style={{ color: "var(--canvas-text-3)" }}>No first pilot selected yet. Confirm one with the prospect.</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>PROPOSAL SCOPE</p>
+                      <p style={{ color: "var(--canvas-text)" }}>{report.proposalScope}</p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>DISCOVERY CALL QUESTIONS</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        {report.discoveryQuestions.map((q, i) => <li key={i} style={{ color: "var(--canvas-text-2)" }}>{q}</li>)}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>RISKS AND THINGS TO CONFIRM</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        {report.risks.map((risk, i) => <li key={i} style={{ color: "var(--canvas-text-2)" }}>{risk}</li>)}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>NEXT STEPS</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        {report.nextSteps.map((s, i) => <li key={i} style={{ color: "var(--canvas-text-2)" }}>{s}</li>)}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

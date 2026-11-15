@@ -406,10 +406,12 @@ router.get("/client/intake/latest", requireAuth, async (req, res) => {
   res.json({
     id: intake.id,
     createdAt: intake.createdAt,
-    aiComfort: parsed.aiComfort ?? 0,
+    aiComfort: parsed.aiComfort,
     hoursLost: parsed.hoursLost,
     helpStyle: helpStyleFromIntake({ answers: intake.answers, requestedTier: intake.requestedTier }),
-    areas: JSON.stringify([]),
+    areas: JSON.stringify(parsed.areas),
+    toolBudget: parsed.toolBudget,
+    currentSoftware: parsed.tools,
     answers: intake.answers,
   });
 });

@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { initializeDatabase } from "./lib/db";
 import { startCatalogHarvestSchedule } from "./lib/catalogHarvest";
+import { validateBillingConfig } from "./lib/stripe";
 
 const rawPort = process.env["PORT"];
 
@@ -18,6 +19,7 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 await initializeDatabase();
+validateBillingConfig();
 
 app.listen(port, (err) => {
   if (err) {

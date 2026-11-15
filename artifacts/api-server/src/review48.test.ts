@@ -10,6 +10,8 @@ import { contentReadyToPublish } from "./lib/contentPublish";
 import { countsTowardDfyCap, dfyMonthStart } from "./lib/guidedPackage";
 import { catalogLinkFailureAction } from "./lib/catalogKinds";
 import { parseIntakeAnswers } from "./lib/intakeAnswers";
+import { ReportDraftSchema } from "./lib/reportDraft";
+import { reportEmailText } from "./lib/reportDelivery";
 
 test("ADMIN_TEST_MODE does not unlock a client session", async () => {
   const saved = process.env.ADMIN_TEST_MODE;
@@ -60,4 +62,45 @@ test("tool-plan fields come from the answer array", () => {
   assert.deepEqual(parsed.timeSinks, ["email", "followups"]);
   assert.deepEqual(parsed.aiPlatforms, ["claude"]);
   assert.deepEqual(parsed.areas, ["sales"]);
+});
+
+test("older report drafts get a null first pilot without losing their fields", () => {
+  const report = {
+    summary: "Summary",
+    keyFindings: ["Finding"],
+    painPoints: ["Pain"],
+    recommendedWorkflows: [{ slug: "follow-up", name: "Lead follow-up", why: "Start here" }],
+    suggestedTier: "GUIDED",
+    tierRationale: "Hands-on help",
+    proposalScope: "Scope",
+    discoveryQuestions: ["Question"],
+    risks: ["Risk"],
+    nextSteps: ["Next"],
+  };
+  const parsed = ReportDraftSchema.parse(report);
+  assert.equal(parsed.proposedFirstPilot, null);
+  assert.equal(parsed.keyFindings[0], "Finding");
+  assert.equal(parsed.risks[0], "Risk");
+});
+
+test("report email includes findings, the proposed pilot and risks", () => {
+  const text = reportEmailText(JSON.stringify({
+    summary: "Summary",
+    keyFindings: ["A specific finding"],
+    painPoints: ["A priority"],
+    recommendedWorkflows: [{ slug: "follow-up", name: "Lead follow-up", why: "Start here" }],
+    suggestedTier: "GUIDED",
+    tierRationale: "Hands-on help",
+    proposalScope: "Scope",
+    discoveryQuestions: ["Question"],
+    risks: ["Access must be confirmed"],
+    nextSteps: ["Next"],
+    proposedFirstPilot: { slug: "follow-up", name: "Lead follow-up", why: "Highest value first" },
+  }));
+  assert.match(text, /Findings/);
+  assert.match(text, /A specific finding/);
+  assert.match(text, /Proposed first pilot/);
+  assert.match(text, /Highest value first/);
+  assert.match(text, /Risks and things to confirm/);
+  assert.match(text, /Access must be confirmed/);
 });

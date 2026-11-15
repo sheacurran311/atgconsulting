@@ -253,10 +253,8 @@ router.patch("/admin/dfy-applications/:id", resolve, requireAdmin, async (req, r
       ...(parsed.data.status === "accepted" && !existing.acceptedAt ? { acceptedAt: new Date() } : {}),
     },
   });
-  // When accepted, set client tier to WHITE_GLOVE
-  if (parsed.data.status === "accepted") {
-    await prisma.client.update({ where: { id: updated.clientId }, data: { tier: "WHITE_GLOVE", status: "ACTIVE" } });
-  }
+  // Acceptance only opens the checkout path. The paid tier is granted after
+  // Stripe confirms payment (or after an explicit offline payment record).
   res.json(updated);
 });
 

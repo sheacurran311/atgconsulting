@@ -10,6 +10,12 @@
  *   1. The WorkflowTemplate must be globally enabled.
  *   2. The ClientWorkflowSettings override (if present) must not be disabled.
  *   3. The client's tier must meet the template's minTier.
+ *
+ * Client.status is deliberately not consulted. It tracks the billing and care
+ * lifecycle (PROSPECT/ACTIVE/PAUSED/CHURNED), not the workflow entitlement.
+ * A Done-for-you client paid the one-time setup fee; canceling the optional
+ * monthly care plan must not revoke workflows he already paid to have built.
+ * Shea can downgrade the tier explicitly when that is the intent.
  */
 
 import { prisma } from "./db";

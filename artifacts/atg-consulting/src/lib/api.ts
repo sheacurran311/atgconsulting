@@ -676,10 +676,12 @@ export interface ATGTool {
 export interface IntakeSummary {
   id: string;
   createdAt: string;
-  aiComfort: number;
+  aiComfort: number | null;
   hoursLost: number | null;
   helpStyle: string;
-  areas: string;
+  areas: string; // JSON array
+  toolBudget: string | null;
+  currentSoftware: string | null;
   answers: string; // JSON
 }
 

@@ -98,12 +98,6 @@ export default function AccountPage() {
     .slice(0, 2)
     .toUpperCase();
 
-  // Parse intake answers
-  const intakeAnswers: Record<string, unknown> = (() => {
-    if (!intake?.answers) return {};
-    try { return JSON.parse(intake.answers) as Record<string, unknown>; } catch { return {}; }
-  })();
-
   return (
     <AppShell>
       <div className="max-w-content mx-auto space-y-5">
@@ -199,12 +193,17 @@ export default function AccountPage() {
             <div>
               <div className="grid sm:grid-cols-2 gap-3 mb-4">
                 {[
-                  ["AI comfort", AI_LABELS[intake.aiComfort] ?? `Level ${intake.aiComfort}`],
+                  ["AI comfort", intake.aiComfort == null ? "Not stated" : (AI_LABELS[intake.aiComfort] ?? `Level ${intake.aiComfort}`)],
                   ["Hours lost / week", intake.hoursLost == null ? "Not stated" : `${intake.hoursLost} hours typed`],
                   ["Preferred help", HELP_STYLE_LABELS[intake.helpStyle] ?? intake.helpStyle],
-                  ["Areas", (() => { try { return (JSON.parse(intake.areas) as string[]).map((a) => a.replace("_", " ")).join(", "); } catch { return "—"; } })()],
-                  ["Budget", intakeAnswers.toolBudget as string ?? "—"],
-                  ["Current software", intakeAnswers.currentSoftware as string ?? "—"],
+                  ["Areas", (() => {
+                    try {
+                      const areas = JSON.parse(intake.areas) as string[];
+                      return areas.length ? areas.map((a) => a.replace(/_/g, " ")).join(", ") : "Not stated";
+                    } catch { return "Not stated"; }
+                  })()],
+                  ["Budget", intake.toolBudget ?? "Not stated"],
+                  ["Current software", intake.currentSoftware ?? "Not stated"],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <p className="font-mono text-2xs mb-0.5" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>{(label as string).toUpperCase()}</p>

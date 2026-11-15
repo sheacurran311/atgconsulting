@@ -45,3 +45,15 @@ test("intake history uses preferred help, not decision authority", () => {
   assert.equal(helpStyleFromIntake({ answers: "[]", requestedTier: null }), "not_sure");
   assert.notEqual(helpStyleFromIntake({ answers: JSON.stringify([{ id: "decisionAuthority", answer: "none" }]) }), "none");
 });
+
+test("current support_preference answers map to help styles", () => {
+  const answers = (answer: string) => JSON.stringify([
+    { id: "support_preference", answer },
+  ]);
+  assert.equal(helpStyleFromIntake({ answers: answers("A plan and setup instructions"), requestedTier: "WHITE_GLOVE" }), "self_serve");
+  assert.equal(helpStyleFromIntake({ answers: answers("Guided installation and training"), requestedTier: "SELF_SERVE" }), "guided");
+  assert.equal(helpStyleFromIntake({ answers: answers("Done-for-you setup in my accounts"), requestedTier: "SELF_SERVE" }), "done_for_you");
+  assert.equal(helpStyleFromIntake({ answers: answers("Setup plus ongoing maintenance"), requestedTier: "SELF_SERVE" }), "done_for_you");
+  assert.equal(helpStyleFromIntake({ answers: answers("Not sure yet"), requestedTier: "GUIDED" }), "not_sure");
+  assert.equal(helpStyleFromIntake({ answers: answers("A plan and setup instructions"), requestedTier: "WHITE_GLOVE" }), "self_serve", "support_preference wins over requestedTier");
+});

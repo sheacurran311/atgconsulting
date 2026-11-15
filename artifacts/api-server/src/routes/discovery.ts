@@ -25,6 +25,7 @@
 import { Router } from "express";
 import { notifyShea, sendAssessmentReport } from "../lib/email";
 import { reportEmailText } from "../lib/reportDelivery";
+import { ReportDraftSchema } from "../lib/reportDraft";
 import { ensureApproverInvite } from "../lib/approverInvite";
 import { maybeDraftMergedReview } from "../lib/engagementMerge";
 import { z } from "zod";
@@ -546,6 +547,60 @@ router.post("/admin/discovery/:id/report", withUser, requireAdmin, async (req, r
   });
 
   res.json({ ok: true, report: reportData, tokensUsed });
+});
+
+// ── Admin: edit a report draft before approval or delivery ───────────────────
+
+const ReportEditBody = z.object({
+  expectedReportDraft: z.string().min(1).max(200_000),
+  report: ReportDraftSchema,
+});
+
+router.patch("/admin/discovery/:id/report", withUser, requireAdmin, async (req, res) => {
+  const actor = (req as AuthedRequest).atgUser!;
+  const parsed = ReportEditBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(422).json({ error: "Check the report fields and try again.", issues: parsed.error.flatten() });
+    return;
+  }
+
+  const intake = await prisma.discoveryIntake.findUnique({
+    where: { id: req.params.id as string },
+    select: { reportDraft: true, reportEmailedAt: true, reportEmailSendingAt: true },
+  });
+  if (!intake) { res.status(404).json({ error: "Assessment not found." }); return; }
+  if (intake.reportEmailSendingAt) { res.status(409).json({ error: "Report delivery is in progress. Wait for it to finish before editing." }); return; }
+  if (intake.reportEmailedAt) { res.status(409).json({ error: "This report was already emailed. Generate a new report draft to create a new version." }); return; }
+  if (!intake.reportDraft) { res.status(422).json({ error: "Generate a report draft first." }); return; }
+
+  const saved = await prisma.discoveryIntake.updateMany({
+    where: {
+      id: req.params.id as string,
+      reportDraft: parsed.data.expectedReportDraft,
+      reportEmailedAt: null,
+      reportEmailSendingAt: null,
+    },
+    data: {
+      reportDraft: JSON.stringify(parsed.data.report),
+      // Any edit invalidates the previous approval; Shea reviews it again.
+      reportApprovedAt: null,
+      reportEmailError: null,
+      status: "reviewed",
+    },
+  });
+  if (!saved.count) {
+    res.status(409).json({ error: "The report changed while you were editing. Reload it and try again." });
+    return;
+  }
+
+  await audit({
+    actorUserId: actor.id,
+    action: "DISCOVERY_REPORT_EDITED",
+    entity: "DiscoveryIntake",
+    entityId: req.params.id as string,
+  });
+
+  res.json({ ok: true, report: parsed.data.report });
 });
 
 // ── Admin: approve report (client can now see it after sign-in) ───────────────

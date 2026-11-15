@@ -19,6 +19,7 @@ import {
   QUESTION_MAP, type Question,
 } from "./questionBank";
 import { assessmentQuestions, ALL_ASSESSMENT_MAP, ALL_ASSESSMENT_QUESTIONS, audienceFrom } from "./assessmentProfile";
+import { ReportDraftSchema, type ReportDraft } from "./reportDraft";
 
 export interface AnsweredQuestion {
   id: string;
@@ -44,19 +45,6 @@ export interface NextQuestionResult {
   tokensUsed: number;
   fromCache?: boolean;
   fromFallback?: boolean;
-}
-
-export interface ReportDraft {
-  summary: string;
-  keyFindings: string[];
-  painPoints: string[];
-  recommendedWorkflows: { slug: string; name: string; why: string }[];
-  suggestedTier: "SELF_SERVE" | "GUIDED" | "WHITE_GLOVE";
-  tierRationale: string;
-  proposalScope: string;
-  discoveryQuestions: string[];  // follow-up questions for the live call
-  risks: string[];
-  nextSteps: string[];
 }
 
 function getClient(): OpenAI | null {
@@ -312,6 +300,7 @@ Write a tailored internal report draft. Include:
 - tierRationale: 1-2 sentences explaining the recommendation
 - proposalScope: a concise scope statement for the engagement
 - discoveryQuestions: 3-5 follow-up questions to ask in the discovery call
+- proposedFirstPilot: {slug, name, why} — choose exactly one workflow from recommendedWorkflows, or null if none fit
 - risks: 2-4 potential risks or concerns
 - nextSteps: 3-5 concrete next steps
 
@@ -327,7 +316,7 @@ Return ONLY valid JSON matching this schema. No jargon. No invented stats or tes
     });
     const raw = JSON.parse(completion.choices[0]?.message?.content ?? "{}") as Partial<ReportDraft>;
     const tokensUsed = completion.usage?.total_tokens ?? 0;
-    return {
+    const merged = {
       summary:              raw.summary              ?? fallback.summary,
       keyFindings:          raw.keyFindings          ?? fallback.keyFindings,
       painPoints:           raw.painPoints           ?? fallback.painPoints,
@@ -338,8 +327,11 @@ Return ONLY valid JSON matching this schema. No jargon. No invented stats or tes
       discoveryQuestions:   raw.discoveryQuestions   ?? fallback.discoveryQuestions,
       risks:                raw.risks                ?? fallback.risks,
       nextSteps:            raw.nextSteps            ?? fallback.nextSteps,
-      tokensUsed,
+      proposedFirstPilot:   raw.proposedFirstPilot   ?? fallback.proposedFirstPilot,
     };
+    // A malformed model response must not reach the operator as a valid draft.
+    const validated = ReportDraftSchema.safeParse(merged);
+    return { ...(validated.success ? validated.data : fallback), tokensUsed };
   } catch {
     return { ...fallback, tokensUsed: 0 };
   }
@@ -357,6 +349,7 @@ function buildFallbackReport(answers: AnsweredQuestion[], contactName: string, c
   const tier: ReportDraft["suggestedTier"] =
     budgetA.includes("15,000") || budgetA.includes("5,000") ? "WHITE_GLOVE" :
     budgetA.includes("2,000") ? "GUIDED" : "SELF_SERVE";
+  const workflows = guide.workflows.map((w) => ({ slug: w.id, name: w.name, why: "Candidate for the pilot; verify value, access, effort, and acceptance criteria together." }));
 
   return {
     summary: `${contactName} is looking for help with ${guide.audience === "personal" ? "personal and family logistics" : guide.audience === "both" ? "work and personal logistics" : "business operations"}: ${problemsA.slice(0, 200)}. These are candidate workflows to confirm in consultation.`,
@@ -367,7 +360,8 @@ function buildFallbackReport(answers: AnsweredQuestion[], contactName: string, c
       aiA ? `AI tools today: ${aiA.slice(0, 100)}` : "Current AI tools were not stated",
     ],
     painPoints: problemsA.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean).slice(0, 4),
-    recommendedWorkflows: guide.workflows.map((w) => ({ slug: w.id, name: w.name, why: "Candidate for the pilot; verify value, access, effort, and acceptance criteria together." })),
+    recommendedWorkflows: workflows,
+    proposedFirstPilot: workflows[0] ?? null,
     suggestedTier: tier,
     tierRationale: `Based on the intake, ${tier === "WHITE_GLOVE" ? "the scope and budget suggest a full Done-for-you engagement" : tier === "GUIDED" ? "Guided sessions would allow hands-on build with appropriate oversight" : "Self-serve is a good starting point"}.`,
     proposalScope: "Audit the selected processes, agree one pilot, document workflow contracts, and deliver an operating guide. Installation, training, and care depend on the agreed tier and scope.",
@@ -382,7 +376,7 @@ function buildFallbackReport(answers: AnsweredQuestion[], contactName: string, c
       "Team adoption depends on comfort with new tools",
     ],
     nextSteps: [
-      "Schedule a 30-minute discovery call with Shea",
+      "Schedule a free 20-minute fit call with Shea",
       "Share access to a demo environment of the core system (optional)",
       "Confirm the team members who will be involved",
     ],
