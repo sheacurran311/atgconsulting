@@ -13,6 +13,7 @@
  *   - AI health (last known fallback count)
  */
 
+import { customerDirectoryWhere } from "../lib/customerDirectory";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
@@ -266,6 +267,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
 
   const month = now.toISOString().slice(0, 7);
   const clientSample = await prisma.client.findMany({
+    where: customerDirectoryWhere,
     orderBy: { updatedAt: "desc" },
     take: 40,
     select: {
@@ -317,8 +319,8 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       },
       take: 40,
     }),
-    prisma.client.groupBy({ by: ["tier"], _count: { _all: true } }),
-    prisma.client.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.client.groupBy({ where: customerDirectoryWhere, by: ["tier"], _count: { _all: true } }),
+    prisma.client.groupBy({ where: customerDirectoryWhere, by: ["status"], _count: { _all: true } }),
     prisma.content.groupBy({ by: ["status"], _count: { _all: true } }),
     prisma.catalogItem.count({ where: { reviewStatus: "pending" } }),
     prisma.catalogItem.count({ where: { verified: true, enabled: true } }),

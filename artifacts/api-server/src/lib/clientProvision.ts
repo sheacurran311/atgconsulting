@@ -1,7 +1,8 @@
 /**
  * Verified sign-up provisioning.
  *
- * On the first authenticated request with a Clerk-verified email:
+ * For customer identities, on the first request with a Clerk-verified email:
+ * Admin identities do not enter this automatic prospect-provisioning flow.
  *   - create a Client (tier NONE, status PROSPECT) if this user has none
  *   - attach DiscoveryIntake rows whose contact email matches and that are
  *     not already linked to a client

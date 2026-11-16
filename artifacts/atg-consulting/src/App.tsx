@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Route, Switch, Router, useLocation, Redirect } from "wouter";
 import { ClerkProvider, useUser } from "@clerk/react";
 import { clerkPubKey, clerkProxyUrl, clerkAppearance, basePath, stripBase } from "@/lib/clerk";
+import AccountLanding from "@/components/AccountLanding";
+import IntakeEntry from "@/components/IntakeEntry";
+import AdminAccountPage from "@/pages/admin/account";
 import Nav from "@/components/Nav";
 import CommandPalette from "@/components/CommandPalette";
 import HomePage from "@/pages/home";
@@ -92,8 +95,10 @@ function AuthenticatedApp() {
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
-      signInFallbackRedirectUrl={`${basePath}/app`}
-      signUpFallbackRedirectUrl={`${basePath}/app`}
+      signInFallbackRedirectUrl={`${basePath}/auth/continue`}
+      signInForceRedirectUrl={`${basePath}/auth/continue`}
+      signUpFallbackRedirectUrl={`${basePath}/auth/continue`}
+      signUpForceRedirectUrl={`${basePath}/auth/continue`}
       localization={{ signIn: { start: { title: "Welcome back", subtitle: "Sign in to your ATG Consulting account" } }, signUp: { start: { title: "Create your account", subtitle: "Get started with ATG Consulting" } } }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
@@ -107,11 +112,12 @@ function AuthenticatedApp() {
       <Switch>
         {/* Marketing */}
         <Route path="/" component={HomeRedirect} />
+        <Route path="/auth/continue" component={AccountLanding} />
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
 
         {/* Intake + plan */}
-        <Route path="/intake" component={IntakeDiscoveryPage} />
+        <Route path="/intake">{() => <IntakeEntry><IntakeDiscoveryPage /></IntakeEntry>}</Route>
         <Route path="/intake/i/:token" component={IntakeDiscoveryPage} />
         <Route path="/intake/e/:token" component={IntakeDiscoveryPage} />
         {/* /start and /start/result/* redirect to /intake */}
@@ -161,6 +167,7 @@ function AuthenticatedApp() {
         <Route path="/admin/discovery" component={AdminDiscoveryPage} />
         <Route path="/admin/engagements" component={AdminEngagementsPage} />
         <Route path="/admin/catalog" component={AdminCatalogPage} />
+        <Route path="/admin/account" component={AdminAccountPage} />
         <Route path="/admin/today" component={AdminTodayPage} />
         <Route path="/blog" component={BlogPage} />
         <Route path="/blog/:slug" component={BlogPostPage} />
