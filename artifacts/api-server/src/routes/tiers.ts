@@ -21,17 +21,19 @@
  *   PATCH /api/admin/support/:id                  — update ticket status
  */
 
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { notifyShea } from "../lib/email";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { generateToolPlan, type ToolPlanInput } from "../lib/llm";
 import { sanitiseText } from "../lib/sanitize";
-import { shouldAutoApproveToolPlan, toolPlanVisibleToClient } from "../lib/toolPlanPolicy";
+import { toolPlanVisibleToClient } from "../lib/toolPlanPolicy";
 import { canAcceptDfy, dfyMonthStart } from "../lib/guidedPackage";
 import { parseIntakeAnswers } from "../lib/intakeAnswers";
+import { customerToolPlan } from "../lib/clientViews";
 
+export function createTiersRouter(resolve: RequestHandler = withUser) {
 const router = Router();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -44,26 +46,26 @@ function cid(req: AuthedRequest, res: Parameters<typeof requireAuth>[1]): string
 
 // ── Tool plan — client ────────────────────────────────────────────────────────
 
-router.get("/tool-plan", withUser, requireAuth, async (req, res) => {
+router.get("/tool-plan", resolve, requireAuth, async (req, res) => {
   const clientId = cid(req as AuthedRequest, res);
   if (!clientId) return;
 
   const plan = await prisma.toolPlan.findFirst({
     where: { clientId, status: "approved" },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ approvedAt: "desc" }, { createdAt: "desc" }],
   });
   if (!plan || !toolPlanVisibleToClient(plan.status)) {
     res.status(404).json({ error: "Shea has not approved your tool plan yet." });
     return;
   }
-  res.json(plan);
+  res.json(customerToolPlan(plan));
 });
 
 const GeneratePlanSchema = z.object({
   intakeId: z.string().min(1).optional(),
 });
 
-router.post("/tool-plan/generate", withUser, requireAuth, async (req, res) => {
+router.post("/tool-plan/generate", resolve, requireAuth, async (req, res) => {
   const clientId = cid(req as AuthedRequest, res);
   if (!clientId) return;
 
@@ -91,7 +93,6 @@ router.post("/tool-plan/generate", withUser, requireAuth, async (req, res) => {
   const output = await generateToolPlan(input);
 
   // Every tier stays a draft until Shea approves it in admin.
-  const autoApprove = shouldAutoApproveToolPlan(client?.tier);
 
   const existing = await prisma.toolPlan.findFirst({ where: { clientId, status: "draft" }, orderBy: { createdAt: "desc" } });
   const planData = {
@@ -101,13 +102,12 @@ router.post("/tool-plan/generate", withUser, requireAuth, async (req, res) => {
     intakeId: intake?.id ?? null,
     status: "draft" as const,
     approvedAt: null,
-    ...(autoApprove ? { status: "approved" as const, approvedAt: new Date() } : {}),
   };
   const plan = existing
     ? await prisma.toolPlan.update({ where: { id: existing.id }, data: planData })
     : await prisma.toolPlan.create({ data: { clientId, ...planData } });
 
-  res.status(201).json({ ...plan, _autoApproved: autoApprove });
+  res.status(201).json({ id: plan.id, status: plan.status, reviewRequired: true, _autoApproved: false });
 });
 
 // ── Support tickets — client (SELF_SERVE) ────────────────────────────────────
@@ -117,7 +117,7 @@ const SupportTicketSchema = z.object({
   message: z.string().trim().min(1).max(5000),
 });
 
-router.post("/support", withUser, requireAuth, async (req, res) => {
+router.post("/support", resolve, requireAuth, async (req, res) => {
   const clientId = cid(req as AuthedRequest, res);
   if (!clientId) return;
   const parsed = SupportTicketSchema.safeParse(req.body);
@@ -135,7 +135,7 @@ router.post("/support", withUser, requireAuth, async (req, res) => {
 
 // ── DFY application ───────────────────────────────────────────────────────────
 
-router.post("/dfy/apply", withUser, requireAuth, async (req, res) => {
+router.post("/dfy/apply", resolve, requireAuth, async (req, res) => {
   const clientId = cid(req as AuthedRequest, res);
   if (!clientId) return;
   const existing = await prisma.dfyApplication.findUnique({ where: { clientId } });
@@ -150,7 +150,7 @@ router.post("/dfy/apply", withUser, requireAuth, async (req, res) => {
   res.status(201).json(app);
 });
 
-router.get("/dfy/status", withUser, requireAuth, async (req, res) => {
+router.get("/dfy/status", resolve, requireAuth, async (req, res) => {
   const clientId = cid(req as AuthedRequest, res);
   if (!clientId) return;
   const app = await prisma.dfyApplication.findUnique({ where: { clientId } });
@@ -159,7 +159,7 @@ router.get("/dfy/status", withUser, requireAuth, async (req, res) => {
 
 // ── Guided sessions — client ──────────────────────────────────────────────────
 
-router.get("/guided/sessions", withUser, requireAuth, async (req, res) => {
+router.get("/guided/sessions", resolve, requireAuth, async (req, res) => {
   const clientId = cid(req as AuthedRequest, res);
   if (!clientId) return;
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { guidedSessionsTotal: true, guidedSessionsUsed: true } });
@@ -168,7 +168,7 @@ router.get("/guided/sessions", withUser, requireAuth, async (req, res) => {
 
 // ── Admin: tool plans ─────────────────────────────────────────────────────────
 
-router.get("/admin/tool-plans", withUser, requireAdmin, async (_req, res) => {
+router.get("/admin/tool-plans", resolve, requireAdmin, async (_req, res) => {
   const plans = await prisma.toolPlan.findMany({
     where: { status: "draft" },
     include: { client: { include: { user: { select: { name: true, email: true } } } } },
@@ -177,7 +177,7 @@ router.get("/admin/tool-plans", withUser, requireAdmin, async (_req, res) => {
   res.json(plans);
 });
 
-router.get("/admin/clients/:id/tool-plan", withUser, requireAdmin, async (req, res) => {
+router.get("/admin/clients/:id/tool-plan", resolve, requireAdmin, async (req, res) => {
   const plan = await prisma.toolPlan.findFirst({ where: { clientId: req.params.id as string }, orderBy: { createdAt: "desc" } });
   res.json(plan ?? null);
 });
@@ -188,7 +188,7 @@ const ToolPlanAdminPatch = z.object({
   adminNotes:  z.string().max(5000).optional(),
 });
 
-router.patch("/admin/clients/:id/tool-plan", withUser, requireAdmin, async (req, res) => {
+router.patch("/admin/clients/:id/tool-plan", resolve, requireAdmin, async (req, res) => {
   const parsed = ToolPlanAdminPatch.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Invalid patch." }); return; }
   const plan = await prisma.toolPlan.findFirst({ where: { clientId: req.params.id as string }, orderBy: { createdAt: "desc" } });
@@ -197,7 +197,7 @@ router.patch("/admin/clients/:id/tool-plan", withUser, requireAdmin, async (req,
   res.json(updated);
 });
 
-router.post("/admin/clients/:id/tool-plan/approve", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/clients/:id/tool-plan/approve", resolve, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const plan = await prisma.toolPlan.findFirst({ where: { clientId: req.params.id as string, status: "draft" }, orderBy: { createdAt: "desc" } });
   if (!plan) { res.status(404).json({ error: "No draft plan to approve." }); return; }
@@ -210,7 +210,7 @@ router.post("/admin/clients/:id/tool-plan/approve", withUser, requireAdmin, asyn
 
 // ── Admin: DFY applications ───────────────────────────────────────────────────
 
-router.get("/admin/dfy-applications", withUser, requireAdmin, async (_req, res) => {
+router.get("/admin/dfy-applications", resolve, requireAdmin, async (_req, res) => {
   const apps = await prisma.dfyApplication.findMany({
     include: { client: { include: { user: { select: { name: true, email: true } } } } },
     orderBy: { createdAt: "desc" },
@@ -227,7 +227,7 @@ const DfyStatusSchema = z.object({
   notes:  z.string().max(2000).optional(),
 });
 
-router.patch("/admin/dfy-applications/:id", withUser, requireAdmin, async (req, res) => {
+router.patch("/admin/dfy-applications/:id", resolve, requireAdmin, async (req, res) => {
   const parsed = DfyStatusSchema.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Invalid status." }); return; }
   const existing = await prisma.dfyApplication.findUnique({ where: { id: req.params.id as string } });
@@ -267,7 +267,7 @@ const GuidedSessionSchema = z.object({
   guidedSessionsUsed:  z.number().int().min(0).max(20).optional(),
 });
 
-router.patch("/admin/clients/:id/guided-sessions", withUser, requireAdmin, async (req, res) => {
+router.patch("/admin/clients/:id/guided-sessions", resolve, requireAdmin, async (req, res) => {
   const parsed = GuidedSessionSchema.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "guidedSessionsTotal is required." }); return; }
   const updated = await prisma.client.update({
@@ -284,7 +284,7 @@ router.patch("/admin/clients/:id/guided-sessions", withUser, requireAdmin, async
 
 // ── Admin: support tickets ────────────────────────────────────────────────────
 
-router.get("/admin/support", withUser, requireAdmin, async (req, res) => {
+router.get("/admin/support", resolve, requireAdmin, async (req, res) => {
   const { status } = req.query as { status?: string };
   const tickets = await prisma.supportTicket.findMany({
     where: status ? { status } : {},
@@ -297,11 +297,13 @@ router.get("/admin/support", withUser, requireAdmin, async (req, res) => {
 
 const SupportStatusSchema = z.object({ status: z.enum(["open", "replied", "closed"]) });
 
-router.patch("/admin/support/:id", withUser, requireAdmin, async (req, res) => {
+router.patch("/admin/support/:id", resolve, requireAdmin, async (req, res) => {
   const parsed = SupportStatusSchema.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "status must be open, replied, or closed." }); return; }
   const updated = await prisma.supportTicket.update({ where: { id: req.params.id as string }, data: parsed.data });
   res.json(updated);
 });
 
-export default router;
+return router;
+}
+export default createTiersRouter();

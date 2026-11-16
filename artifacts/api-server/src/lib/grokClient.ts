@@ -52,8 +52,9 @@ export function resolveGrokBaseUrl(env: { NODE_ENV?: string; LLM_BASE_URL?: stri
   return XAI_BASE_URL;
 }
 
-/** Returns the xAI client, or null if XAI_API_KEY is not set. */
+/** All callers, including operator generation, obey the global AI switch. */
 export function getGrokClient(): OpenAI | null {
+  if (!isAiEnabled()) return null;
   const apiKey = process.env.XAI_API_KEY;
   if (!apiKey) {
     if (!getGrokClient._warned) {
@@ -111,7 +112,7 @@ export async function grokHealthCheck(): Promise<GrokHealth> {
   const client = getGrokClient();
   const checkedAt = new Date().toISOString();
   if (!client) {
-    cachedHealth = { ok: false, model: GROK_MODEL, error: "XAI_API_KEY is not set", checkedAt };
+    cachedHealth = { ok: false, model: GROK_MODEL, error: isAiEnabled() ? "XAI_API_KEY is not set" : "AI is turned off", checkedAt };
     return cachedHealth;
   }
   const t0 = Date.now();

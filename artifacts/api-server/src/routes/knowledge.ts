@@ -14,40 +14,21 @@
  *   DELETE /api/admin/knowledge/:id      — disable
  */
 
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { parseIntakeAnswers } from "../lib/intakeAnswers";
 
+import { parseArticleTags as parseTags, articleAllowed, articleRelevant } from "../lib/contentAccess";
+import { testModeForActor } from "../lib/access";
+
+export function createKnowledgeRouter(resolve: RequestHandler = withUser) {
 const router = Router();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-interface ArticleTags { verticals: string[]; tiers: string[]; platforms: string[] }
-
-function parseTags(raw: string): ArticleTags {
-  try { return JSON.parse(raw) as ArticleTags; } catch { return { verticals: [], tiers: [], platforms: [] }; }
-}
-
-function matchesClient(
-  tags: ArticleTags,
-  clientVertical: string | null,
-  clientTier: string,
-  clientPlatforms: string[],
-): boolean {
-  const { verticals, tiers, platforms } = tags;
-  if (verticals.length > 0 && clientVertical && !verticals.includes(clientVertical)) return false;
-  if (tiers.length > 0 && !tiers.includes(clientTier)) return false;
-  if (platforms.length > 0 && clientPlatforms.length > 0) {
-    if (!platforms.some((p) => clientPlatforms.includes(p))) return false;
-  }
-  return true;
-}
-
-// ── Client: knowledge articles ────────────────────────────────────────────────
-
-router.get("/knowledge", withUser, requireAuth, async (req, res) => {
+router.get("/knowledge", resolve, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
 
   const client = user.clientId
@@ -69,33 +50,37 @@ router.get("/knowledge", withUser, requireAuth, async (req, res) => {
     orderBy: { sortOrder: "asc" },
   });
 
-  // Filter to articles relevant to this client; if no filter matches, return all
-  const relevant = articles.filter((a) => matchesClient(parseTags(a.tags), clientVertical, clientTier, clientPlatforms));
-  res.json((relevant.length > 0 ? relevant : articles).map((a) => ({
+  // Choose relevant articles only within the eligible set.
+  const eligible = articles.filter((a) => articleAllowed(parseTags(a.tags), clientTier, testModeForActor(user.role)));
+  const relevant = eligible.filter((a) => articleRelevant(parseTags(a.tags), clientVertical, clientPlatforms));
+  res.json((relevant.length > 0 ? relevant : eligible).map((a) => ({
     id: a.id, slug: a.slug, title: a.title, body: a.body,
     tags: parseTags(a.tags), sortOrder: a.sortOrder,
   })));
 });
 
-router.get("/knowledge/:slug", withUser, requireAuth, async (req, res) => {
+router.get("/knowledge/:slug", resolve, requireAuth, async (req, res) => {
   const article = await prisma.knowledgeArticle.findFirst({
     where: { slug: req.params.slug as string, enabled: true },
   });
   if (!article) { res.status(404).json({ error: "Article not found." }); return; }
+  const user = (req as AuthedRequest).atgUser!;
+  const client = user.clientId ? await prisma.client.findUnique({ where: { id: user.clientId }, select: { tier: true } }) : null;
+  if (!articleAllowed(parseTags(article.tags), client?.tier ?? "NONE", testModeForActor(user.role))) { res.status(403).json({ error: "This article is not included in your plan." }); return; }
   res.json({ id: article.id, slug: article.slug, title: article.title, body: article.body, tags: parseTags(article.tags) });
 });
 
 // ── Client: personalised tool recommendations ─────────────────────────────────
 
-router.get("/resources/tools", withUser, requireAuth, async (req, res) => {
+router.get("/resources/tools", resolve, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
 
   // 1. Get tools from the client's approved tool plan
   const toolPlanTools: { name: string; slug?: string; why: string; costNote: string }[] = [];
   if (user.clientId) {
     const plan = await prisma.toolPlan.findFirst({
-      where: { clientId: user.clientId, status: { in: ["approved", "draft"] } },
-      orderBy: { createdAt: "desc" },
+      where: { clientId: user.clientId, status: "approved" },
+      orderBy: [{ approvedAt: "desc" }, { createdAt: "desc" }],
       select: { toolsJson: true },
     });
     if (plan?.toolsJson) {
@@ -149,7 +134,7 @@ router.get("/resources/tools", withUser, requireAuth, async (req, res) => {
 
 // ── Client: platform-specific setup guides ────────────────────────────────────
 
-router.get("/resources/platform-guides", withUser, requireAuth, async (req, res) => {
+router.get("/resources/platform-guides", resolve, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
 
   // Determine client's preferred platforms from intake
@@ -179,7 +164,8 @@ router.get("/resources/platform-guides", withUser, requireAuth, async (req, res)
     orderBy: { sortOrder: "asc" },
   });
 
-  res.json(guides.map((g) => ({
+  const client = user.clientId ? await prisma.client.findUnique({ where: { id: user.clientId }, select: { tier: true } }) : null;
+  res.json(guides.filter((g) => articleAllowed(parseTags(g.tags), client?.tier ?? "NONE", testModeForActor(user.role))).map((g) => ({
     id: g.id, slug: g.slug, title: g.title, body: g.body,
   })));
 });
@@ -199,12 +185,12 @@ const ArticleBody = z.object({
   sortOrder: z.number().int().optional(),
 });
 
-router.get("/admin/knowledge", withUser, requireAuth, requireAdmin, async (_req, res) => {
+router.get("/admin/knowledge", resolve, requireAuth, requireAdmin, async (_req, res) => {
   const articles = await prisma.knowledgeArticle.findMany({ orderBy: { sortOrder: "asc" } });
   res.json(articles.map((a) => ({ ...a, tags: parseTags(a.tags) })));
 });
 
-router.post("/admin/knowledge", withUser, requireAuth, requireAdmin, async (req, res) => {
+router.post("/admin/knowledge", resolve, requireAuth, requireAdmin, async (req, res) => {
   const parsed = ArticleBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
   const { tags, slug, ...rest } = parsed.data;
@@ -215,7 +201,7 @@ router.post("/admin/knowledge", withUser, requireAuth, requireAdmin, async (req,
   res.status(201).json({ ...article, tags: parseTags(article.tags) });
 });
 
-router.patch("/admin/knowledge/:id", withUser, requireAuth, requireAdmin, async (req, res) => {
+router.patch("/admin/knowledge/:id", resolve, requireAuth, requireAdmin, async (req, res) => {
   const article = await prisma.knowledgeArticle.findUnique({ where: { id: req.params.id as string } });
   if (!article) { res.status(404).json({ error: "Article not found." }); return; }
   const parsed = ArticleBody.partial().safeParse(req.body);
@@ -228,11 +214,13 @@ router.patch("/admin/knowledge/:id", withUser, requireAuth, requireAdmin, async 
   res.json({ ...updated, tags: parseTags(updated.tags) });
 });
 
-router.delete("/admin/knowledge/:id", withUser, requireAuth, requireAdmin, async (req, res) => {
+router.delete("/admin/knowledge/:id", resolve, requireAuth, requireAdmin, async (req, res) => {
   const article = await prisma.knowledgeArticle.findUnique({ where: { id: req.params.id as string } });
   if (!article) { res.status(404).json({ error: "Article not found." }); return; }
   await prisma.knowledgeArticle.update({ where: { id: article.id }, data: { enabled: false } });
   res.json({ ok: true });
 });
 
-export default router;
+return router;
+}
+export default createKnowledgeRouter();

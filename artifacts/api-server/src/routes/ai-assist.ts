@@ -12,7 +12,7 @@
  * client email/calendar contents. Pasted samples only, short retention.
  */
 
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
@@ -22,11 +22,13 @@ import {
   buildClientContext, getRecentHistory, callAssist,
   coachSystemPrompt, customizerSystemPrompt, troubleshooterSystemPrompt,
 } from "../lib/ai-assist";
-import { generateBothOutputs, generateToolPlan } from "../lib/llm";
+import { generateToolPlan } from "../lib/llm";
+import { parseIntakeAnswers } from "../lib/intakeAnswers";
 import { sanitiseText } from "../lib/sanitize";
 
+export function createAiAssistRouter(resolve: RequestHandler = withUser) {
 const router = Router();
-router.use("/ai-assist", withUser, requireAuth);
+router.use("/ai-assist", resolve, requireAuth);
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 
@@ -288,102 +290,23 @@ router.post("/ai-assist/report-refresh", async (req, res) => {
   });
   if (!intake) { res.status(404).json({ error: "No intake on file. Complete the assessment first." }); return; }
 
+  const answers = parseIntakeAnswers(intake.answers);
+  const output = await generateToolPlan({
+    industry: answers.industry ?? client.industry ?? "not stated",
+    areas: answers.areas, aiComfort: answers.aiComfort ?? client.aiLevel ?? 0,
+    toolBudget: answers.toolBudget ?? undefined, currentSoftware: answers.tools ?? undefined,
+    timeSinks: answers.timeSinks, aiPlatforms: answers.aiPlatforms,
+  });
+  // Keep all customer-initiated refreshes private until an operator approves.
+  // Do not create a legacy Plan snapshot that has no publication state.
+  const draft = await prisma.toolPlan.create({ data: {
+    clientId, intakeId: intake.id,
+    toolsJson: JSON.stringify(output.tools), stepsJson: JSON.stringify(output.steps),
+    source: output.source, status: "draft", approvedAt: null,
+  } });
   refreshCooldown.set(clientId, Date.now());
-
-  // DiscoveryIntake stores all fields in answers JSON
-  const answers: Record<string, unknown> = (() => { try { return JSON.parse(intake.answers ?? "{}") as Record<string, unknown>; } catch { return {}; } })();
-  const findAns = (id: string): string | undefined => {
-    if (typeof answers[id] === "string") return answers[id] as string;
-    if (Array.isArray(answers)) { const f = (answers as Array<{id?: string; answer?: string}>).find((a) => a.id === id); return f?.answer; }
-    return undefined;
-  };
-  const areas: string[] = (() => { const a = findAns("areas"); if (!a) return []; try { return JSON.parse(a) as string[]; } catch { return []; } })();
-  const aiComfort = parseInt(findAns("aiComfort") ?? "1", 10) || 1;
-
-  const [{ clientSnapshot, adminReport }, toolPlanOutput] = await Promise.all([
-    generateBothOutputs({
-      name: client.user?.name ?? intake.contactName ?? "Client",
-      email: intake.contactEmail ?? "",
-      industry: findAns("business_type") ?? client.industry ?? "unknown",
-      areas,
-      aiComfort,
-      helpStyle: findAns("preferredHelp") ?? "not_sure",
-      hoursLost: (() => { const raw = findAns("hoursLost"); if (!raw || !/^\d+(\.\d+)?$/.test(raw.trim())) return null; const n = Number(raw); return n > 0 && n <= 168 ? n : null; })(),
-      timeSinks: (() => { const t = findAns("timeSinks"); if (!t) return []; try { return JSON.parse(t) as string[]; } catch { return []; } })(),
-      role: findAns("role") ?? client.roleTitle ?? "Business owner",
-      bizSize: findAns("team_size") ?? client.size ?? "solo",
-      tools: [],
-      automateFirst: findAns("top_problems") ?? undefined,
-      freeText: undefined,
-    }),
-    generateToolPlan({
-      industry: findAns("business_type") ?? client.industry ?? "unknown",
-      areas,
-      aiComfort,
-      toolBudget: findAns("toolBudget"),
-      currentSoftware: findAns("currentSoftware"),
-      weeklyVolumes: findAns("weeklyVolumes"),
-      timeSinks: (() => { const t = findAns("timeSinks"); if (!t) return []; try { return JSON.parse(t) as string[]; } catch { return []; } })(),
-      aiPlatforms: (() => { const a = findAns("aiPlatforms"); if (!a) return []; try { return JSON.parse(a) as string[]; } catch { return []; } })(),
-    }),
-  ]);
-
-  // Generate a diff summary for Guided/DFY clients comparing new vs old plan
-  let refreshDiff: string | undefined;
-  const prevPlan = (client.tier === "GUIDED" || client.tier === "WHITE_GLOVE")
-    ? await prisma.plan.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" }, select: { recommendedTier: true, focusAreas: true } })
-    : null;
-  if ((client.tier === "GUIDED" || client.tier === "WHITE_GLOVE") && prevPlan) {
-    const prevTier = prevPlan.recommendedTier;
-    const newTier = clientSnapshot.recommendedTier;
-    const prevAreas: { name: string }[] = (() => { try { return JSON.parse(prevPlan.focusAreas) as { name: string }[]; } catch { return []; } })();
-    const newAreas = clientSnapshot.focusAreas;
-    const tierChanged = prevTier !== newTier;
-    const areaNames = (arr: { name: string }[]) => arr.map((a) => a.name).join(", ");
-    refreshDiff = [
-      tierChanged ? `Tier recommendation changed: ${prevTier} → ${newTier}` : `Tier unchanged: ${newTier}`,
-      `Previous focus areas: ${areaNames(prevAreas) || "none"}`,
-      `New focus areas: ${areaNames(newAreas) || "none"}`,
-      `Readiness: ${clientSnapshot.aiReadinessLabel}`,
-    ].join("\n");
-  }
-
-  const plan = await prisma.plan.create({
-    data: {
-      intakeId: intake.id,
-      clientId,
-      aiReadinessLabel: clientSnapshot.aiReadinessLabel,
-      aiReadinessSummary: clientSnapshot.aiReadinessSummary,
-      focusAreas: JSON.stringify(clientSnapshot.focusAreas),
-      recommendedTier: clientSnapshot.recommendedTier,
-      tierRationale: clientSnapshot.tierRationale,
-      ctaText: clientSnapshot.ctaText,
-      adminReport: JSON.stringify(adminReport),
-      source: clientSnapshot.source,
-      refreshDiff,
-    },
-  });
-
-  // Auto-approve tool plan
-  await prisma.toolPlan.create({
-    data: {
-      clientId,
-      intakeId: intake.id,
-      toolsJson: JSON.stringify(toolPlanOutput.tools),
-      stepsJson: JSON.stringify(toolPlanOutput.steps),
-      source: toolPlanOutput.source,
-      status: "approved",
-      approvedAt: new Date(),
-    },
-  });
-
-  res.json({
-    ok: true,
-    planId: plan.id,
-    recommendedTier: plan.recommendedTier,
-    refreshDiff: refreshDiff ?? null,
-    message: "Your plan has been refreshed. Check the My Plan page for updates.",
-  });
+  res.json({ ok: true, toolPlanId: draft.id, reviewRequired: true,
+    message: "A refreshed draft is ready for Shea to review. Your approved plan stays available until he approves an update." });
 });
 
 // ── Client: usage meter ───────────────────────────────────────────────────────
@@ -417,7 +340,7 @@ router.get("/ai-assist/usage", async (req, res) => {
 
 // ── Admin: usage table + chat log ─────────────────────────────────────────────
 
-router.get("/admin/ai-assist/usage", withUser, requireAdmin, async (_req, res) => {
+router.get("/admin/ai-assist/usage", resolve, requireAdmin, async (_req, res) => {
   const month = new Date().toISOString().slice(0, 7);
 
   const rows = await prisma.aIAssistUsage.groupBy({
@@ -457,7 +380,7 @@ router.get("/admin/ai-assist/usage", withUser, requireAdmin, async (_req, res) =
   });
 });
 
-router.get("/admin/ai-assist/log/:clientId", withUser, requireAdmin, async (req, res) => {
+router.get("/admin/ai-assist/log/:clientId", resolve, requireAdmin, async (req, res) => {
   const messages = await prisma.aIAssistMessage.findMany({
     where: { clientId: req.params.clientId as string },
     orderBy: { createdAt: "desc" },
@@ -469,10 +392,12 @@ router.get("/admin/ai-assist/log/:clientId", withUser, requireAdmin, async (req,
 
 // ── Admin: Grok health check ──────────────────────────────────────────────────
 
-router.get("/admin/ai-assist/health", withUser, requireAdmin, async (_req, res) => {
+router.get("/admin/ai-assist/health", resolve, requireAdmin, async (_req, res) => {
   const { grokHealthCheck, GROK_MODEL } = await import("../lib/grokClient");
   const result = await grokHealthCheck();
   res.json({ ...result, timestamp: new Date().toISOString(), model: GROK_MODEL });
 });
 
-export default router;
+return router;
+}
+export default createAiAssistRouter();

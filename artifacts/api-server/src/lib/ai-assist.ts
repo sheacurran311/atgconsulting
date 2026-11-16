@@ -24,6 +24,7 @@
  */
 
 import OpenAI from "openai";
+import { articleAllowed, parseArticleTags } from "./contentAccess";
 import { createHash } from "crypto";
 import { prisma } from "./db";
 import { parseIntakeAnswers } from "./intakeAnswers";
@@ -173,7 +174,7 @@ export async function buildClientContext(clientId: string): Promise<ClientContex
   // Fetch intake and tool plan separately
   const [intake, toolPlan] = await Promise.all([
     prisma.discoveryIntake.findFirst({ where: { clientId }, orderBy: { createdAt: "desc" }, select: { answers: true } }),
-    prisma.toolPlan.findFirst({ where: { clientId, status: { in: ["approved", "draft"] } }, orderBy: { createdAt: "desc" }, select: { toolsJson: true } }),
+    prisma.toolPlan.findFirst({ where: { clientId, status: "approved" }, orderBy: [{ approvedAt: "desc" }, { createdAt: "desc" }], select: { toolsJson: true } }),
   ]);
 
   const parsedAnswers = parseIntakeAnswers(intake?.answers);
@@ -206,7 +207,7 @@ export async function buildClientContext(clientId: string): Promise<ClientContex
     take: 4,
   });
 
-  const relevantArticles = articles.map((a) => ({
+  const relevantArticles = articles.filter((a) => articleAllowed(parseArticleTags(a.tags), client.tier)).map((a) => ({
     title: a.title,
     snippet: a.body.split("\n").find((l) => l.trim() && !l.startsWith("#"))?.slice(0, 200) ?? "",
   }));

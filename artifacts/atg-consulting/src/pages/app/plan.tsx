@@ -4,13 +4,13 @@
  */
 import { useState, useEffect } from "react";
 import AppShell from "@/components/app/AppShell";
-import { api, type ToolPlan } from "@/lib/api";
+import { api, type CustomerToolPlan } from "@/lib/api";
 import { useAccount } from "@/lib/useAccount";
 
 interface Tool { name: string; slug?: string; why: string; costNote: string }
 interface Step  { order: number; title: string; detail: string }
 
-function PlanView({ plan }: { plan: ToolPlan }) {
+function PlanView({ plan }: { plan: CustomerToolPlan }) {
   const tools: Tool[] = (() => { try { return JSON.parse(plan.toolsJson) as Tool[]; } catch { return []; } })();
   const steps: Step[]  = (() => { try { return JSON.parse(plan.stepsJson) as Step[]; } catch { return []; } })();
   const hasReferralLinks = tools.some((t) => !!t.slug);
@@ -81,7 +81,7 @@ function PlanView({ plan }: { plan: ToolPlan }) {
 
 export default function PlanPage() {
   const { account } = useAccount();
-  const [plan, setPlan] = useState<ToolPlan | null>(null);
+  const [plan, setPlan] = useState<CustomerToolPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [pendingMsg, setPendingMsg] = useState<string | null>(null);
@@ -149,7 +149,7 @@ export default function PlanPage() {
             <div className="mt-8 pt-6" style={{ borderTop: "1px solid var(--canvas-border)" }}>
               <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>INTAKE CHANGED?</p>
               <p className="text-sm mb-3" style={{ color: "var(--canvas-text-2)" }}>
-                If you updated your intake answers, regenerate the plan to reflect them.
+                Request an updated draft after your assessment changes. Shea reviews it before replacing your approved plan.
               </p>
               {refreshMsg && (
                 <p className="text-sm mb-2 font-medium" style={{ color: refreshMsg.includes("fail") || refreshMsg.includes("rate") ? "#DC2626" : "#16A34A" }}>
@@ -166,7 +166,7 @@ export default function PlanPage() {
                 {refreshing ? "Refreshing…" : "Refresh my plan"}
               </button>
               <p className="text-xs mt-1" style={{ color: "var(--canvas-text-3)" }}>
-                Rate-limited to once per hour. Guided clients: the diff is shared with Shea.
+                Available once per hour. Your current approved plan remains available while Shea reviews the draft.
               </p>
             </div>
           </>

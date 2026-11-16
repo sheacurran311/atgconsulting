@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { Link, useRoute } from "wouter";
 import AppShell from "@/components/app/AppShell";
 import WhichAi from "@/components/app/WhichAi";
-import { api, type Module } from "@/lib/api";
+import { api, type Module, type ModulePreview } from "@/lib/api";
 
 const TIER_LABELS: Record<string, string> = { NONE: "Free", SELF_SERVE: "Self-serve", GUIDED: "Guided", WHITE_GLOVE: "Done-for-you" };
 
-type ModuleWithMeta = Module & { locked: boolean; completed: boolean };
+type ModuleWithMeta = ModulePreview;
 
 export default function LearnPage() {
   const [, params] = useRoute("/app/learn/:slug");
