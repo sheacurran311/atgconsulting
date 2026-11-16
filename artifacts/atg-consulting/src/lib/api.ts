@@ -315,6 +315,7 @@ export interface WorkshopQuiz {
 export interface ClientHomePayload {
   where: {
     hasIntake: boolean;
+    assessmentSource?: "discovery" | "legacy" | "none";
     intakeAt: string | null;
     proposalState: "empty" | "pending" | "ready";
     proposalApprovedAt: string | null;
@@ -349,7 +350,7 @@ export interface CustomerProfile { id: string; company: string | null; tier: str
 export interface Dashboard { client: CustomerProfile | null; workflowItems: WorkflowItem[]; recentConsultation: Consultation | null; recentReport: Report | null; activeDocCount: number; home: ClientHomePayload }
 export interface ClientAdmin { id: string; userId: string; company: string | null; tier: string; status: string; industry: string | null; aiLevel: number; createdAt: string; notes: string | null; user: { name: string | null; email: string | null }; _count?: { consultations: number; documents: number } }
 export interface ClientWorkflowOption { id: string; name: string; area: string; description: string }
-export interface ClientDetail extends ClientAdmin { intakes: IntakeRecord[]; plans: PlanAdmin[]; workflowItems: WorkflowItem[]; consultations: Consultation[]; documents: Document[]; reports: Report[]; workflows?: ClientWorkflowOption[] }
+export interface ClientDetail extends ClientAdmin { unlinkedAssessmentCount?: number; hasLegacyAssessment?: boolean; intakes: { id: string; contactName: string | null; contactEmail: string | null; status: string; createdAt: string }[]; plans: PlanAdmin[]; workflowItems: WorkflowItem[]; consultations: Consultation[]; documents: Document[]; reports: Report[]; workflows?: ClientWorkflowOption[] }
 export interface IntakeRecord { id: string; email: string; name: string; areas: string; aiComfort: number; hoursLost: number; status: string; createdAt: string; plans: PlanAdmin[]; client: ClientAdmin | null }
 export interface PlanAdmin { id: string; aiReadinessLabel: string; aiReadinessSummary: string; focusAreas: string; recommendedTier: string; tierRationale: string; adminReport: string | null; source: string; createdAt: string; refreshDiff?: string | null }
 export interface PrepView { client: ClientDetail; intake: IntakeRecord | null; answers: Record<string, unknown> | null; plan: PlanAdmin | null; talkingPoints: string[] }
@@ -585,6 +586,7 @@ export const skills3Api = {
 export interface PortalStatus {
   hasClient:         boolean;
   hasIntake:         boolean;
+  assessmentSource?: "discovery" | "legacy" | "none";
   clientId:          string | null;
   tier:              string;
   testMode:          boolean;

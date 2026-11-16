@@ -1,3 +1,4 @@
+import { legacyAssessmentFor } from "../lib/assessmentPresence";
 /**
  * Client portal routes — authenticated client accessing their own data.
  * All routes require auth. Clients can only see their own data.
@@ -33,6 +34,7 @@ function getClient(req: AuthedRequest, res: Parameters<typeof requireAuth>[1]): 
 // ── Dashboard / profile ───────────────────────────────────────────────────────
 
 router.get("/client/me", async (req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
   const user = (req as AuthedRequest).atgUser!;
   const client = user.clientId
     ? await prisma.client.findUnique({
@@ -58,6 +60,7 @@ router.get("/client/me", async (req, res) => {
 });
 
 router.get("/client/dashboard", async (req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
   const clientId = getClient(req as AuthedRequest, res);
   if (!clientId) return;
 
@@ -125,6 +128,7 @@ router.get("/client/dashboard", async (req, res) => {
     }),
   ]);
 
+  const legacy = !intakes.length ? await legacyAssessmentFor(clientId) : null;
   const intakeIds = intakes.map((row) => row.id);
   const proposals = intakeIds.length
     ? await prisma.discoveryProposal.findMany({
@@ -165,8 +169,9 @@ router.get("/client/dashboard", async (req, res) => {
     activeDocCount,
     home: {
       where: {
-        hasIntake: intakes.length > 0,
-        intakeAt: intakes[0]?.createdAt ?? null,
+        hasIntake: intakes.length > 0 || !!legacy,
+        assessmentSource: intakes.length ? "discovery" : legacy ? "legacy" : "none",
+        intakeAt: intakes[0]?.createdAt ?? legacy?.createdAt ?? null,
         proposalState,
         proposalApprovedAt: approvedProposal?.approvedAt ?? null,
         planReady: !!approvedPlan,

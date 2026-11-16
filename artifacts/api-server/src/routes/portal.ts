@@ -1,3 +1,4 @@
+import { legacyAssessmentFor } from "../lib/assessmentPresence";
 /**
  * Portal onboarding and personalization routes.
  *
@@ -10,18 +11,19 @@
  * Clerk-verified email. This router only reads the result.
  */
 
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { personalizeClientWorkspace, extractPersonalizedSlugs } from "../lib/personalization";
 import { testModeForActor } from "../lib/access";
 import { clientProposalState, toClientProposal } from "../lib/clientProposal";
 
+export function createPortalRouter(resolve: RequestHandler = withUser) {
 const router = Router();
 
 // ── Portal status ─────────────────────────────────────────────────────────────
 
-router.get("/portal/access-log", withUser, requireAuth, async (req, res) => {
+router.get("/portal/access-log", resolve, requireAuth, async (req, res) => {
   const clientId = (req as AuthedRequest).atgUser?.clientId;
   if (!clientId) { res.json([]); return; }
   const entries = await prisma.clientAccessLog.findMany({
@@ -39,19 +41,23 @@ router.get("/portal/access-log", withUser, requireAuth, async (req, res) => {
   res.json(entries);
 });
 
-router.get("/portal/status", withUser, requireAuth, async (req, res) => {
+router.get("/portal/status", resolve, requireAuth, async (req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
   const user = (req as AuthedRequest).atgUser!;
 
   const client = user.clientId
     ? await prisma.client.findUnique({
         where: { id: user.clientId },
+        include: { user: { select: { email: true, name: true } } },
       })
-    : await prisma.client.findFirst({ where: { userId: user.id }, });
+    : await prisma.client.findFirst({ where: { userId: user.id }, include: { user: { select: { email: true, name: true } } } });
 
   // Check if there's at least one DiscoveryIntake for this client
-  const hasIntake = client?.id
-    ? (await prisma.discoveryIntake.count({ where: { clientId: client.id } })) > 0
+  const hasSubmittedIntake = client?.id
+    ? (await prisma.discoveryIntake.count({ where: { clientId: client.id, consentGiven: true } })) > 0
     : false;
+  const legacy = client?.id && !hasSubmittedIntake ? await legacyAssessmentFor(client.id) : null;
+  const hasIntake = hasSubmittedIntake || !!legacy;
   const personalizedSlugs = extractPersonalizedSlugs(client?.notes ?? null);
 
   // Check for an approved discovery proposal linked to this client via intake
@@ -76,14 +82,15 @@ router.get("/portal/status", withUser, requireAuth, async (req, res) => {
   res.json({
     hasClient:  !!client,
     hasIntake,
+    assessmentSource: hasSubmittedIntake ? "discovery" : legacy ? "legacy" : "none",
     clientId:   client?.id ?? null,
     tier:       client?.tier ?? "NONE",
     /** True only for an admin while ADMIN_TEST_MODE=true. */
     testMode:   testModeForActor(user.role),
     personalizedSlugs: personalizedSlugs ?? [],
     intakePrefill: {
-      email: user.email,
-      name:  user.name,
+      email: user.isImpersonating ? client?.user?.email ?? null : user.email,
+      name:  user.isImpersonating ? client?.user?.name ?? null : user.name,
     },
     /** Non-null when an approved proposal is available for this client to view */
     discoveryProposal: discoveryProposal
@@ -95,7 +102,7 @@ router.get("/portal/status", withUser, requireAuth, async (req, res) => {
 // ── Approved proposal ─────────────────────────────────────────────────────────
 // Drafts and Shea's internal review notes are not returned.
 
-router.get("/portal/proposal", withUser, requireAuth, async (req, res) => {
+router.get("/portal/proposal", resolve, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   if (!user.clientId) {
     res.json({ state: clientProposalState({ clientId: null, intakeCount: 0, hasApproved: false }) });
@@ -136,7 +143,7 @@ router.get("/portal/proposal", withUser, requireAuth, async (req, res) => {
   });
 });
 
-router.post("/portal/proposal/accept", withUser, requireAuth, async (req, res) => {
+router.post("/portal/proposal/accept", resolve, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   if (user.isImpersonating) {
     res.status(403).json({ error: "Exit view-as-client before accepting a proposal." });
@@ -169,7 +176,7 @@ router.post("/portal/proposal/accept", withUser, requireAuth, async (req, res) =
 
 // ── Personalize (client-initiated) ────────────────────────────────────────────
 
-router.post("/portal/personalize", withUser, requireAuth, async (req, res) => {
+router.post("/portal/personalize", resolve, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   if (!user.clientId) { res.status(404).json({ error: "No client profile. Complete the intake first." }); return; }
   await personalizeClientWorkspace(user.clientId);
@@ -178,11 +185,13 @@ router.post("/portal/personalize", withUser, requireAuth, async (req, res) => {
 
 // ── Admin: re-run personalization ─────────────────────────────────────────────
 
-router.post("/admin/clients/:id/personalize", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/clients/:id/personalize", resolve, requireAdmin, async (req, res) => {
   const client = await prisma.client.findUnique({ where: { id: req.params.id as string } });
   if (!client) { res.status(404).json({ error: "Client not found." }); return; }
   await personalizeClientWorkspace(client.id);
   res.json({ ok: true, message: "Workspace personalized from latest intake." });
 });
 
-export default router;
+return router;
+}
+export default createPortalRouter();

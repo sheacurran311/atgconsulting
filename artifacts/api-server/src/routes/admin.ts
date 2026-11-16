@@ -1,3 +1,4 @@
+import { linkSubmittedAssessments } from "../lib/assessmentPresence";
 /**
  * Admin routes — Shea's console. Requires ADMIN role.
  * Includes consultation prep view: intake answers, AI-drafted plan, talking points.
@@ -62,7 +63,17 @@ router.get("/admin/clients/:id", async (req, res) => {
     },
   });
   if (!client) { res.status(404).json({ error: "Not found." }); return; }
-  res.json(client);
+  const intakes = await prisma.discoveryIntake.findMany({ where: { clientId: client.id, consentGiven: true }, select: { id: true, contactEmail: true, contactName: true, status: true, createdAt: true }, orderBy: { createdAt: "desc" } });
+  const unlinkedAssessmentCount = client.user.email ? await prisma.discoveryIntake.count({ where: { clientId: null, consentGiven: true, contactEmail: { equals: client.user.email.trim().toLowerCase(), mode: "insensitive" } } }) : 0;
+  res.json({ ...client, intakes, unlinkedAssessmentCount, hasLegacyAssessment: client.plans.some((plan) => !!plan.intakeId) });
+});
+
+router.post("/admin/clients/:id/link-assessments", async (req, res) => {
+  const client = await prisma.client.findUnique({ where: { id: req.params.id }, include: { user: { select: { email: true } } } });
+  if (!client) { res.status(404).json({ error: "Client not found." }); return; }
+  const linked = await linkSubmittedAssessments(client.id, client.user.email);
+  await audit({ actorUserId: (req as AuthedRequest).atgUser!.id, action: "ASSESSMENTS_LINKED", entity: "Client", entityId: client.id, meta: { linked } });
+  res.json({ linked });
 });
 
 // Consultation prep view: intake answers + AI plan + suggested talking points
@@ -167,7 +178,8 @@ router.patch("/admin/clients/:id", async (req, res) => {
   const before = await prisma.client.findUnique({ where: { id: req.params.id } });
   if (!before) { res.status(404).json({ error: "Not found." }); return; }
 
-  const updated = await prisma.client.update({ where: { id: req.params.id }, data: parsed.data });
+  const data = { ...parsed.data, ...(parsed.data.tier && parsed.data.tier !== "NONE" && before.status === "PROSPECT" && parsed.data.status === undefined ? { status: "ACTIVE" } : {}) };
+  const updated = await prisma.client.update({ where: { id: req.params.id }, data });
 
   if (parsed.data.tier && parsed.data.tier !== before.tier) {
     await audit({ actorUserId: actor.id, action: "TIER_CHANGE", entity: "Client", entityId: req.params.id, meta: { from: before.tier, to: parsed.data.tier }, ip: req.ip });

@@ -7,7 +7,7 @@
  * The gate also exposes portal status (testMode, personalizedSlugs, tier) to
  * child components via the returned context.
  */
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { Link, Redirect } from "wouter";
 import { useUser } from "@clerk/react";
 import { portalApi, type PortalStatus } from "@/lib/api";
@@ -58,6 +58,8 @@ export default function IntakeGate({ children, allowWithoutIntake = false }: Pro
   const { account, loading: accountLoading } = useAccount();
   const [status, setStatus] = useState<PortalStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [statusError, setStatusError] = useState("");
+  const statusSequence = useRef(0);
   const [clientView, setClientView] = useState<{ accountId: string; active: boolean } | null>(null);
   const [viewError, setViewError] = useState("");
   const [viewRetry, setViewRetry] = useState(0);
@@ -65,17 +67,20 @@ export default function IntakeGate({ children, allowWithoutIntake = false }: Pro
   if (user?.id) syncSignedInUser(user.id);
 
   function fetchStatus() {
-    setLoading(true);
+    const sequence = ++statusSequence.current;
+    setLoading(true); setStatusError("");
     portalApi.status()
-      .then(setStatus)
-      .catch(() => null)
-      .finally(() => setLoading(false));
+      .then((value) => { if (sequence === statusSequence.current) setStatus(value); })
+      .catch((error: unknown) => { if (sequence === statusSequence.current) setStatusError(error instanceof Error ? error.message : "Could not check your saved assessment."); })
+      .finally(() => { if (sequence === statusSequence.current) setLoading(false); });
   }
 
   useEffect(() => {
+    setStatus(null); setStatusError("");
     if (isLoaded && isSignedIn) fetchStatus();
     else if (isLoaded) setLoading(false);
-  }, [isLoaded, isSignedIn]);
+    return () => { statusSequence.current++; };
+  }, [isLoaded, isSignedIn, user?.id]);
 
   useEffect(() => {
     if (!account?.isAdmin) return;
@@ -103,6 +108,7 @@ export default function IntakeGate({ children, allowWithoutIntake = false }: Pro
   }
 
   if (loading) return <LoadingScreen />;
+  if (statusError) return <main className="p-8"><h1 className="text-xl font-bold">We could not check your saved assessment</h1><p role="alert" className="mt-3">{statusError}</p><p className="mt-2">This does not mean your intake was lost. Check again before starting a new one.</p><button className="btn-primary mt-4" onClick={fetchStatus}>Check my account again</button></main>;
 
   // User has signed in but has no client profile or intake linked to their account.
   // The proposal page is the exception: it explains the empty and pending states itself.
@@ -141,7 +147,8 @@ export default function IntakeGate({ children, allowWithoutIntake = false }: Pro
                 Start the intake →
               </span>
             </Link>
-            <p className="text-xs mt-4" style={{ color: "var(--canvas-text-3)" }}>Takes about 2 minutes.</p>
+            <p className="text-xs mt-4" style={{ color: "var(--canvas-text-3)" }}>Already completed one? Use the same verified email, or ask Shea to link the existing assessment.</p>
+            <button className="btn-secondary mt-3" onClick={fetchStatus}>Check for my saved assessment</button>
             {account?.isAdmin && <Link to="/auth/continue" className="block mt-4 underline">Return to admin dashboard</Link>}
             <Link to="/app/proposal">
               <span className="inline-block mt-3 text-sm font-semibold underline" style={{ color: "var(--blue)" }}>

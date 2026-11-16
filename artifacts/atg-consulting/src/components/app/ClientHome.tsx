@@ -32,6 +32,7 @@ function Card({ kicker, children }: { kicker: string; children: ReactNode }) {
 
 function whereCopy(home: ClientHomePayload): string {
   if (!home.where.hasIntake) return "Intake not received yet.";
+  if (home.where.assessmentSource === "legacy") return "Your earlier assessment is saved. You can use your dashboard; update the assessment with Shea when needed.";
   if (home.where.planReady) return "Your plan is ready.";
   if (home.where.proposalState === "ready") return "Proposal is ready. Shea has not released the tool plan yet.";
   return "Intake received. Shea is reviewing it.";
@@ -50,7 +51,7 @@ export default function ClientHome({ home }: { home: ClientHomePayload }) {
       <Card kicker="WHERE YOU ARE">
         <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)" }}>{whereCopy(home)}</p>
         {home.where.intakeAt && (
-          <p className="text-xs mt-2" style={{ color: "var(--canvas-text-3)" }}>Intake received {new Date(home.where.intakeAt).toLocaleDateString()}</p>
+          <p className="text-xs mt-2" style={{ color: "var(--canvas-text-3)" }}>{home.where.assessmentSource === "legacy" ? "Earlier assessment record" : "Intake received"} {new Date(home.where.intakeAt).toLocaleDateString()}</p>
         )}
         {home.where.proposalApprovedAt && (
           <p className="text-xs mt-1" style={{ color: "var(--canvas-text-3)" }}>Proposal approved {new Date(home.where.proposalApprovedAt).toLocaleDateString()}</p>

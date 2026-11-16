@@ -209,7 +209,7 @@ test("dashboard and document responses remain customer-scoped and omit operator 
   for (const [model, method, result] of [
     [prisma.workflowItem, "findMany", []], [prisma.consultation, "findFirst", { id: "call-a", title: "Shared call", notes: "Shared call notes", adminNotes: "PRIVATE" }],
     [prisma.report, "findFirst", { id: "report-a", contentMarkdown: "Published report", adminNotes: "PRIVATE", status: "PUBLISHED" }],
-    [prisma.document, "count", 0], [prisma.discoveryIntake, "findMany", []], [prisma.toolPlan, "findFirst", null], [prisma.outputItem, "count", 0],
+    [prisma.plan, "findFirst", null], [prisma.document, "count", 0], [prisma.discoveryIntake, "findMany", []], [prisma.toolPlan, "findFirst", null], [prisma.outputItem, "count", 0],
     [prisma.actionItem, "count", 0], [prisma.clientMessage, "findFirst", null], [prisma.clientMessage, "count", 0], [prisma.supportTicket, "findMany", []],
     [prisma.dfyApplication, "findUnique", null], [prisma.clientAccessLog, "count", 0], [prisma.clientWorkflowSettings, "findMany", []],
     [prisma.document, "findMany", [{ id: "doc-a", title: "Shared document", minTier: "NONE", visibleToClient: true, storageKey: "PRIVATE STORAGE", adminNotes: "PRIVATE" }]],
