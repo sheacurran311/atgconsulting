@@ -13,7 +13,9 @@
  *   - AI health (last known fallback count)
  */
 
-import { Router } from "express";
+import { recentCompletedWork } from "../lib/completedWork";
+import { customerDirectoryWhere } from "../lib/customerDirectory";
+import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
@@ -23,6 +25,7 @@ import { canAccessWorkshop } from "../lib/workshopAccess";
 import { billingActive } from "../lib/access";
 import { lastHarvestReport } from "../lib/catalogHarvest";
 
+export function createAdminTodayRouter(resolve: RequestHandler = withUser) {
 const router = Router();
 
 function isMissingActionTable(err: unknown): boolean {
@@ -48,7 +51,7 @@ async function hiddenItemKeys(now: Date): Promise<{ hidden: Set<string>; actions
   }
 }
 
-router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
+router.get("/admin/today", resolve, requireAdmin, async (_req, res) => {
   const now = new Date();
   const in7d = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -98,7 +101,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
     prisma.consultation.findMany({
       where: {
         scheduledAt: { gte: now, lte: in7d },
-        status: { not: "CANCELLED" },
+        status: "SCHEDULED",
         client: { tier: { in: ["GUIDED", "WHITE_GLOVE"] } },
       },
       include: { client: { include: { user: { select: { name: true, email: true } } } } },
@@ -133,7 +136,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       take: 20,
     }),
     prisma.sessionRecord.findMany({
-      where: { sessionDate: { gte: now, lte: in7d } },
+      where: { sessionDate: { gte: now, lte: in7d }, shareRecap: false },
       include: { client: { include: { user: { select: { name: true, email: true } } } } },
       orderBy: { sessionDate: "asc" },
       take: 20,
@@ -155,7 +158,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       type: "intake_review",
       id: i.id,
       label: i.contactName ?? i.contactEmail ?? "Anonymous intake",
-      url: `/admin/discovery`,
+      url: `/admin/discovery?intake=${encodeURIComponent(i.id)}`,
       meta: i.decisionAuthority ? `authority: ${i.decisionAuthority}` : undefined,
       createdAt: i.createdAt,
     }))),
@@ -163,14 +166,14 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       type: "proposal_draft",
       id: p.id,
       label: `Proposal for intake ${p.discoveryIntakeId.slice(0, 8)}…`,
-      url: `/admin/discovery`,
+      url: `/admin/discovery?intake=${encodeURIComponent(p.discoveryIntakeId)}`,
       createdAt: p.createdAt,
     }))),
     contentDrafts: visible(contentDrafts.map((c) => ({
       type: c.status === "queued" ? "content_topic" : c.status === "draft" ? "content_draft" : "content_publish",
       id: c.id,
       label: c.title,
-      url: `/admin/content`,
+      url: `/admin/content?item=${encodeURIComponent(c.id)}`,
       meta: c.status === "approved" ? "Ready to publish" : c.status === "queued" ? "Topic queued for a draft" : `Source: ${c.source}`,
       createdAt: c.createdAt,
     }))),
@@ -178,7 +181,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       type: "catalog_verify",
       id: item.id,
       label: item.name,
-      url: `/admin/catalog`,
+      url: `/admin/catalog?item=${encodeURIComponent(item.id)}`,
       meta: item.sourceType,
       createdAt: item.createdAt,
     }))),
@@ -187,7 +190,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
         type: "upcoming_session",
         id: s.id,
         label: `${s.sessionType} session — ${s.client?.user?.name ?? s.client?.user?.email ?? "Client"}`,
-        url: `/admin/clients/${s.clientId}/brief`,
+        url: `/admin/clients/${s.clientId}/sessions?session=${encodeURIComponent(s.id)}`,
         meta: s.sessionDate.toISOString(),
         createdAt: s.sessionDate,
       })),
@@ -195,7 +198,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
         type: "upcoming_session",
         id: s.id,
         label: `${s.title} — ${s.client?.user?.name ?? "—"}`,
-        url: `/admin/clients/${s.clientId}/brief`,
+        url: `/admin/clients/${s.clientId}/consultations?item=${encodeURIComponent(s.id)}`,
         meta: s.scheduledAt?.toISOString(),
         createdAt: s.scheduledAt ?? undefined,
       })),
@@ -211,7 +214,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       type: "support_ticket",
       id: ticket.id,
       label: `${ticket.client.user?.name ?? ticket.client.user?.email ?? "Client"} — ${ticket.subject}`,
-      url: `/admin/tiers`,
+      url: `/admin/tiers?tab=support&item=${encodeURIComponent(ticket.id)}`,
       meta: ticket.message.slice(0, 140),
       createdAt: ticket.createdAt,
     }))),
@@ -219,7 +222,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       type: "client_message",
       id: message.id,
       label: `${message.client.user?.name ?? "Client"} sent a message`,
-      url: `/admin/messages`,
+      url: `/admin/messages?client=${encodeURIComponent(message.clientId)}`,
       meta: message.body.slice(0, 140),
       createdAt: message.createdAt,
     }))),
@@ -227,7 +230,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       type: "workflow_request",
       id: request.id,
       label: `${request.client.user?.name ?? "Client"} requested a workflow`,
-      url: `/admin/clients/${request.clientId}`,
+      url: `/admin/messages?tab=requests&item=${encodeURIComponent(request.id)}`,
       meta: request.description.slice(0, 140),
       createdAt: request.createdAt,
     }))),
@@ -235,7 +238,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       type: "dfy_application",
       id: app.id,
       label: `${app.client.user?.name ?? app.client.user?.email ?? "Client"} applied for Done-for-you`,
-      url: `/admin/tiers`,
+      url: `/admin/tiers?tab=dfy&item=${encodeURIComponent(app.id)}`,
       meta: app.status,
       createdAt: app.createdAt,
     }))),
@@ -253,7 +256,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
     clientMessages:   tasks.clientMessages.length,
     workflowRequests: tasks.workflowRequests.length,
     dfyApplications:  tasks.dfyApplications.length,
-    total: tasks.intakeReviews.length
+    total: tasks.dfyAccess.length + tasks.intakeReviews.length
       + tasks.proposalDrafts.length
       + tasks.contentDrafts.length
       + tasks.catalogQueue.length
@@ -266,6 +269,7 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
 
   const month = now.toISOString().slice(0, 7);
   const clientSample = await prisma.client.findMany({
+    where: customerDirectoryWhere,
     orderBy: { updatedAt: "desc" },
     take: 40,
     select: {
@@ -317,8 +321,8 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
       },
       take: 40,
     }),
-    prisma.client.groupBy({ by: ["tier"], _count: { _all: true } }),
-    prisma.client.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.client.groupBy({ where: customerDirectoryWhere, by: ["tier"], _count: { _all: true } }),
+    prisma.client.groupBy({ where: customerDirectoryWhere, by: ["status"], _count: { _all: true } }),
     prisma.content.groupBy({ by: ["status"], _count: { _all: true } }),
     prisma.catalogItem.count({ where: { reviewStatus: "pending" } }),
     prisma.catalogItem.count({ where: { verified: true, enabled: true } }),
@@ -422,7 +426,10 @@ router.get("/admin/today", withUser, requireAdmin, async (_req, res) => {
     ...publishedRecently.map((item) => ({ id: item.id, label: `Published: ${item.title}`, url: "/admin/content" })),
   ].slice(0, 20);
 
+  const completedTasks = await recentCompletedWork(now);
+  res.setHeader("Cache-Control", "no-store");
   res.json({
+    completedTasks,
     date: now.toISOString().split("T")[0],
     counts,
     actionsReady,
@@ -496,7 +503,7 @@ const ActionBody = z.object({
   snoozeHours: z.number().int().min(1).max(24 * 30).optional(),
 });
 
-router.post("/admin/today/action", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/today/action", resolve, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const parsed = ActionBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "itemKey and action are required." }); return; }
@@ -523,7 +530,7 @@ router.post("/admin/today/action", withUser, requireAdmin, async (req, res) => {
   }
 });
 
-router.post("/admin/today/health", withUser, requireAdmin, async (_req, res) => {
+router.post("/admin/today/health", resolve, requireAdmin, async (_req, res) => {
   const health = await grokHealthCheck();
   res.json({
     enabled: isGrokEnabled(),
@@ -534,4 +541,6 @@ router.post("/admin/today/health", withUser, requireAdmin, async (_req, res) => 
   });
 });
 
-export default router;
+return router;
+}
+export default createAdminTodayRouter();

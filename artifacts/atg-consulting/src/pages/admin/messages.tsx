@@ -1,3 +1,6 @@
+import { useSearch } from "wouter";
+import { useFocusedRecord } from "@/lib/useFocusedRecord";
+import { announceAdminChange } from "@/lib/adminWork";
 /**
  * Admin message inbox — view and reply to client messages.
  * Also shows workflow requests.
@@ -7,6 +10,9 @@ import AdminShell from "@/components/admin/AdminShell";
 import { api, type ClientMsg, type AdminThread as Thread, type WorkflowReqAdmin as WorkflowReq } from "@/lib/api";
 
 export default function AdminMessagesPage() {
+  const params = new URLSearchParams(useSearch());
+  const focusedClient = params.get("client"); const requestedTab = params.get("tab");
+  const [error, setError] = useState("");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [requests, setRequests] = useState<WorkflowReq[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -14,7 +20,9 @@ export default function AdminMessagesPage() {
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"messages" | "requests">("messages");
+  const [tab, setTab] = useState<"messages" | "requests">(requestedTab === "requests" ? "requests" : "messages");
+  useFocusedRecord(!loading);
+  useEffect(() => { if (requestedTab === "requests") setTab("requests"); if (focusedClient) void openThread(focusedClient); }, [focusedClient, requestedTab]);
 
   useEffect(() => {
     Promise.all([
@@ -39,7 +47,9 @@ export default function AdminMessagesPage() {
   }
 
   async function updateRequest(id: string, status: string) {
-    await api.admin.updateWorkflowRequest(id, status).catch(() => null);
+    setError("");
+    try { await api.admin.updateWorkflowRequest(id, status); } catch (e) { setError(e instanceof Error ? e.message : "Could not save the request."); return; }
+    announceAdminChange();
     setRequests((r) => r.map((x) => x.id === id ? { ...x, status } : x));
   }
 
@@ -50,6 +60,7 @@ export default function AdminMessagesPage() {
           Client inbox
         </h1>
 
+        {error && <p role="alert">{error}</p>}
         {/* Tab toggle */}
         <div className="flex gap-1 mb-6" style={{ borderBottom: "1px solid var(--canvas-border)" }}>
           {[{ id: "messages" as const, label: "Messages" }, { id: "requests" as const, label: "Workflow requests" }].map((t) => (
@@ -111,7 +122,7 @@ export default function AdminMessagesPage() {
           <div className="space-y-3">
             {requests.length === 0 ? <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>No workflow requests yet.</p>
             : requests.map((r) => (
-              <div key={r.id} className="rounded-xl p-4" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
+              <div id={`work-${r.id}`} key={r.id} className="rounded-xl p-4" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold" style={{ color: "var(--canvas-text)" }}>{r.client?.user.name ?? r.clientId}</p>

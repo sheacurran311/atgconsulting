@@ -46,7 +46,7 @@ Any feature that would break these hard stops requires explicit owner approval. 
 
 ### Done-for-you (unchanged)
 - By application only, limited spots, waitlist
-- Up to 3 custom workflows built, run, and tuned by Shea
+- Up to 20 workflows and automations built, run, and tuned by Shea
 - Client approves every output before it goes anywhere
 
 ## Product framing

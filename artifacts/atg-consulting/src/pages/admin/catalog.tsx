@@ -3,7 +3,9 @@
  * Lists items, shows review queue, import (JSON/CSV/URL), verify/reject.
  * Only verified items are shown to clients.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Link, useSearch } from "wouter";
+import { adminJson, announceAdminChange } from "@/lib/adminWork";
 import AdminShell from "@/components/admin/AdminShell";
 
 interface CatalogItem {
@@ -31,6 +33,9 @@ const SOURCE_COLORS: Record<string, string> = {
 type Tab = "all" | "queue" | "import";
 
 export default function AdminCatalogPage() {
+  const focus = new URLSearchParams(useSearch()).get("item");
+  const readVersion = useRef(0); const actionLock = useRef(false);
+  const [error, setError] = useState(""); const [notice, setNotice] = useState("");
   const [tab, setTab] = useState<Tab>("all");
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [queue, setQueue] = useState<CatalogItem[]>([]);
@@ -49,42 +54,38 @@ export default function AdminCatalogPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
 
-  function load() {
-    setLoading(true);
-    Promise.all([
-      fetch("/api/admin/catalog", { credentials: "include" }).then((r) => r.json() as Promise<CatalogItem[]>),
-      fetch("/api/admin/catalog/queue", { credentials: "include" }).then((r) => r.json() as Promise<CatalogItem[]>),
-    ]).then(([all, q]) => { setItems(all); setQueue(q); }).catch(() => null)
-      .finally(() => setLoading(false));
+  async function load() {
+    const version = ++readVersion.current; setLoading(true); setError("");
+    const query = focus ? `?item=${encodeURIComponent(focus)}` : "";
+    try {
+      const [all, q] = await Promise.all([adminJson<CatalogItem[]>(`/api/admin/catalog${query}`), adminJson<CatalogItem[]>(`/api/admin/catalog/queue${query}`)]);
+      if (version !== readVersion.current) return;
+      setItems(all); setQueue(q); if (focus) setSelected(all.find((item) => item.id === focus) ?? null);
+    } catch (e) { if (version === readVersion.current) setError(e instanceof Error ? e.message : "Could not load Catalogue."); }
+    finally { if (version === readVersion.current) setLoading(false); }
   }
-
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (focus) setTab("all"); void load(); }, [focus]);
 
   async function verifyBatch() {
-    setBatching(true);
-    const response = await fetch("/api/admin/catalog/verify-batch", { method: "POST", credentials: "include" });
-    const payload = await response.json().catch(() => ({ verified: 0 })) as { verified?: number };
-    setBatching(false);
-    setImportResult(payload.verified ? `Verified ${payload.verified} link-checked item(s).` : "No link-checked pending items to verify.");
-    load();
+    if (actionLock.current) return;
+    actionLock.current = true; setBatching(true); setError("");
+    try {
+      const payload = await adminJson<{ verified: number }>("/api/admin/catalog/verify-batch", { method: "POST" });
+      setNotice(`Verified ${payload.verified} link-checked item(s).`); announceAdminChange(); await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not verify the batch."); }
+    finally { actionLock.current = false; setBatching(false); }
   }
-
-  async function verify(id: string) {
-    setVerifying(id);
-    await fetch(`/api/admin/catalog/${id}/verify`, { method: "POST", credentials: "include" });
-    setVerifying(null);
-    load();
-    setSelected(null);
-  }
-
-  async function reject(id: string, note = "") {
-    await fetch(`/api/admin/catalog/${id}/reject`, {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ note }),
-    });
-    load();
-    setSelected(null);
+  async function review(id: string, action: "verify" | "reject", note = "") {
+    if (actionLock.current) return;
+    actionLock.current = true; ++readVersion.current; setLoading(false); setVerifying(id); setError(""); setNotice("");
+    try {
+      const saved = await adminJson<CatalogItem>(`/api/admin/catalog/${id}/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note }) });
+      setItems((rows) => rows.map((item) => item.id === id ? saved : item));
+      setQueue((rows) => rows.filter((item) => item.id !== id)); setSelected(saved);
+      setNotice(action === "verify" ? "Verified and available in Catalogue. This does not assign it to a client." : "Rejected and removed from the available Catalogue.");
+      announceAdminChange();
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not save this review. The item is still here."); }
+    finally { actionLock.current = false; setVerifying(null); }
   }
 
   async function importItems() {
@@ -223,6 +224,12 @@ export default function AdminCatalogPage() {
           <p className="text-sm font-medium" style={{ color: "#16A34A" }}>{importResult}</p>
         )}
 
+        <div className="rounded-xl border border-canvas-border p-4 text-sm space-y-2">
+          <p>Catalogue is a shortlist of tools, models, skills and connectors you may recommend across all plan types. Verify suitability, source, permissions, costs and ownership before recommending an item. Verification makes it available in the public catalogue; it does not install it or approve a client-specific plan.</p>
+          <Link to="/admin/playbook" className="underline">How to use Catalogue with each client plan</Link>
+        </div>
+        {focus && <p className="text-sm">Opened the requested item. <Link to="/admin/catalog" className="underline">Show all Catalogue items</Link></p>}
+        {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
         {/* Item list */}
         {(tab === "all" || tab === "queue") && (
           loading ? <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
@@ -246,14 +253,14 @@ export default function AdminCatalogPage() {
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                       {!item.verified && (
-                        <button type="button" onClick={(e) => { e.stopPropagation(); verify(item.id); }}
-                          disabled={verifying === item.id} className="btn-primary text-xs" style={{ padding: "5px 10px" }}>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); void review(item.id, "verify"); }}
+                          disabled={!!verifying || batching} className="btn-primary text-xs" style={{ padding: "5px 10px" }}>
                           {verifying === item.id ? "…" : "Verify"}
                         </button>
                       )}
                       {item.reviewStatus === "pending" && (
-                        <button type="button" onClick={(e) => { e.stopPropagation(); reject(item.id); }}
-                          className="text-xs underline" style={{ color: "#DC2626" }}>Reject</button>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); void review(item.id, "reject"); }}
+                          disabled={!!verifying || batching} className="text-xs underline" style={{ color: "#DC2626" }}>Reject</button>
                       )}
                     </div>
                   </div>

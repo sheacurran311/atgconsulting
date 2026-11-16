@@ -17,7 +17,7 @@
  *   POST   /api/admin/content/generate — generate a new draft with Grok
  */
 
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAdmin } from "../lib/auth";
@@ -25,6 +25,7 @@ import { generateContentDraft } from "../lib/contentAI";
 import { audit } from "../lib/audit";
 import type { AuthedRequest } from "../lib/auth";
 
+export function createContentRouter(resolve: RequestHandler = withUser) {
 const router = Router();
 
 const APP_URL = process.env.APP_URL ?? "https://atgconsulting.io";
@@ -105,10 +106,10 @@ router.get("/content/:slug", async (req, res) => {
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
-router.get("/admin/content", withUser, requireAdmin, async (req, res) => {
-  const { status } = req.query as { status?: string };
+router.get("/admin/content", resolve, requireAdmin, async (req, res) => {
+  const { status, item } = req.query as { status?: string; item?: string };
   const posts = await prisma.content.findMany({
-    where: status ? { status } : {},
+    where: { ...(status ? { status } : {}), ...(item ? { id: item } : {}) },
     orderBy: { updatedAt: "desc" },
     take: 200,
   });
@@ -126,7 +127,7 @@ const ContentBody = z.object({
   linkedCatalogItems: z.array(z.string()).optional(),
 });
 
-router.post("/admin/content", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/content", resolve, requireAdmin, async (req, res) => {
   const parsed = ContentBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
   const { tags, linkedCatalogItems, slug, publishAt, ...rest } = parsed.data;
@@ -137,7 +138,7 @@ router.post("/admin/content", withUser, requireAdmin, async (req, res) => {
   res.status(201).json(post);
 });
 
-router.patch("/admin/content/:id", withUser, requireAdmin, async (req, res) => {
+router.patch("/admin/content/:id", resolve, requireAdmin, async (req, res) => {
   const parsed = ContentBody.partial().safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Validation failed." }); return; }
   const { tags, linkedCatalogItems, publishAt, ...rest } = parsed.data;
@@ -153,20 +154,56 @@ router.patch("/admin/content/:id", withUser, requireAdmin, async (req, res) => {
   res.json(updated);
 });
 
-router.post("/admin/content/:id/approve", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/content/:id/generate", resolve, requireAdmin, async (req, res) => {
+  const existing = await prisma.content.findUnique({ where: { id: req.params.id as string } });
+  if (!existing) { res.status(404).json({ error: "Post not found." }); return; }
+  if (existing.status === "draft") { res.json(existing); return; }
+  if (existing.status !== "queued") { res.status(409).json({ error: "Only a queued topic can generate its first draft." }); return; }
+  const draft = await generateContentDraft(existing.topic, existing.metaDescription || existing.title);
+  const result = await prisma.content.updateMany({ where: { id: existing.id, status: "queued", updatedAt: existing.updatedAt }, data: { title: draft.title, metaDescription: draft.metaDescription, body: draft.body, tags: JSON.stringify(draft.tags), status: "draft", source: draft.tokensUsed ? "grok" : "template", tokensUsed: draft.tokensUsed } });
+  if (!result.count) { res.status(409).json({ error: "The topic changed. Refresh before generating again." }); return; }
+  const post = await prisma.content.findUnique({ where: { id: existing.id } });
+  await audit({ actorUserId: (req as AuthedRequest).atgUser!.id, action: "CONTENT_GENERATED", entity: "Content", entityId: existing.id });
+  res.json(post);
+});
+
+// A single explicit operator action can approve and publish to ATG's own blog.
+router.post("/admin/content/:id/approve-publish", resolve, requireAdmin, async (req, res) => {
+  const existing = await prisma.content.findUnique({ where: { id: req.params.id as string } });
+  if (!existing) { res.status(404).json({ error: "Post not found." }); return; }
+  if (existing.status === "published") { res.json(existing); return; } // Safe retry.
+  if (!["draft", "approved"].includes(existing.status) || !existing.body.trim()) {
+    res.status(409).json({ error: "Review a completed draft before publishing." }); return;
+  }
+  if (existing.publishAt && existing.publishAt > new Date()) {
+    res.status(409).json({ error: "This post has a future schedule. Approve it for that schedule instead of publishing now." }); return;
+  }
+  const result = await prisma.content.updateMany({ where: { id: existing.id, updatedAt: existing.updatedAt, status: existing.status }, data: { status: "published", publishAt: new Date() } });
+  if (!result.count) { res.status(409).json({ error: "The post changed. Reload and review the saved version." }); return; }
+  const post = await prisma.content.findUnique({ where: { id: existing.id } });
+  await audit({ actorUserId: (req as AuthedRequest).atgUser!.id, action: "CONTENT_APPROVED_AND_PUBLISHED", entity: "Content", entityId: existing.id, meta: { slug: existing.slug } });
+  res.json(post);
+});
+
+router.post("/admin/content/:id/approve", resolve, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
+  const existing = await prisma.content.findUnique({ where: { id: req.params.id as string } });
+  if (!existing) { res.status(404).json({ error: "Post not found." }); return; }
+  if (existing.status === "published" || existing.status === "approved") { res.json(existing); return; }
+  if (existing.status !== "draft") { res.status(409).json({ error: "Only a completed draft can be approved." }); return; }
   const post = await prisma.content.update({
-    where: { id: req.params.id as string },
+    where: { id: existing.id },
     data: { status: "approved" },
   });
   await audit({ actorUserId: actor.id, action: "CONTENT_APPROVED", entity: "Content", entityId: post.id, meta: { slug: post.slug } });
   res.json(post);
 });
 
-router.post("/admin/content/:id/publish", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/content/:id/publish", resolve, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const existing = await prisma.content.findUnique({ where: { id: req.params.id as string } });
   if (!existing) { res.status(404).json({ error: "Post not found." }); return; }
+  if (existing.status === "published") { res.json(existing); return; }
   if (existing.status !== "approved") {
     res.status(409).json({ error: "Approve the draft before publishing." });
     return;
@@ -179,13 +216,13 @@ router.post("/admin/content/:id/publish", withUser, requireAdmin, async (req, re
   res.json(post);
 });
 
-router.delete("/admin/content/:id", withUser, requireAdmin, async (req, res) => {
+router.delete("/admin/content/:id", resolve, requireAdmin, async (req, res) => {
   await prisma.content.update({ where: { id: req.params.id as string }, data: { status: "archived" } });
   res.json({ ok: true });
 });
 
 // Admin: generate a new draft with Grok
-router.post("/admin/content/generate", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/content/generate", resolve, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const body = z.object({ topic: z.string().min(1).max(200), angle: z.string().min(1).max(500) }).safeParse(req.body);
   if (!body.success) { res.status(422).json({ error: "topic and angle are required." }); return; }
@@ -202,4 +239,6 @@ router.post("/admin/content/generate", withUser, requireAdmin, async (req, res) 
   res.status(201).json(post);
 });
 
-export default router;
+return router;
+}
+export default createContentRouter();

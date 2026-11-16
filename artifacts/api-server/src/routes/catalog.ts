@@ -21,7 +21,7 @@
  *   POST /api/admin/catalog/match/:intakeId — run matching for an intake
  */
 
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAdmin, requireAuth, type AuthedRequest } from "../lib/auth";
@@ -29,11 +29,12 @@ import { classifyPainPoints, matchAndRankCatalog, getPainChips } from "../lib/ca
 import { audit } from "../lib/audit";
 import { isCatalogKind } from "../lib/catalogKinds";
 
+export function createCatalogRouter(resolve: RequestHandler = withUser) {
 const router = Router();
 
 // ── Public ────────────────────────────────────────────────────────────────────
 
-router.get("/catalog", withUser, async (req, res) => {
+router.get("/catalog", resolve, async (req, res) => {
   const kind = typeof req.query.kind === "string" && isCatalogKind(req.query.kind) ? req.query.kind : undefined;
   const items = await prisma.catalogItem.findMany({
     where: { verified: true, enabled: true, ...(kind ? { kind } : {}) },
@@ -102,9 +103,10 @@ function catalogWrite(data: z.infer<typeof ItemBody>) {
   };
 }
 
-router.get("/admin/catalog", withUser, requireAdmin, async (req, res) => {
-  const { status, source, kind } = req.query as { status?: string; source?: string; kind?: string };
+router.get("/admin/catalog", resolve, requireAdmin, async (req, res) => {
+  const { status, source, kind, item } = req.query as { status?: string; source?: string; kind?: string; item?: string };
   const where: Record<string, unknown> = {};
+  if (item) where.id = item;
   if (status) where.reviewStatus = status;
   if (source) where.sourceType = source;
   if (isCatalogKind(kind)) where.kind = kind;
@@ -114,7 +116,7 @@ router.get("/admin/catalog", withUser, requireAdmin, async (req, res) => {
   res.json(items);
 });
 
-router.post("/admin/catalog", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/catalog", resolve, requireAdmin, async (req, res) => {
   const parsed = ItemBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
   const written = catalogWrite(parsed.data);
@@ -125,7 +127,7 @@ router.post("/admin/catalog", withUser, requireAdmin, async (req, res) => {
   res.status(201).json(item);
 });
 
-router.patch("/admin/catalog/:id", withUser, requireAdmin, async (req, res) => {
+router.patch("/admin/catalog/:id", resolve, requireAdmin, async (req, res) => {
   const item = await prisma.catalogItem.findUnique({ where: { id: req.params.id as string } });
   if (!item) { res.status(404).json({ error: "Not found." }); return; }
   const parsed = ItemBody.partial().safeParse(req.body);
@@ -153,14 +155,14 @@ router.patch("/admin/catalog/:id", withUser, requireAdmin, async (req, res) => {
   res.json(updated);
 });
 
-router.delete("/admin/catalog/:id", withUser, requireAdmin, async (req, res) => {
+router.delete("/admin/catalog/:id", resolve, requireAdmin, async (req, res) => {
   await prisma.catalogItem.update({ where: { id: req.params.id as string }, data: { enabled: false } });
   res.json({ ok: true });
 });
 
 // ── Admin: bulk import ────────────────────────────────────────────────────────
 
-router.post("/admin/catalog/import", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/catalog/import", resolve, requireAdmin, async (req, res) => {
   const body = z.object({
     format: z.enum(["json", "csv"]),
     data:   z.string().min(1).max(500_000),
@@ -223,7 +225,7 @@ router.post("/admin/catalog/import", withUser, requireAdmin, async (req, res) =>
 
 // ── Admin: import from URL ────────────────────────────────────────────────────
 
-router.post("/admin/catalog/import-url", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/catalog/import-url", resolve, requireAdmin, async (req, res) => {
   const body = z.object({
     url:        z.string().url(),
     sourceType: z.enum(["grok_bot_template","claude_skill","claude_plugin","chatgpt_gpt","mcp_connector","atg_template"]).optional(),
@@ -266,16 +268,16 @@ router.post("/admin/catalog/import-url", withUser, requireAdmin, async (req, res
 
 // ── Admin: review queue ───────────────────────────────────────────────────────
 
-router.get("/admin/catalog/queue", withUser, requireAdmin, async (_req, res) => {
+router.get("/admin/catalog/queue", resolve, requireAdmin, async (req, res) => {
   const items = await prisma.catalogItem.findMany({
-    where: { reviewStatus: "pending" },
+    where: { reviewStatus: "pending", ...(typeof req.query.item === "string" ? { id: req.query.item } : {}) },
     orderBy: { createdAt: "asc" },
     take: 100,
   });
   res.json(items);
 });
 
-router.post("/admin/catalog/verify-batch", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/catalog/verify-batch", resolve, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const ids = Array.isArray(req.body?.ids) ? (req.body.ids as unknown[]).filter((id): id is string => typeof id === "string") : null;
   const requestedKind = typeof req.body?.kind === "string" ? req.body.kind : undefined;
@@ -312,30 +314,30 @@ router.post("/admin/catalog/verify-batch", withUser, requireAdmin, async (req, r
   res.json({ verified: pending.length, items: pending });
 });
 
-router.post("/admin/catalog/:id/verify", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/catalog/:id/verify", resolve, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const item = await prisma.catalogItem.findUnique({ where: { id: req.params.id as string } });
   if (!item) { res.status(404).json({ error: "Not found." }); return; }
   const updated = await prisma.catalogItem.update({
     where: { id: item.id },
-    data: { verified: true, verifiedAt: new Date(), verifiedBy: actor.email, reviewStatus: "approved" },
+    data: { verified: true, enabled: true, verifiedAt: new Date(), verifiedBy: actor.email, reviewStatus: "approved" },
   });
   await audit({ actorUserId: actor.id, action: "CATALOG_VERIFIED", entity: "CatalogItem", entityId: item.id, meta: { name: item.name, sourceType: item.sourceType } });
   res.json(updated);
 });
 
-router.post("/admin/catalog/:id/reject", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/catalog/:id/reject", resolve, requireAdmin, async (req, res) => {
   const { note } = req.body as { note?: string };
-  await prisma.catalogItem.update({
+  const updated = await prisma.catalogItem.update({
     where: { id: req.params.id as string },
-    data: { reviewStatus: "rejected", reviewNotes: note ?? "", enabled: false },
+    data: { reviewStatus: "rejected", reviewNotes: note ?? "", enabled: false, verified: false, verifiedAt: null, verifiedBy: null },
   });
-  res.json({ ok: true });
+  res.json(updated);
 });
 
 // ── Matching: run catalog match for an intake ─────────────────────────────────
 
-router.post("/admin/catalog/match/:intakeId", withUser, requireAdmin, async (req, res) => {
+router.post("/admin/catalog/match/:intakeId", resolve, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const intake = await prisma.discoveryIntake.findUnique({ where: { id: req.params.intakeId as string } });
   if (!intake) { res.status(404).json({ error: "Intake not found." }); return; }
@@ -409,7 +411,7 @@ router.post("/admin/catalog/match/:intakeId", withUser, requireAdmin, async (req
 
 // ── Client: get matches for their approved intake ─────────────────────────────
 
-router.get("/client/catalog-matches", withUser, requireAuth, async (req, res) => {
+router.get("/client/catalog-matches", resolve, requireAuth, async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   if (!user.clientId) { res.json([]); return; }
 
@@ -438,4 +440,6 @@ router.get("/client/catalog-matches", withUser, requireAuth, async (req, res) =>
   });
 });
 
-export default router;
+return router;
+}
+export default createCatalogRouter();

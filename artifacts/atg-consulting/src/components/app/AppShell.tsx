@@ -1,3 +1,5 @@
+import { adminJson } from "@/lib/adminWork";
+import { useState } from "react";
 import { useUser } from "@clerk/react";
 import { Link, useLocation, Redirect } from "wouter";
 import {
@@ -41,10 +43,13 @@ export default function AppShell({ children, wide = false, allowWithoutIntake = 
   const { account } = useAccount();
   const [location, setLocation] = useLocation();
   const operator = hasOperator(account?.tier);
+  const visibleNavItems = account?.tier === "SELF_SERVE" ? [...navItems.slice(0, 3), { label: "Automation bots", to: "/app/automations", icon: LayoutDashboard }, ...navItems.slice(3)] : navItems;
 
-  function openAdmin() {
-    clearClientView();
-    setLocation("/admin");
+  const [exitError, setExitError] = useState("");
+  async function openAdmin() {
+    setExitError("");
+    try { await adminJson("/api/admin/impersonate", { method: "DELETE" }); clearClientView(); setLocation("/admin"); }
+    catch (e) { setExitError(e instanceof Error ? e.message : "Could not exit Client View."); }
   }
 
   if (!isLoaded) {
@@ -60,6 +65,7 @@ export default function AppShell({ children, wide = false, allowWithoutIntake = 
 
   return (
     <IntakeGate allowWithoutIntake={allowWithoutIntake}>
+    {exitError && <p role="alert" className="p-4">{exitError}</p>}
     <ImpersonationBanner />
     <div className="min-h-screen flex" style={{ background: "var(--canvas)" }}>
 
@@ -83,7 +89,7 @@ export default function AppShell({ children, wide = false, allowWithoutIntake = 
 
         {/* Nav */}
         <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5 mt-1" aria-label="Client portal navigation">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const active = location === item.to || (item.to !== "/app" && location.startsWith(item.to));
             return (
               <Link key={item.to} to={item.to}>
@@ -136,7 +142,7 @@ export default function AppShell({ children, wide = false, allowWithoutIntake = 
           overflowY: "hidden",
         }}
       >
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const active = location === item.to || (item.to !== "/app" && location.startsWith(item.to));
           return (
             <Link key={item.to} to={item.to}>

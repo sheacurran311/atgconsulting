@@ -11,16 +11,20 @@ import {
   Search,
   Sparkles,
   Users,
+  UserRound,
   Workflow,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { useAccount } from "@/lib/useAccount";
+import { useIdentity } from "@/lib/useIdentity";
 import LogoLockup from "@/components/LogoLockup";
+import AdminSignOut from "@/components/admin/AdminSignOut";
 import AdminSwitcher from "@/components/admin/AdminSwitcher";
 
 const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Today",       to: "/admin/today",              icon: Sparkles },
+  { label: "Automation bots", to: "/admin/automations", icon: Workflow },
+  { label: "Delivery playbook", to: "/admin/playbook", icon: BookOpen },
   { label: "Intakes",     to: "/admin/discovery",          icon: ClipboardList },
   { label: "Engagements", to: "/admin/engagements",        icon: Users },
   { label: "Catalog",     to: "/admin/catalog",            icon: Search },
@@ -33,6 +37,7 @@ const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Templates",   to: "/admin/workflow-templates", icon: Workflow },
   { label: "Tools",       to: "/admin/tools",              icon: Wrench },
   { label: "AI usage",    to: "/admin/ai-usage",           icon: Sparkles },
+  { label: "Account",     to: "/admin/account",            icon: UserRound },
   { label: "Audit log",   to: "/admin/audit",              icon: ScrollText },
 ];
 
@@ -41,7 +46,7 @@ const MOBILE_PRIMARY = new Set(["/admin/today", "/admin/discovery", "/admin/clie
 interface Props { children: React.ReactNode }
 
 export default function AdminShell({ children }: Props) {
-  const { account, loading } = useAccount();
+  const { identity: account, loading, error, refetch } = useIdentity();
   const [location] = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const mobilePrimary = navItems.filter((item) => MOBILE_PRIMARY.has(item.to));
@@ -57,6 +62,7 @@ export default function AdminShell({ children }: Props) {
       </div>
     );
   }
+  if (error) return <main className="p-8"><p role="alert" className="mb-4">{error}</p><button className="btn-primary" onClick={refetch}>Try again</button></main>;
   if (!account) return <Redirect to="/sign-in" />;
   if (!account.isAdmin) return <Redirect to="/app" />;
 
@@ -79,7 +85,7 @@ export default function AdminShell({ children }: Props) {
           </div>
         </div>
 
-        <nav className="flex-1 p-2 space-y-0.5 mt-1" aria-label="Admin navigation">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5 mt-1" aria-label="Admin navigation">
           {navItems.map((item) => {
             const active = location.startsWith(item.to);
             return (
@@ -101,6 +107,7 @@ export default function AdminShell({ children }: Props) {
 
         <div className="p-2" style={{ borderTop: "1px solid var(--ink-border)" }}>
           <AdminSwitcher variant="sidebar" />
+          <div className="px-3 py-2 text-white space-y-2"><p className="text-xs break-all">{account.email}</p><AdminSignOut className="text-xs font-semibold underline text-white" /></div>
         </div>
       </aside>
 
@@ -110,13 +117,13 @@ export default function AdminShell({ children }: Props) {
         style={{ background: "var(--ink)", borderBottom: "1px solid var(--ink-border)" }}
       >
         <div className="flex items-center">
-          <div className="flex-shrink-0 px-2 py-1.5 flex items-center">
+          <div className="flex-shrink-0 px-1 py-1.5 flex items-center">
             <AdminSwitcher variant="compact" />
           </div>
           {mobilePrimary.map((item) => (
             <Link key={item.to} to={item.to}>
               <span
-                className="flex items-center gap-1.5 flex-shrink-0 px-3 py-2.5 text-xs font-semibold whitespace-nowrap cursor-pointer"
+                className="flex items-center gap-1.5 flex-shrink-0 px-2 py-2.5 text-xs font-semibold whitespace-nowrap cursor-pointer"
                 style={{ color: "#FFFFFF" }}
                 onClick={() => setMoreOpen(false)}
               >
@@ -127,7 +134,7 @@ export default function AdminShell({ children }: Props) {
           ))}
           <button
             type="button"
-            className="flex items-center gap-1.5 flex-shrink-0 px-3 py-2.5 text-xs font-semibold whitespace-nowrap"
+            className="flex items-center gap-1.5 flex-shrink-0 px-2 py-2.5 text-xs font-semibold whitespace-nowrap"
             style={{ color: moreActive || moreOpen ? "var(--blue)" : "#FFFFFF", background: "transparent", border: 0 }}
             aria-expanded={moreOpen}
             onClick={() => setMoreOpen((open) => !open)}

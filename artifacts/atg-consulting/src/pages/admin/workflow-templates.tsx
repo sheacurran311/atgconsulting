@@ -1,3 +1,4 @@
+import { Link } from "wouter";
 /**
  * Admin workflow templates — list, edit, reset, export as SKILL.md.
  * Admin can edit name, description, systemPrompt, userPromptTemplate,
@@ -76,6 +77,11 @@ export default function AdminWorkflowTemplatesPage() {
           Admin edits are versioned. "Reset" restores the code-seeded default. "Download SKILL.md" exports the template for use in Grok Bot, Claude, or ChatGPT.
         </p>
 
+        <div className="rounded-xl border border-canvas-border p-4 mb-6 text-sm space-y-2">
+          <p>These are reusable instructions. Most Workbench runs are one-off draft generation; editing a template does not connect an account or start an unattended workflow.</p>
+          <p>For a repeatable client automation: choose one intake priority, use the native bot setup guide, configure its connector and trigger in the client’s account, test it, then record acceptance and pause instructions.</p>
+          <Link to="/admin/playbook" className="underline mr-4">See the delivery steps for each plan</Link><Link to="/admin/automations" className="underline">Open native automation bots</Link>
+        </div>
         <div className="grid md:grid-cols-[240px_1fr] gap-6">
           {/* Sidebar list */}
           <div className="space-y-1">

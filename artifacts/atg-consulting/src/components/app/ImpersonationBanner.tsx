@@ -1,3 +1,4 @@
+import { adminJson } from "@/lib/adminWork";
 /**
  * ImpersonationBanner — shown across the portal when admin is viewing as a client.
  * Shows client name, tier, exit button, and allow-edits toggle.
@@ -22,6 +23,7 @@ export default function ImpersonationBanner() {
   const [state, setState] = useState<BannerState | null>(null);
   const [togglingEdits, setTogglingEdits] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/admin/impersonate/status", { credentials: "include" })
@@ -34,9 +36,9 @@ export default function ImpersonationBanner() {
 
   async function exit() {
     setExiting(true);
-    clearClientView();
-    await fetch("/api/admin/impersonate", { method: "DELETE", credentials: "include" });
-    window.location.href = "/admin/clients";
+    setError("");
+    try { await adminJson("/api/admin/impersonate", { method: "DELETE" }); clearClientView(); window.location.href = "/admin/clients"; }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not exit Client View."); setExiting(false); }
   }
 
   async function toggleEdits() {
@@ -63,6 +65,7 @@ export default function ImpersonationBanner() {
         borderBottom: `2px solid ${state.allowEdits ? "rgba(220,38,38,0.5)" : "rgba(59,107,255,0.4)"}`,
       }}
     >
+      {error && <p role="alert">{error}</p>}
       <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "0.08em", opacity: 0.8 }}>
         ADMIN VIEW
       </span>

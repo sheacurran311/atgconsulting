@@ -57,7 +57,7 @@ export default function SessionsTab({ clientId }: { clientId: string }) {
 }
 
 function SessionCard({ clientId, session: s, update }: { clientId: string; session: SessionRecord; update: (s: SessionRecord) => void }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(new URLSearchParams(window.location.search).get("session") === s.id);
   const [text, setText] = useState(() => draftText(s));
   const [baseVersion, setBaseVersion] = useState(s.updatedAt);
   const [baseline, setBaseline] = useState(() => draftText(s));

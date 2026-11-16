@@ -10,6 +10,7 @@ import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
 import { stripeWebhookHandler } from "./routes/billing";
+import { deploymentBodyParser } from "./routes/client-deployment";
 
 const app: Express = express();
 
@@ -71,6 +72,7 @@ app.use(cors({
 // Stripe webhook requires raw body BEFORE express.json() is applied.
 // Must be registered before the main json middleware.
 app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), stripeWebhookHandler);
+app.use("/api/admin/clients/:id/playbook/:pbId/deployment", deploymentBodyParser);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // Cookie parser — required for the admin impersonation cookie.

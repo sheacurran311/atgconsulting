@@ -3,8 +3,9 @@
  * Aggregates: intake reviews, proposal drafts, content approvals,
  * catalog verification queue, upcoming sessions, DFY access items.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import AdminShell from "@/components/admin/AdminShell";
+import { adminJson, useAdminRefresh } from "@/lib/adminWork";
 import { Link } from "wouter";
 
 interface TodayTask {
@@ -24,6 +25,7 @@ interface FallbackEvent {
 }
 
 interface TodayData {
+  completedTasks?: Array<TodayTask & { completedAt: string }>;
   date: string;
   actionsReady?: boolean;
   counts: {
@@ -105,7 +107,7 @@ function TaskCard({ task, busy, onDone, onSnooze }: {
   return (
     <div className="rounded-xl p-4" style={{ background: style.bg, border: `1px solid ${style.color}22` }}>
       <div className="flex items-start justify-between gap-3">
-        <Link to={task.url}>
+        <Link to={task.url} className="min-w-0 flex-1 block hover:underline" aria-label={`Open task: ${task.label}`}>
           <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3 mb-1">
             <p className="font-mono text-2xs" style={{ color: style.color, letterSpacing: "0.06em" }}>{style.label.toUpperCase()}</p>
@@ -113,11 +115,12 @@ function TaskCard({ task, busy, onDone, onSnooze }: {
           </div>
           <p className="text-sm font-semibold" style={{ color: "var(--canvas-text)", letterSpacing: "-0.01em" }}>{task.label}</p>
           {task.meta && <p className="text-xs mt-0.5" style={{ color: "var(--canvas-text-3)" }}>{task.meta}</p>}
+          <p className="text-xs underline mt-2">Open task →</p>
           </div>
         </Link>
         <div className="flex flex-col gap-1.5 flex-shrink-0">
           <button type="button" disabled={busy} onClick={onDone} className="text-xs font-medium px-2.5 py-1 rounded" style={{ background: "var(--canvas-1)", border: "1px solid var(--canvas-border)", color: "var(--canvas-text)" }}>
-            Done
+            Dismiss
           </button>
           <button type="button" disabled={busy} onClick={onSnooze} className="text-xs font-medium px-2.5 py-1 rounded" style={{ background: "var(--canvas-1)", border: "1px solid var(--canvas-border)", color: "var(--canvas-text-2)" }}>
             Snooze
@@ -129,39 +132,35 @@ function TaskCard({ task, busy, onDone, onSnooze }: {
 }
 
 export default function AdminTodayPage() {
+  const readVersion = useRef(0); const mutationBusy = useRef(false);
   const [data, setData] = useState<TodayData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [checkingHealth, setCheckingHealth] = useState(false);
 
-  function load() {
-    setLoading(true);
-    return fetch("/api/admin/today", { credentials: "include" })
-      .then((r) => r.json() as Promise<TodayData>)
-      .then(setData)
-      .catch(() => null)
+  function load(quiet = false) {
+    const version = ++readVersion.current;
+    if (!quiet) setLoading(true);
+    return adminJson<TodayData>("/api/admin/today")
+      .then((fresh) => { if (version === readVersion.current) { setData(fresh); setActionError(null); } })
+      .catch((e: Error) => setActionError(e.message))
       .finally(() => setLoading(false));
   }
-
   useEffect(() => { void load(); }, []);
+  useAdminRefresh(() => { void load(true); });
 
   async function act(task: TodayTask, action: "done" | "snooze") {
+    if (mutationBusy.current) return;
+    mutationBusy.current = true; ++readVersion.current;
     const itemKey = `${task.type}:${task.id}`;
     setBusyKey(itemKey);
     setActionError(null);
-    const response = await fetch("/api/admin/today/action", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
+    try {
+    await adminJson("/api/admin/today/action", {
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ itemKey, action, ...(action === "snooze" ? { snoozeHours: 24 } : {}) }),
     });
-    setBusyKey(null);
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({})) as { error?: string };
-      setActionError(payload.error ?? "Could not update that item.");
-      return;
-    }
     setData((current) => {
       if (!current) return current;
       const drop = (items: TodayTask[]) => items.filter((item) => `${item.type}:${item.id}` !== itemKey);
@@ -187,10 +186,12 @@ export default function AdminTodayPage() {
           contentDrafts: tasks.contentDrafts.filter((item) => item.type === "content_draft").length,
           catalogQueue: tasks.catalogQueue.length,
           upcomingSessions: tasks.upcomingSessions.length,
-          total: tasks.intakeReviews.length + tasks.proposalDrafts.length + tasks.contentDrafts.length + tasks.catalogQueue.length + tasks.supportTickets.length + tasks.clientMessages.length + tasks.workflowRequests.length + tasks.dfyApplications.length + tasks.upcomingSessions.length,
+          total: tasks.dfyAccess.length + tasks.intakeReviews.length + tasks.proposalDrafts.length + tasks.contentDrafts.length + tasks.catalogQueue.length + tasks.supportTickets.length + tasks.clientMessages.length + tasks.workflowRequests.length + tasks.dfyApplications.length + tasks.upcomingSessions.length,
         },
       };
     });
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Could not update the reminder."); }
+    finally { mutationBusy.current = false; setBusyKey(null); }
   }
 
   async function checkHealth() {
@@ -236,6 +237,11 @@ export default function AdminTodayPage() {
           </button>
         </div>
 
+        <section className="rounded-xl border border-canvas-border p-4 space-y-2">
+          <Link to="/admin/playbook" className="text-lg font-semibold underline">Delivery Playbook · start here</Link>
+          <p className="text-sm">Your step-by-step guide for Self-serve, Guided and Done-for-you, plus where to use each admin screen.</p>
+          <p className="text-xs">Open a task to do the work. Dismiss hides a reminder; it does not approve, publish or complete client delivery. This list refreshes when you return and every 30 seconds while visible.</p>
+        </section>
         {data?.board && (
           <div className="grid lg:grid-cols-2 gap-4">
             <section className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
@@ -371,11 +377,11 @@ export default function AdminTodayPage() {
             Done and snooze need a schema update. Run pnpm --filter @workspace/api-server db:push.
           </p>
         )}
-        {actionError && <p className="text-sm" style={{ color: "#B91C1C" }}>{actionError}</p>}
+        {actionError && <p role="alert" className="text-sm" style={{ color: "#B91C1C" }}>{actionError}</p>}
 
         {loading ? (
           <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
-        ) : allTasks.length === 0 ? (
+        ) : actionError && !data ? <p>Could not load Today. Use Refresh to try again.</p> : allTasks.length === 0 ? (
           <div className="rounded-xl p-8 text-center" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-2)" }}>
             <p className="text-2xl mb-2">✓</p>
             <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)" }}>All clear — nothing needs your attention right now.</p>
@@ -417,6 +423,11 @@ export default function AdminTodayPage() {
             </div>
           </>
         )}
+        {!!data?.completedTasks?.length && <section className="rounded-xl border border-canvas-border p-4 space-y-3">
+          <h2 className="font-semibold">Completed steps · last 48 hours</h2>
+          <p className="text-xs">These reflect saved status changes, including work handled on other screens. Approval, publication, reading a message and installing a workflow are different milestones. Dates show the latest saved update.</p>
+          {data.completedTasks.map((task) => <Link key={`${task.type}:${task.id}`} to={task.url} className="block border-t border-canvas-border pt-2 text-sm"><span className="font-semibold">✓ {task.label}</span><span className="block text-xs">{task.meta} · {new Date(task.completedAt).toLocaleString()}</span></Link>)}
+        </section>}
       </div>
     </AdminShell>
   );

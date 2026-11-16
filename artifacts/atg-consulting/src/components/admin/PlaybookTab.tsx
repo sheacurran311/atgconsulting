@@ -1,3 +1,4 @@
+import ClientDeployment from "./ClientDeployment";
 import MasterPlaybook from "./MasterPlaybook";
 /**
  * Playbook tab — admin-only operator playbook for a client.
@@ -386,6 +387,7 @@ export default function PlaybookTab({ clientId, intakeId }: Props) {
     try {
       const pb = await api.admin.generatePlaybook(clientId, intakeId);
       setPlaybook(pb);
+      setSelectedVer(null);
       setVersions((v) => [pb, ...v]);
       setEditNotes(pb.adminNotes ?? "");
     } catch (e) {
@@ -416,6 +418,7 @@ export default function PlaybookTab({ clientId, intakeId }: Props) {
     if (!pb) return;
     const content = parseContent(pb.content);
     if (!content) return;
+    const deployment = (content as unknown as { deployment?: { providerPreference: string; providerReason: string; entries: Array<{ name: string; provider: string; kind: string; status: string; url: string; reason: string; apps: string; schedule: string; steps: string; prompt: string; acceptanceTest: string; pause: string; evidence: string }> } }).deployment;
     const text = `ATG CONSULTING — CLIENT PLAYBOOK (v${pb.version}, ${pb.status.toUpperCase()})
 
 CLIENT SUMMARY
@@ -441,7 +444,10 @@ Day 60: ${content.milestones.day60}
 Day 90: ${content.milestones.day90}
 Ongoing: ${content.milestones.ongoingCadence}
 
-KPIs: ${content.kpisAndUpsell.kpis.join(" · ")}`;
+KPIs: ${content.kpisAndUpsell.kpis.join(" · ")}
+
+CLIENT IMPLEMENTATION LIST
+${deployment ? `Provider: ${deployment.providerPreference}. ${deployment.providerReason}\n` + deployment.entries.map((e) => `${e.name} · ${e.provider} · ${e.kind} · ${e.status}\nSource: ${e.url}\nWhy: ${e.reason}\nApps: ${e.apps}\nSchedule: ${e.schedule}\n${e.steps}\n${e.prompt}\nTest: ${e.acceptanceTest}\nPause: ${e.pause}\nEvidence: ${e.evidence}`).join("\n\n") : "No implementation list saved yet."}`;
     navigator.clipboard.writeText(text).then(() => alert("Playbook copied to clipboard")).catch(() => null);
   }
 
@@ -491,6 +497,11 @@ KPIs: ${content.kpisAndUpsell.kpis.join(" · ")}`;
         </div>
       </div>
 
+      {displayPb && <ClientDeployment key={displayPb.id} clientId={clientId} playbook={displayPb} onSaved={(updated) => {
+        if (updated.id === playbook?.id) setPlaybook(updated);
+        if (selectedVer?.id === updated.id) setSelectedVer(updated);
+        setVersions((list) => list.map((v) => v.id === updated.id ? updated : v));
+      }} />}
       {loading ? (
         <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
       ) : !displayPb ? (

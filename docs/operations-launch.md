@@ -1,5 +1,7 @@
 # AI services and operations launch
 
+For the current admin, native workflow and up-to-20 Done-for-you changes in PR #55, see [Admin work and delivery guide](admin-operations.md) and [Native library / client implementation lists](native-automation-library.md). That batch requires **no new migration**. Database steps below describe the earlier operating-guide release; do not repeat schema changes solely for PR #55.
+
 For the privacy and recap publication changes, see [Private drafts and approved sharing](private-drafts-sharing.md), including the verification record and remaining authenticated release checks.
 
 ## What this release provides

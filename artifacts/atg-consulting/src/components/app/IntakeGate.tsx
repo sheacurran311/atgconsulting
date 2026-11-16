@@ -58,7 +58,9 @@ export default function IntakeGate({ children, allowWithoutIntake = false }: Pro
   const { account, loading: accountLoading } = useAccount();
   const [status, setStatus] = useState<PortalStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [impersonating, setImpersonating] = useState<boolean | null>(null);
+  const [clientView, setClientView] = useState<{ accountId: string; active: boolean } | null>(null);
+  const [viewError, setViewError] = useState("");
+  const [viewRetry, setViewRetry] = useState(0);
 
   if (user?.id) syncSignedInUser(user.id);
 
@@ -76,19 +78,20 @@ export default function IntakeGate({ children, allowWithoutIntake = false }: Pro
   }, [isLoaded, isSignedIn]);
 
   useEffect(() => {
-    if (!account?.isAdmin) {
-      setImpersonating(false);
-      return;
-    }
+    if (!account?.isAdmin) return;
     let cancelled = false;
-    fetch("/api/admin/impersonate/status", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() as Promise<{ active?: boolean }> : { active: false }))
-      .then((d) => { if (!cancelled) setImpersonating(!!d.active); })
-      .catch(() => { if (!cancelled) setImpersonating(false); });
+    setViewError("");
+    fetch("/api/admin/impersonate/status", { credentials: "include", cache: "no-store" })
+      .then(async (r) => { if (!r.ok) throw new Error("Could not check Client View. Please try again."); return r.json() as Promise<{ active?: boolean }>; })
+      .then((d) => { if (!cancelled) setClientView({ accountId: account.id, active: !!d.active }); })
+      .catch((e: Error) => { if (!cancelled) setViewError(e.message); });
     return () => { cancelled = true; };
-  }, [account?.isAdmin]);
+  }, [account?.id, account?.isAdmin, viewRetry]);
 
-  const resolvingAdmin = !!account?.isAdmin && impersonating === null;
+  const resolvedClientView = clientView?.accountId === account?.id;
+  const impersonating = resolvedClientView && !!clientView?.active;
+  const resolvingAdmin = !!account?.isAdmin && !resolvedClientView;
+  if (viewError) return <main className="p-8"><p role="alert">{viewError}</p><button className="btn-primary mt-4" onClick={() => setViewRetry((v) => v + 1)}>Retry Client View</button></main>;
   if (!isLoaded || (isSignedIn && accountLoading) || resolvingAdmin) {
     return <LoadingScreen />;
   }
@@ -139,6 +142,7 @@ export default function IntakeGate({ children, allowWithoutIntake = false }: Pro
               </span>
             </Link>
             <p className="text-xs mt-4" style={{ color: "var(--canvas-text-3)" }}>Takes about 2 minutes.</p>
+            {account?.isAdmin && <Link to="/auth/continue" className="block mt-4 underline">Return to admin dashboard</Link>}
             <Link to="/app/proposal">
               <span className="inline-block mt-3 text-sm font-semibold underline" style={{ color: "var(--blue)" }}>
                 View your proposal

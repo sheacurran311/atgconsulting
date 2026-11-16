@@ -48,7 +48,7 @@ const del = <T>(path: string) => req<T>("DELETE", path);
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const api = {
-  account: { get: () => get<{ id: string; email: string | null; name: string | null; role: string; isAdmin: boolean; clientId: string | null }>("/account") },
+  account: { get: () => get<AccountIdentity>("/account") },
 
   // ── Intake + plan ──────────────────────────────────────────────────────────
   intake: { submit: (body: unknown) => post<{ ok: boolean; intakeId: string; planId: string; snapshot: unknown }>("/intake", body) },
@@ -259,6 +259,7 @@ export interface PlanResult {
   intakeId: string; name: string; email: string; claimed: boolean;
   plan: { id: string; aiReadinessLabel: string; aiReadinessSummary: string; focusAreas: FocusArea[]; recommendedTier: string; tierRationale: string; ctaText: string; source: string } | null;
 }
+export interface AccountIdentity { id: string; email: string | null; name: string | null; role: string; isAdmin: boolean; clientId: string | null }
 export interface ClientProfile { id: string; email: string | null; name: string | null; role: string; isAdmin: boolean; clientId: string | null; tier: string; status: string | null; digestEmailOptIn: boolean; helpStyle?: string | null }
 export interface WorkflowItem { id: string; area: string; title: string; done: boolean; order: number }
 export interface ActionItem { id: string; owner: string; text: string; done: boolean; dueAt: string | null }

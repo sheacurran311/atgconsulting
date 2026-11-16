@@ -3,7 +3,7 @@
  * Includes consultation prep view: intake answers, AI-drafted plan, talking points.
  */
 
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { gateAdminRouter, type AuthedRequest } from "../lib/auth";
@@ -11,10 +11,12 @@ import { generateDailyReport } from "../lib/reports";
 import { audit } from "../lib/audit";
 import { parseIntakeAnswers } from "../lib/intakeAnswers";
 import { applyGuidedCount } from "../lib/guidedCount";
+import { customerDirectoryWhere } from "../lib/customerDirectory";
 import { buildSessionBrief } from "../lib/sessionBrief";
 
+export function createAdminRouter(gate: RequestHandler = gateAdminRouter) {
 const router = Router();
-router.use(gateAdminRouter);
+router.use(gate);
 
 // ── Clients ───────────────────────────────────────────────────────────────────
 
@@ -22,6 +24,7 @@ router.get("/admin/clients", async (req, res) => {
   const { tier, status, q, area } = req.query as Record<string, string | undefined>;
   const clients = await prisma.client.findMany({
     where: {
+      ...customerDirectoryWhere,
       ...(tier ? { tier } : {}),
       ...(status ? { status } : {}),
       ...(area ? { areas: { contains: area } } : {}),
@@ -366,7 +369,6 @@ router.get("/admin/audit", async (req, res) => {
   res.json(logs);
 });
 
-export default router;
 
 // ── Workbench admin: workflows + outputs + messages + requests ─────────────────
 
@@ -492,3 +494,7 @@ router.patch("/admin/workflow-requests/:id", async (req, res) => {
   const updated = await prisma.workflowRequest.update({ where: { id: req.params.id as string }, data: { ...(status ? { status } : {}), ...(adminNote !== undefined ? { adminNote } : {}) } });
   res.json(updated);
 });
+
+return router;
+}
+export default createAdminRouter();

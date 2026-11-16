@@ -111,9 +111,9 @@ export async function resolveClerkUser(req: Request, clerkId: string, clerkUser:
     clientId = row?.id ?? null;
   }
 
-  // Verified email: create a prospect Client if needed, and link matching intakes.
+  // Customer sign-in provisions a prospect; an admin identity is not a sales lead.
   // Unverified addresses are never used to attach someone else's intake.
-  if (email && emailVerified) {
+  if (role !== "ADMIN" && email && emailVerified) {
     try {
       clientId = await ensureClientForVerifiedUser(user.id, email, clientId);
     } catch (err) {
