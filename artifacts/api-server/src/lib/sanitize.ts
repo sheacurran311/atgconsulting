@@ -20,6 +20,13 @@ export function sanitiseShortText(raw: string): string {
   return sanitiseText(raw, MAX_SHORT_TEXT);
 }
 
+/** Preserve transcript paragraphs and speaker lines; never treat them as HTML. */
+export function sanitiseMultilineText(raw: string, maxLength: number): string {
+  return raw.replace(/\r\n?/g, "\n")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, "")
+    .trim().slice(0, maxLength);
+}
+
 /**
  * Wrap user-supplied text in XML-style delimiters so the LLM treats it as data,
  * not as instructions. Any attempt to close the tag is stripped.

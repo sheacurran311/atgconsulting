@@ -3,7 +3,7 @@
  * All routes require auth. Clients can only see their own data.
  */
 
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
@@ -14,9 +14,12 @@ import { clientProposalState, parseMilestones } from "../lib/clientProposal";
 import { extractPersonalizedSlugs } from "../lib/personalization";
 import { buildNextActions, workflowRowState } from "../lib/clientHome";
 import { workshopSummary } from "./workshop";
+import { contentTierAllowed } from "../lib/contentAccess";
+import { customerProfile, customerDocument, customerReport, customerConsultation } from "../lib/clientViews";
 
+export function createClientRouter(resolve: RequestHandler = withUser) {
 const router = Router();
-router.use(["/client", "/modules"], withUser, requireAuth);
+router.use(["/client", "/modules"], resolve, requireAuth);
 
 function getClient(req: AuthedRequest, res: Parameters<typeof requireAuth>[1]): string | null {
   const user = req.atgUser!;
@@ -155,10 +158,10 @@ router.get("/client/dashboard", async (req, res) => {
   const workshop = await workshopSummary(client?.userId ?? actor.id, tier, testMode);
 
   res.json({
-    client,
+    client: client ? customerProfile(client) : null,
     workflowItems,
-    recentConsultation,
-    recentReport,
+    recentConsultation: recentConsultation ? customerConsultation(recentConsultation) : null,
+    recentReport: recentReport ? customerReport(recentReport) : null,
     activeDocCount,
     home: {
       where: {
@@ -242,7 +245,7 @@ router.get("/client/consultations", async (req, res) => {
     include: { actionItems: { orderBy: { createdAt: "asc" } } },
     orderBy: { scheduledAt: "desc" },
   });
-  res.json(consultations);
+  res.json(consultations.map((call) => ({ ...customerConsultation(call), actionItems: call.actionItems })));
 });
 
 router.get("/client/consultations/:id", async (req, res) => {
@@ -253,7 +256,7 @@ router.get("/client/consultations/:id", async (req, res) => {
     include: { actionItems: { orderBy: { createdAt: "asc" } } },
   });
   if (!c) { res.status(404).json({ error: "Not found." }); return; }
-  res.json(c);
+  res.json({ ...customerConsultation(c), actionItems: c.actionItems });
 });
 
 router.patch("/client/action-items/:id", async (req, res) => {
@@ -289,7 +292,7 @@ router.get("/client/documents", async (req, res) => {
     if (!d.minTier) return true;
     return TIER_ORDER.indexOf(d.minTier) <= clientTierIdx;
   });
-  res.json(filtered);
+  res.json(filtered.map(customerDocument));
 });
 
 // ── Reports ───────────────────────────────────────────────────────────────────
@@ -302,7 +305,7 @@ router.get("/client/reports", async (req, res) => {
     orderBy: { date: "desc" },
     take: 30,
   });
-  res.json(reports);
+  res.json(reports.map(customerReport));
 });
 
 router.get("/client/reports/:date", async (req, res) => {
@@ -312,7 +315,7 @@ router.get("/client/reports/:date", async (req, res) => {
     where: { clientId_date_kind: { clientId, date: req.params.date, kind: "DAILY" } },
   });
   if (!report || report.status !== "PUBLISHED") { res.status(404).json({ error: "Not found." }); return; }
-  res.json(report);
+  res.json(customerReport(report));
 });
 
 // ── Learn modules ─────────────────────────────────────────────────────────────
@@ -321,8 +324,6 @@ router.get("/modules", async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   const clientId = user.clientId;
   const client = clientId ? await prisma.client.findUnique({ where: { id: clientId } }) : null;
-  const TIER_ORDER = ["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"];
-  const clientTierIdx = testModeForActor(user.role) ? TIER_ORDER.length : TIER_ORDER.indexOf(client?.tier ?? "NONE");
 
   const [modules, progress] = await Promise.all([
     prisma.module.findMany({ where: { status: "PUBLISHED" }, orderBy: { order: "asc" } }),
@@ -330,23 +331,25 @@ router.get("/modules", async (req, res) => {
   ]);
 
   const completedIds = new Set(progress.map((p) => p.moduleId));
-  const result = modules.map((m) => ({
-    ...m,
-    locked: TIER_ORDER.indexOf(m.minTier) > clientTierIdx,
-    completed: completedIds.has(m.id),
-  }));
+  const result = modules.map((m) => {
+    const locked = !contentTierAllowed(client?.tier ?? "NONE", m.minTier, testModeForActor(user.role));
+    return {
+      id: m.id, slug: m.slug, title: m.title, description: m.description,
+      minTier: m.minTier, order: m.order, status: m.status,
+      ...(!locked ? { body: m.body, videoUrl: m.videoUrl } : {}),
+      locked, completed: completedIds.has(m.id),
+    };
+  });
   res.json(result);
 });
 
 router.get("/modules/:slug", async (req, res) => {
   const user = (req as AuthedRequest).atgUser!;
   const client = user.clientId ? await prisma.client.findUnique({ where: { id: user.clientId } }) : null;
-  const TIER_ORDER = ["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"];
-  const clientTierIdx = testModeForActor(user.role) ? TIER_ORDER.length : TIER_ORDER.indexOf(client?.tier ?? "NONE");
 
   const m = await prisma.module.findUnique({ where: { slug: req.params.slug } });
   if (!m || m.status !== "PUBLISHED") { res.status(404).json({ error: "Not found." }); return; }
-  if (TIER_ORDER.indexOf(m.minTier) > clientTierIdx) {
+  if (!contentTierAllowed(client?.tier ?? "NONE", m.minTier, testModeForActor(user.role))) {
     res.status(403).json({ error: "Upgrade your plan to access this module.", minTier: m.minTier });
     return;
   }
@@ -358,9 +361,7 @@ router.post("/modules/:slug/complete", async (req, res) => {
   const m = await prisma.module.findUnique({ where: { slug: req.params.slug } });
   if (!m || m.status !== "PUBLISHED") { res.status(404).json({ error: "Not found." }); return; }
   const client = user.clientId ? await prisma.client.findUnique({ where: { id: user.clientId } }) : null;
-  const TIER_ORDER = ["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"];
-  const clientTierIdx = TIER_ORDER.indexOf(client?.tier ?? "NONE");
-  if (!testModeForActor(user.role) && TIER_ORDER.indexOf(m.minTier) > clientTierIdx) {
+  if (!contentTierAllowed(client?.tier ?? "NONE", m.minTier, testModeForActor(user.role))) {
     res.status(403).json({ error: "Upgrade your plan to access this module.", minTier: m.minTier });
     return;
   }
@@ -481,4 +482,6 @@ router.get("/client/intake/prefill", requireAuth, async (req, res) => {
   res.json({ answers: [], sessionId: null });
 });
 
-export default router;
+return router;
+}
+export default createClientRouter();

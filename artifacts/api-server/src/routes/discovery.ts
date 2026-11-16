@@ -33,6 +33,7 @@ import { createHash } from "crypto";
 import { prisma } from "../lib/db";
 import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { audit } from "../lib/audit";
+import { escapeHtml } from "../lib/html";
 import {
   extractFromDocument, generateReportDraft, buildTranscript,
   type AnsweredQuestion,
@@ -933,6 +934,9 @@ router.get("/admin/discovery/:id/proposal.html", withUser, requireAdmin, async (
     },
   });
   res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Cache-Control", "no-store");
   res.send(html);
 });
 
@@ -957,7 +961,7 @@ interface AuthorityContext {
   approverRole: string | null;
 }
 
-async function generateProposalDraft(
+export async function generateProposalDraft(
   answers: AnsweredQuestion[],
   reportDraft: Record<string, unknown>,
   contactName: string,
@@ -1077,7 +1081,7 @@ function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<
 
 // ── Proposal HTML renderer ────────────────────────────────────────────────────
 
-function renderProposalHTML(params: {
+export function renderProposalHTML(params: {
   intake: { contactEmail: string | null; contactName: string | null };
   proposal: { execSummary: string; understanding: string; scope: string; howWeConnect: string; acceptanceClause: string; approvedAt: Date | null };
   milestones: { label: string; description: string }[];
@@ -1085,7 +1089,19 @@ function renderProposalHTML(params: {
   companyName: string;
   authority?: { decisionAuthority: string | null; approverName: string | null; approverEmail: string | null; approverRole: string | null };
 }): string {
-  const { intake, proposal, milestones, investment, companyName, authority } = params;
+  const intake = { contactName: escapeHtml(params.intake.contactName), contactEmail: escapeHtml(params.intake.contactEmail) };
+  const proposal = {
+    execSummary: escapeHtml(params.proposal.execSummary), understanding: escapeHtml(params.proposal.understanding),
+    scope: escapeHtml(params.proposal.scope), howWeConnect: escapeHtml(params.proposal.howWeConnect),
+    acceptanceClause: escapeHtml(params.proposal.acceptanceClause),
+  };
+  const companyName = escapeHtml(params.companyName);
+  const milestones = params.milestones.map((m) => ({ label: escapeHtml(m.label), description: escapeHtml(m.description) }));
+  const investment = Object.fromEntries(Object.entries(params.investment).map(([key, value]) => [key, escapeHtml(value)]));
+  const authority = params.authority ? {
+    decisionAuthority: params.authority.decisionAuthority, approverName: escapeHtml(params.authority.approverName),
+    approverRole: escapeHtml(params.authority.approverRole),
+  } : undefined;
   const date = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const scope = proposal.scope.split("\n").filter(Boolean);
 

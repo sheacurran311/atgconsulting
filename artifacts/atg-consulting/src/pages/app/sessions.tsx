@@ -5,7 +5,7 @@
  */
 import { useState, useEffect } from "react";
 import AppShell from "@/components/app/AppShell";
-import { api, type SessionRecord } from "@/lib/api";
+import { api, type ClientSessionRecap } from "@/lib/api";
 import { useAccount } from "@/lib/useAccount";
 import { hasOperator } from "@/lib/tiers";
 
@@ -18,7 +18,7 @@ const SESSION_LABELS: Record<string, string> = {
 
 export default function SessionsPage() {
   const { account } = useAccount();
-  const [sessions, setSessions] = useState<SessionRecord[]>([]);
+  const [sessions, setSessions] = useState<ClientSessionRecap[]>([]);
   const [loading, setLoading] = useState(true);
 
   const tier = account?.tier ?? "NONE";

@@ -71,7 +71,7 @@ export const api = {
     updateAccount: (body: { digestEmailOptIn?: boolean }) => patch<{ ok: boolean }>("/client/account", body),
     messages: () => get<ClientMsg[]>("/workbench/messages"),
     sendMessage: (body: string) => post<ClientMsg>("/workbench/messages", { body }),
-    sessions:    () => get<SessionRecord[]>("/client/sessions"),
+    sessions:    () => get<ClientSessionRecap[]>("/client/sessions"),
   },
 
   // ── Workbench ─────────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ export const api = {
                      post<{ skillMd: string; routinePrompt: string; tokens: number; fromCache: boolean }>("/ai-assist/customize-skill", { slug, platform, context }),
     troubleshoot:  (errorText: string, imageBase64?: string, imageMime?: string) =>
                      post<{ reply: string; tokens: number; fromCache: boolean }>("/ai-assist/troubleshoot", { errorText, imageBase64, imageMime }),
-    reportRefresh: () => post<{ ok: boolean; planId: string; recommendedTier: string; refreshDiff: string | null; message: string }>("/ai-assist/report-refresh", {}),
+    reportRefresh: () => post<{ ok: boolean; toolPlanId: string; reviewRequired: boolean; message: string }>("/ai-assist/report-refresh", {}),
     usage:         () => get<{ used: number; cap: number; month: string; byFeature: { feature: string; tokenCount: number; messageCount: number }[]; enabled: boolean }>("/ai-assist/usage"),
   },
 
@@ -140,8 +140,8 @@ export const api = {
 
   // ── Tier services ──────────────────────────────────────────────────────────
   toolPlan: {
-    get:      () => get<ToolPlan>("/tool-plan"),
-    generate: (intakeId?: string) => post<ToolPlan & { _pending?: boolean }>("/tool-plan/generate", intakeId ? { intakeId } : {}),
+    get:      () => get<CustomerToolPlan>("/tool-plan"),
+    generate: (intakeId?: string) => post<{ id: string; status: string; reviewRequired: boolean; _autoApproved: false }>("/tool-plan/generate", intakeId ? { intakeId } : {}),
   },
   support: {
     submit: (body: { subject: string; message: string }) => post<SupportTicket>("/support", body),
@@ -156,7 +156,7 @@ export const api = {
 
   // ── Learn ──────────────────────────────────────────────────────────────────
   modules: {
-    list: () => get<(Module & { locked: boolean; completed: boolean })[]>("/modules"),
+    list: () => get<ModulePreview[]>("/modules"),
     get: (slug: string) => get<Module>(`/modules/${slug}`),
     complete: (slug: string) => post<{ ok: boolean }>(`/modules/${slug}/complete`),
   },
@@ -228,7 +228,9 @@ export const api = {
     createSession:    (clientId: string, body: unknown) => post<SessionRecord>(`/admin/clients/${clientId}/sessions`, body),
     patchSession:     (clientId: string, sid: string, body: unknown) => patch<SessionRecord>(`/admin/clients/${clientId}/sessions/${sid}`, body),
     deleteSession:    (clientId: string, sid: string) => req<{ ok: boolean }>("DELETE", `/admin/clients/${clientId}/sessions/${sid}`),
-    summarizeSession: (clientId: string, sid: string) => post<{ session: SessionRecord; summary: SessionSummary }>(`/admin/clients/${clientId}/sessions/${sid}/summarize`, {}),
+    summarizeSession: (clientId: string, sid: string, expectedUpdatedAt: string) => post<{ session: SessionRecord; summary: SessionSummary; warning: string | null }>(`/admin/clients/${clientId}/sessions/${sid}/summarize`, { expectedUpdatedAt }),
+    saveRecapDraft: (clientId: string, sid: string, expectedUpdatedAt: string, recapText: string) => put<SessionRecord>(`/admin/clients/${clientId}/sessions/${sid}/recap-draft`, { expectedUpdatedAt, recapText }),
+    publishRecap: (clientId: string, sid: string, expectedUpdatedAt: string) => post<SessionRecord>(`/admin/clients/${clientId}/sessions/${sid}/recap/publish`, { expectedUpdatedAt }),
     // Workflow templates
     workflowTemplates:     () => get<WorkflowTemplate[]>("/admin/workflow-templates"),
     workflowTemplate:      (slug: string) => get<WorkflowTemplate>(`/admin/workflow-templates/${slug}`),
@@ -263,6 +265,7 @@ export interface ActionItem { id: string; owner: string; text: string; done: boo
 export interface Consultation { id: string; title: string; scheduledAt: string | null; durationMin: number; notes: string | null; status: string; recordingUrl: string | null; actionItems: ActionItem[] }
 export interface Document { id: string; title: string; type: string; mime: string; size: number; visibleToClient: boolean; createdAt: string }
 export interface Report { id: string; date: string; kind: string; contentMarkdown: string; status: string; publishedAt: string | null }
+export type ModulePreview = Omit<Module, "body" | "videoUrl"> & { locked: boolean; completed: boolean; body?: string; videoUrl?: string | null };
 export interface Module { id: string; slug: string; title: string; description: string; minTier: string; order: number; videoUrl: string | null; body: string; status: string }
 export interface WorkshopOutline {
   locked: boolean;
@@ -341,7 +344,8 @@ export interface ClientHomePayload {
     resumeHref: string | null;
   };
 }
-export interface Dashboard { client: ClientAdmin | null; workflowItems: WorkflowItem[]; recentConsultation: Consultation | null; recentReport: Report | null; activeDocCount: number; home: ClientHomePayload }
+export interface CustomerProfile { id: string; company: string | null; tier: string; status: string; industry: string | null; aiLevel: number; createdAt: string }
+export interface Dashboard { client: CustomerProfile | null; workflowItems: WorkflowItem[]; recentConsultation: Consultation | null; recentReport: Report | null; activeDocCount: number; home: ClientHomePayload }
 export interface ClientAdmin { id: string; userId: string; company: string | null; tier: string; status: string; industry: string | null; aiLevel: number; createdAt: string; notes: string | null; user: { name: string | null; email: string | null }; _count?: { consultations: number; documents: number } }
 export interface ClientWorkflowOption { id: string; name: string; area: string; description: string }
 export interface ClientDetail extends ClientAdmin { intakes: IntakeRecord[]; plans: PlanAdmin[]; workflowItems: WorkflowItem[]; consultations: Consultation[]; documents: Document[]; reports: Report[]; workflows?: ClientWorkflowOption[] }
@@ -459,6 +463,7 @@ export interface WorkflowReqAdmin {
 }
 
 // ── Tier model types ──────────────────────────────────────────────────────────
+export type CustomerToolPlan = Omit<ToolPlan, "clientId" | "intakeId" | "adminNotes" | "approvedById" | "updatedAt">;
 export interface ToolPlan {
   id: string; clientId: string; intakeId: string | null;
   status: "draft" | "approved";
@@ -494,6 +499,7 @@ export interface ClientPlaybook {
 
 
 // ── Session records ───────────────────────────────────────────────────────────
+export type ClientSessionRecap = Pick<SessionRecord, "id" | "sessionDate" | "sessionType" | "sessionNumber" | "recapText" | "recordingUrl" | "createdAt">;
 export interface SessionRecord {
   id: string; clientId: string;
   sessionDate: string; sessionType: string; sessionNumber: number | null;

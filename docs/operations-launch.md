@@ -1,5 +1,7 @@
 # AI services and operations launch
 
+For the privacy and recap publication changes, see [Private drafts and approved sharing](private-drafts-sharing.md), including the verification record and remaining authenticated release checks.
+
 ## What this release provides
 
 The homepage and email-first assessment now serve small businesses, personal/family logistics, and people needing both. Signing in remains optional for completing an assessment. A verified account is required for the private customer dashboard. The questions collect workflow frequency, one redacted example, approval boundaries, ownership, success criteria, budget, and support preferences.
