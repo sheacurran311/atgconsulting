@@ -1,3 +1,6 @@
+import { useSearch } from "wouter";
+import { useFocusedRecord } from "@/lib/useFocusedRecord";
+import { announceAdminChange } from "@/lib/adminWork";
 /**
  * Admin tiers page — tool plan review, DFY applications, support tickets.
  * Combined into one page with tabs.
@@ -69,9 +72,11 @@ function ToolPlansTab() {
 // ── DFY applications ──────────────────────────────────────────────────────────
 
 function DfyTab() {
+  const [error, setError] = useState("");
   const [data, setData] = useState<{ applications: (DfyApplication & { client: unknown })[]; cap: number; spotsLeft: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [cap, setCap] = useState<number | null>(null);
+  useFocusedRecord(!loading);
 
   useEffect(() => {
     api.admin.dfyApplications().then((d) => {
@@ -81,7 +86,9 @@ function DfyTab() {
   }, []);
 
   async function updateStatus(id: string, status: string) {
-    await api.admin.updateDfyApp(id, { status }).catch(() => null);
+    setError("");
+    try { await api.admin.updateDfyApp(id, { status }); } catch (e) { setError(e instanceof Error ? e.message : "Could not save the decision."); return; }
+    announceAdminChange();
     setData((prev) => {
       if (!prev) return prev;
       const updated = prev.applications.map((a) =>
@@ -93,6 +100,7 @@ function DfyTab() {
 
   return (
     <div>
+      {error && <p role="alert">{error}</p>}
       {data && (
         <div className="flex items-center gap-4 mb-5 p-4 rounded-xl" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>
           <div>
@@ -110,7 +118,7 @@ function DfyTab() {
       : data.applications.map((app) => {
         const a = app as DfyApplication & { client?: { user: { name: string | null; email: string | null } } };
         return (
-          <div key={app.id} className="mb-3 rounded-xl p-4 flex items-center justify-between gap-3" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
+          <div id={`work-${app.id}`} key={app.id} className="mb-3 rounded-xl p-4 flex items-center justify-between gap-3" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
             <div>
               <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)" }}>{a.client?.user.name ?? app.clientId}</p>
               <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>{a.client?.user.email ?? "—"} · Applied {new Date(app.createdAt).toLocaleDateString()}</p>
@@ -131,19 +139,24 @@ function DfyTab() {
 // ── Support tickets ───────────────────────────────────────────────────────────
 
 function SupportTab() {
+  const [error, setError] = useState("");
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("open");
+  const [filter, setFilter] = useState(new URLSearchParams(useSearch()).get("filter") || "open");
+  useFocusedRecord(!loading);
 
   useEffect(() => { api.admin.supportTickets(filter).then((d) => setTickets(d)).catch(() => null).finally(() => setLoading(false)); }, [filter]);
 
   async function updateStatus(id: string, status: string) {
-    await api.admin.updateSupportTicket(id, status).catch(() => null);
+    setError("");
+    try { await api.admin.updateSupportTicket(id, status); } catch (e) { setError(e instanceof Error ? e.message : "Could not save ticket status."); return; }
+    announceAdminChange();
     setTickets((t) => t.filter((x) => x.id !== id));
   }
 
   return (
     <div>
+      {error && <p role="alert">{error}</p>}
       <div className="flex gap-2 mb-4">
         {["open","replied","closed"].map((s) => (
           <button key={s} onClick={() => setFilter(s)} className="font-mono text-2xs px-3 py-1 rounded" style={{ background: filter === s ? "var(--canvas-text)" : "var(--canvas-2)", color: filter === s ? "var(--canvas-1)" : "var(--canvas-text-2)", letterSpacing: "0.06em" }}>
@@ -154,7 +167,7 @@ function SupportTab() {
       {loading ? <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>Loading…</p>
       : tickets.length === 0 ? <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>No {filter} tickets.</p>
       : tickets.map((t) => (
-        <div key={t.id} className="mb-3 rounded-xl p-4" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
+        <div id={`work-${t.id}`} key={t.id} className="mb-3 rounded-xl p-4" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}>
           <div className="flex items-start justify-between gap-3 mb-2">
             <p className="font-semibold text-sm" style={{ color: "var(--canvas-text)" }}>{t.subject}</p>
             <div className="flex gap-1 flex-shrink-0">
@@ -179,7 +192,9 @@ const TABS = [
 ];
 
 export default function AdminTiersPage() {
-  const [tab, setTab] = useState("toolplans");
+  const requestedTab = new URLSearchParams(useSearch()).get("tab");
+  const [tab, setTab] = useState(requestedTab === "dfy" || requestedTab === "support" ? requestedTab : "toolplans");
+  useEffect(() => { if (requestedTab === "dfy" || requestedTab === "support") setTab(requestedTab); }, [requestedTab]);
   return (
     <AdminShell>
       <div className="max-w-4xl mx-auto">

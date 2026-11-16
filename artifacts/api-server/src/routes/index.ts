@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import clientDeploymentRouter from "./client-deployment";
+import automationLibraryRouter from "./automation-library";
 import accountRouter from "./account";
 import planRouter from "./plan";
 import clientRouter from "./client";
@@ -45,6 +47,8 @@ router.use((req, res, next) => {
 
 router.use(healthRouter);
 router.use(accountRouter);
+router.use(automationLibraryRouter);
+router.use(clientDeploymentRouter);
 router.use(planRouter);
 router.use(clientRouter);
 router.use(adminRouter);

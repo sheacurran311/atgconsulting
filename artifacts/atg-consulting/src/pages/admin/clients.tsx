@@ -1,3 +1,4 @@
+import { useFocusedRecord } from "@/lib/useFocusedRecord";
 import MasterPlaybook from "@/components/admin/MasterPlaybook";
 import { useState, useEffect } from "react";
 import { Link, useRoute } from "wouter";
@@ -384,6 +385,7 @@ function PlanTab({ plan }: { plan: PlanAdmin | null }) {
 }
 
 function ConsultationsTab({ client, onRefresh }: { client: ClientDetail; onRefresh: () => void }) {
+  useFocusedRecord(true);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: "", scheduledAt: "", durationMin: 60, notes: "" });
 
@@ -407,7 +409,7 @@ function ConsultationsTab({ client, onRefresh }: { client: ClientDetail; onRefre
         <button onClick={submit} disabled={creating || !form.title} className="btn-primary text-sm mt-3">Add consultation</button>
       </div>
       {client.consultations.map((c) => (
-        <div key={c.id} className="rounded-2xl border border-canvas-border bg-canvas-1 p-5">
+        <div id={`work-${c.id}`} key={c.id} className="rounded-2xl border border-canvas-border bg-canvas-1 p-5">
           <p className="font-bold text-canvas-text">{c.title}</p>
           <p className="text-canvas-text text-sm">{c.scheduledAt ? new Date(c.scheduledAt).toLocaleDateString() : "No date"} · {c.status}</p>
         </div>
@@ -643,20 +645,23 @@ function ClientWorkflowsTab({ clientId }: { clientId: string }) {
 // ── Personalize button ────────────────────────────────────────────────────────
 function ViewAsClientButton({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(false);
-  const [, setLocation] = (useState(null), [null, (v: string) => { window.location.href = v; }]);
+  const [error, setError] = useState("");
 
   async function viewAs() {
-    setLoading(true);
-    await fetch("/api/admin/impersonate", {
+    setLoading(true); setError("");
+    try {
+    const response = await fetch("/api/admin/impersonate", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ clientId }),
-    }).catch(() => null);
+    });
+    if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error ?? "Could not open Client View."); }
     window.location.href = "/app";
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not open Client View."); setLoading(false); }
   }
 
   return (
-    <button
+    <span><button
       type="button"
       onClick={viewAs}
       disabled={loading}
@@ -664,7 +669,7 @@ function ViewAsClientButton({ clientId }: { clientId: string }) {
       style={{ color: "var(--canvas-text-3)", background: "none", border: "none", cursor: "pointer" }}
     >
       {loading ? "…" : "👁 View as"}
-    </button>
+    </button>{error && <span role="alert" className="block text-xs">{error}</span>}</span>
   );
 }
 

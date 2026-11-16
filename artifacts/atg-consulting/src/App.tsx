@@ -4,6 +4,8 @@ import { ClerkProvider, useUser } from "@clerk/react";
 import { clerkPubKey, clerkProxyUrl, clerkAppearance, basePath, stripBase } from "@/lib/clerk";
 import AccountLanding from "@/components/AccountLanding";
 import IntakeEntry from "@/components/IntakeEntry";
+import AutomationLibraryPage, { AdminAutomationLibraryPage } from "@/pages/app/automations";
+import DeliveryPlaybookPage from "@/pages/admin/playbook";
 import AdminAccountPage from "@/pages/admin/account";
 import Nav from "@/components/Nav";
 import CommandPalette from "@/components/CommandPalette";
@@ -138,6 +140,7 @@ function AuthenticatedApp() {
         {/* Client portal */}
         <Route path="/app" component={DashboardPage} />
         <Route path="/app/plan" component={PlanPage} />
+        <Route path="/app/automations" component={AutomationLibraryPage} />
         <Route path="/app/sessions" component={SessionsPage} />
         <Route path="/app/consultations/:id" component={ConsultationsPage} />
         <Route path="/app/consultations" component={ConsultationsPage} />
@@ -167,6 +170,8 @@ function AuthenticatedApp() {
         <Route path="/admin/discovery" component={AdminDiscoveryPage} />
         <Route path="/admin/engagements" component={AdminEngagementsPage} />
         <Route path="/admin/catalog" component={AdminCatalogPage} />
+        <Route path="/admin/automations" component={AdminAutomationLibraryPage} />
+        <Route path="/admin/playbook" component={DeliveryPlaybookPage} />
         <Route path="/admin/account" component={AdminAccountPage} />
         <Route path="/admin/today" component={AdminTodayPage} />
         <Route path="/blog" component={BlogPage} />

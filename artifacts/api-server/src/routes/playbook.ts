@@ -12,7 +12,8 @@
  * POST /api/admin/intakes/:id/playbook          — generate from intake context
  */
 
-import { masterPlaybook } from "../lib/masterPlaybook";
+import { DeploymentPlan } from "../lib/clientDeployment";
+import { masterPlaybook, deliveryGuide } from "../lib/masterPlaybook";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
@@ -63,7 +64,11 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
     } satisfies SessionSummarySnippet;
   }).filter(Boolean) as SessionSummarySnippet[];
 
+  const previous = await prisma.clientPlaybook.findFirst({ where: { clientId }, orderBy: { version: "desc" }, select: { content: true } });
+  let deployment;
+  try { const result = DeploymentPlan.safeParse(JSON.parse(previous?.content ?? "{}").deployment); if (result.success) deployment = result.data; } catch { /* older playbooks have no implementation list */ }
   return {
+    deployment,
     intakeId: intake.id,
     clientName: client.user.name ?? intake?.contactName ?? "Client",
     role:       sanitiseShortText(parsed.role ?? client.roleTitle ?? "business owner"),
@@ -112,6 +117,7 @@ export async function draftPlaybookIfMissing(clientId: string, intakeId?: string
   });
 }
 
+router.get("/admin/playbook", (_req, res) => { res.json(deliveryGuide); });
 router.get("/admin/playbook/master", (_req, res) => { res.json(masterPlaybook); });
 
 // Explicit operator attestation supports invoices and payments received before this release.

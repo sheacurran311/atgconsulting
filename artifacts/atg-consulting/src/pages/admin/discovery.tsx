@@ -1,3 +1,5 @@
+import { useSearch } from "wouter";
+import { adminJson } from "@/lib/adminWork";
 /**
  * Admin Discovery inbox — lists and manages discovery intake submissions.
  * Shea reviews answers, generates a report draft, approves it, and converts to a client.
@@ -56,6 +58,8 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }
 };
 
 export default function AdminDiscoveryPage() {
+  const focusedIntake = new URLSearchParams(useSearch()).get("intake");
+  useEffect(() => { if (focusedIntake) void openDetail(focusedIntake).catch((e: Error) => setDeliveryError(e.message)); }, [focusedIntake]);
   const [deliveryError, setDeliveryError] = useState("");
   const [tab, setTab] = useState<"inbox" | "invites">("inbox");
   const [intakes, setIntakes] = useState<IntakeRow[]>([]);
@@ -102,8 +106,7 @@ export default function AdminDiscoveryPage() {
   useEffect(() => { if (tab === "invites") loadInvites(); }, [tab]);
 
   async function openDetail(id: string) {
-    const r = await fetch(`/api/admin/discovery/${id}`, { credentials: "include" });
-    const d = await r.json() as IntakeDetail;
+    const d = await adminJson<IntakeDetail>(`/api/admin/discovery/${id}`);
     setSelected(d);
     setProposal(null);
     // Load proposal if it exists

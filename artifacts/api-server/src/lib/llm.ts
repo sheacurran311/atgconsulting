@@ -1,3 +1,5 @@
+import { buildClientDeployment, type ClientDeploymentPlan } from "./clientDeployment";
+import { nativePlatforms } from "./automationLibrary";
 import { masterPlaybook } from "./masterPlaybook";
 /**
  * LLM layer — provider-agnostic via OpenAI-compatible API.
@@ -674,6 +676,7 @@ export interface SessionSummarySnippet {
 }
 
 export interface PlaybookInput {
+  deployment?: ClientDeploymentPlan;
   // Client identity
   clientName: string;
   role: string;
@@ -781,6 +784,7 @@ export interface AccountAccessSection {
 }
 
 export interface PlaybookContent {
+  deployment?: ClientDeploymentPlan;
   operatingGuide?: import("./operatingPlan").OperatingPlanContent;
   /** Plain-words summary: who they are, what they want, inferred situation */
   clientSummary: string;
@@ -904,10 +908,10 @@ const PlaybookZod = z.object({
 const PLAYBOOK_SYSTEM = `You are writing a confidential operator playbook for Shea Curran (ATG Consulting) to use internally when running a client engagement. This document is never shown to clients.
 
 ATG positioning:
-- Three tiers: Self-serve (tool plan + email support, no calls), Guided (1:1 build sessions with Shea), Done-for-you (Shea builds and runs up to 3 custom workflows).
+- Three tiers: Self-serve (tool plan + email support, no calls), Guided (1:1 build sessions with Shea), Done-for-you (Shea builds and runs up to 20 workflows and automations).
 - Audience: anyone not tech-savvy, across six verticals (trades, real estate, hospitality, professional services, independent sales reps, coaches/creators).
 - Account ownership: client owns all accounts. Shea is added as a collaborator/helper. Nothing sends without client approval.
-- Grok Bot is a capable AI automation tool alongside ChatGPT, Claude, Cursor, Replit — recommend it where it genuinely fits.
+- Native providers only for this engagement: Grok Bot, ChatGPT plugins and Claude plugins. Honor the client provider preference; otherwise compare supported source apps, native scheduling, cost and workspace availability. No Zapier, Make or external automation runner.
 - Never invent prices, testimonials, client names, or hour-saved statistics. Say "check current pricing" for tools.
 - No jargon: no "agentic", "RAG", "LLM", "vector DB".
 - KPIs to track: workflow runs, output approvals, output edits (not invented hours-saved figures).
@@ -991,7 +995,7 @@ function buildTemplatePlaybook(input: PlaybookInput): PlaybookContent {
         : `Self-serve fits: higher AI comfort (${input.aiComfort}/4) and a clear sense of what they want to automate. Personalised plan + email support should cover their needs without live sessions.`,
       expectationsToSet: [
         `Response times: ${input.tier === "GUIDED" || input.tier === "WHITE_GLOVE" ? "Direct message thread (same-day for Guided/DFY). " : "Email support — reply within 2 business days. "}`,
-        `Inclusions: ${input.tier === "WHITE_GLOVE" ? "Up to 3 custom workflows, built and run by Shea. From $3,500. Optional $750/mo care." : input.tier === "GUIDED" ? "Guided package is 3 sessions ($997) or 5 sessions ($1,497). Use the number on the client record." : "Tool plan, setup guide, ready-made workflows, email support. Self-serve is $197."}`,
+        `Inclusions: ${input.tier === "WHITE_GLOVE" ? "Up to 20 workflows and automations, built and run by Shea. From $3,500. Optional $750/mo care." : input.tier === "GUIDED" ? "Guided package is 3 sessions ($997) or 5 sessions ($1,497). Use the number on the client record." : "Tool plan, setup guide, ready-made workflows, email support. Self-serve is $197."}`,
         `Exclusions: ${input.tier === "SELF_SERVE" ? "No 1:1 calls with Shea." : "Ongoing work beyond the agreed scope will be quoted separately."}`,
         `Client responsibilities: provide access to accounts, attend sessions, review and approve all outputs within 3 business days.`,
         `Account ownership: client owns all accounts. Shea is added as a collaborator and can be removed at any time.`,
@@ -1031,7 +1035,7 @@ function buildTemplatePlaybook(input: PlaybookInput): PlaybookContent {
       ...(input.areas.includes("marketing")
         ? [{ category: "Content scheduling", tool: "Buffer or Later", why: "Schedules posts in advance across platforms.", costNote: "Free tiers available — check current pricing." }]
         : []),
-      { category: "Workflow automation", tool: input.toolBudget === "<$50/mo" ? "Make (free tier)" : "Zapier or Make", why: "Connects tools so data moves automatically without copy-paste.", costNote: "Free tiers available for simple flows — check current pricing." },
+      { category: "Native recurring workflow", tool: "ChatGPT plugins, Grok Bot routines, or Claude plugins and Scheduled", why: "Choose the client's preferred provider after verifying native source apps and scheduling in their account. Use the client-specific implementation list to select exact marketplace components beyond the starter recipes.", costNote: "Check current plan, native app support and pricing before setup; stop if a required capability is unavailable." },
       ...(input.areas.includes("customer_support")
         ? [{ category: "Support/inbox", tool: "Grok Bot or Gmail labels + automation", why: "Routes and drafts support replies consistently.", costNote: "Check current pricing." }]
         : []),
@@ -1091,7 +1095,7 @@ function buildTemplatePlaybook(input: PlaybookInput): PlaybookContent {
     milestones: {
       day30: `First workflow running. At least 5 outputs reviewed and approved. Client familiar with the Workbench approval flow.`,
       day60: `Second workflow live${input.tier === "WHITE_GLOVE" ? ". Third in build or running." : ". Prompt tuning based on first-month feedback complete."}. Run count and approval rate stable.`,
-      day90: `${input.tier === "WHITE_GLOVE" ? "All 3 workflows running. Monthly tuning cadence established." : "System running independently. Client handling edge cases. Evaluate upgrade if volume or complexity has grown."} Scope review: are there new time sinks the system should address?`,
+      day90: `${input.tier === "WHITE_GLOVE" ? "Agreed workflows and automations delivered in phases, up to 20 total. Confirm each acceptance test; ongoing care is separately agreed." : "System running independently. Client handling edge cases. Evaluate upgrade if volume or complexity has grown."} Scope review: are there new time sinks the system should address?`,
       ongoingCadence: input.tier === "WHITE_GLOVE"
         ? "Monthly tuning session (30 min). Weekly output queue review. Shea monitors run failures proactively."
         : input.tier === "GUIDED"
@@ -1277,32 +1281,7 @@ const PLATFORM_LABELS_PB: Record<string, string> = {
  * These tell Shea what to do on the live call or when building with delegated access.
  */
 const OPERATOR_KEY_STEPS: Record<string, Record<string, string[]>> = {
-  default: {
-    grok_bot: [
-      "Confirm the client has an X Premium subscription active.",
-      "Open grok.com, go to the Skills tab, click 'Add skill → Import from file'.",
-      "Upload the personalised SKILL.md (downloaded from ATG portal for this client).",
-      "Test by typing '/' in a Grok chat — skill name should appear in the list.",
-      "Create a routine: ask Grok 'Create a routine that runs [skill name] every [schedule].'",
-      "Run the skill once, review output with the client present, confirm they approve the format.",
-    ],
-    claude: [
-      "Open claude.ai, go to the client's Project (or create one named after the engagement).",
-      "Click Project Settings → Skills → Upload ZIP (pack SKILL.md as skill.md inside a folder named after the slug).",
-      "Alternatively paste SKILL.md into Project Instructions if Skills tab is unavailable.",
-      "Set up a Zapier Zap: Schedule trigger → Claude 'Send message' action → Gmail 'Create draft' action.",
-      "Test the full chain with a sample input, confirm draft appears in client's Gmail Drafts.",
-      "Walk the client through finding the draft and copying it.",
-    ],
-    chatgpt: [
-      "Open chatgpt.com, go to My GPTs → Create a GPT.",
-      "Name it after the workflow; paste System Prompt from SKILL.md into Instructions.",
-      "If client has Business/Enterprise: add a Skill (not a GPT) for a cleaner interface.",
-      "For scheduling: open a regular ChatGPT chat and ask it to create a Scheduled Task.",
-      "Test: trigger the task, confirm output appears, review with client.",
-      "Note: Scheduled Tasks run in main chat, not inside GPTs — confirm client understands.",
-    ],
-  },
+  default: Object.fromEntries(nativePlatforms.map((p) => [p.id, [...p.steps]])),
 };
 
 const OPERATOR_NOTES: Record<string, string[]> = {
@@ -1339,7 +1318,7 @@ function buildInstallGuides(input: PlaybookInput): PlaybookInstallGuides | undef
   const knownSlugs = new Set(Object.keys(ROUTINE_PROMPTS));
   const workflows = toolPlanTools
     .filter((t) => t.slug && knownSlugs.has(t.slug))
-    .slice(0, 5); // max 5 workflows in the playbook guide
+    .slice(0, input.tier === "WHITE_GLOVE" ? 20 : 5); // Guided starts small; DFY supports the agreed up-to-20 scope
 
   // If no matching slugs, use the first 3 from intake areas
   const AREA_DEFAULTS: Record<string, string[]> = {
@@ -1373,7 +1352,7 @@ function buildInstallGuides(input: PlaybookInput): PlaybookInstallGuides | undef
         routinePrompt,
         operatorKeySteps: keySteps,
         operatorNotes: wfOperatorNotes,
-        confirmationNote: `After install, ask the client to run the skill once and copy the ATG verification code (ATG-XXXX) that appears. Have them paste it into ATG portal → My Workflows → ↓ Install → Paste verification code. This confirms the skill is live in their own platform.`,
+        confirmationNote: `After install, ask the client to run the skill once and copy the ATG verification code (ATG-XXXX) that appears. Have them paste it into ATG portal → My Workflows → ↓ Install → Paste verification code. An ATG code is a client attestation, not independent proof of a working installation; record a successful native scheduled run and test evidence separately.`,
       };
     });
 
@@ -1409,7 +1388,7 @@ export async function generateClientPlaybook(input: PlaybookInput): Promise<Play
   const { buildOperatingPlan } = await import("./operatingPlan");
   const operatingGuide = buildOperatingPlan(input.answersJson);
   const enrich = (p: PlaybookContent, source: "LLM" | "TEMPLATE") => ({
-    ...p, source, operatingGuide,
+    ...p, source, operatingGuide, deployment: input.deployment ?? buildClientDeployment(input.answersJson),
     ...(operatingGuide.audience === "personal" ? {
       risksAndClarifications: ["Keep children's identities and private school content out of the portal.", "Confirm household account permissions and who approves calendar changes, messages, and purchases.", "Verify schedule changes against the original source and define who handles conflicts."],
       toolStack: [{ category: "Personal coordination", tool: "Customer's existing calendar and task tools", why: "Start with the tools the household already uses; verify available integrations before selecting an automation platform.", costNote: "Confirm current pricing and agree recurring costs before setup." }],

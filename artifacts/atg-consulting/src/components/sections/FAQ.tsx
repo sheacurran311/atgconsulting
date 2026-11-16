@@ -16,7 +16,7 @@ const faqs = [
   },
   {
     q: "What is Done-for-you?",
-    a: "Shea designs, builds, runs, and tunes up to 3 custom workflows in your own accounts for business or personal routines. You approve what comes out — Shea handles everything else. By application only because it requires Shea's ongoing time. Limited spots; a waitlist opens when full.",
+    a: "White-glove implementation of up to 20 agreed workflows and automations in your own accounts for business, personal logistics, or both. Shea maps priorities, chooses exact native plugins and bots, configures and tests the workflows in phases, trains you, and hands over an operating guide. Agree the named workflows, complexity and delivery schedule in writing. You retain approval and account ownership. Optional ongoing care is scoped separately. By application; limited spots.",
   },
   {
     q: "Will anything be sent automatically on my behalf?",

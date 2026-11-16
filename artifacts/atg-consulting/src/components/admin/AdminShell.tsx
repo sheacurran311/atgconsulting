@@ -23,6 +23,8 @@ import AdminSwitcher from "@/components/admin/AdminSwitcher";
 
 const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Today",       to: "/admin/today",              icon: Sparkles },
+  { label: "Automation bots", to: "/admin/automations", icon: Workflow },
+  { label: "Delivery playbook", to: "/admin/playbook", icon: BookOpen },
   { label: "Intakes",     to: "/admin/discovery",          icon: ClipboardList },
   { label: "Engagements", to: "/admin/engagements",        icon: Users },
   { label: "Catalog",     to: "/admin/catalog",            icon: Search },
@@ -83,7 +85,7 @@ export default function AdminShell({ children }: Props) {
           </div>
         </div>
 
-        <nav className="flex-1 p-2 space-y-0.5 mt-1" aria-label="Admin navigation">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5 mt-1" aria-label="Admin navigation">
           {navItems.map((item) => {
             const active = location.startsWith(item.to);
             return (

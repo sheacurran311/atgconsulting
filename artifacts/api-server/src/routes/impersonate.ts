@@ -119,7 +119,7 @@ router.get("/admin/impersonate/status", async (req, res) => {
   const rawCookie = (req.cookies as Record<string, string> | undefined)?.[IMP_COOKIE];
   if (!rawCookie) { res.json({ active: false }); return; }
   const token = verifyImp(rawCookie);
-  if (!token) { res.json({ active: false }); return; }
+  if (!token || token.adminId !== (req as AuthedRequest).atgUser!.id) { res.json({ active: false }); return; }
 
   const client = await prisma.client.findUnique({
     where: { id: token.clientId },
