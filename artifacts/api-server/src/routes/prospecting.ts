@@ -109,6 +109,6 @@ router.patch("/admin/prospecting/:id", async (req, res) => {
   if (result.count !== 1) { res.status(409).json({ error: "Prospect was modified concurrently. Reload and retry." }); return; }
   const changed = await prisma.atgProspect.findUniqueOrThrow({ where: { id: old.id } });
   await audit({ actorUserId: actor.id, action: "ATG_PROSPECT_UPDATE", entity: "AtgProspect", entityId: old.id, meta: { from: old.status, to: changed.status }, ip: req.ip });
-  res.json({ ...changed, scoreReview: score });
+  res.json({ ...changed, review: changed.reviewJson ? JSON.parse(changed.reviewJson) : null, scoreReview: score });
 });
 export default router;
