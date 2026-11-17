@@ -42,6 +42,7 @@ import AdminDiscoveryPage from "@/pages/admin/discovery";
 import AdminEngagementsPage from "@/pages/admin/engagements";
 import AdminCatalogPage from "@/pages/admin/catalog";
 import AdminTodayPage from "@/pages/admin/today";
+import AdminProspectingPage from "@/pages/admin/prospecting";
 import AdminWorkshopPage from "@/pages/admin/workshop";
 import BlogPage from "@/pages/blog";
 import BlogPostPage from "@/pages/blog-post";
@@ -158,6 +159,7 @@ function AuthenticatedApp() {
         <Route path="/admin" component={() => <Redirect to="/admin/today" />} />
         <Route path="/admin/clients/:id/:tab?" component={AdminClientsPage} />
         <Route path="/admin/clients" component={AdminClientsPage} />
+        <Route path="/admin/prospecting" component={AdminProspectingPage} />
         <Route path="/admin/reports" component={AdminReportsPage} />
         <Route path="/admin/content" component={AdminContentPage} />
         <Route path="/admin/workshop" component={AdminWorkshopPage} />
