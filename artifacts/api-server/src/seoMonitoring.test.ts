@@ -33,3 +33,15 @@ test("zero baseline is not presented as infinite growth",()=>{
 test("invalid source metrics are rejected",()=>{
   assert.throws(()=>detectSeoFindings(previous,{...current,searchConsole:{...current.searchConsole,ctr:1.5}}),RangeError);
 });
+
+test("comparison periods must be equal-length and valid calendar dates",()=>{
+  assert.throws(()=>detectSeoFindings(previous,{
+    ...current,searchConsole:{...current.searchConsole,end:"2026-11-24"}
+  }),/equal-length/);
+  assert.throws(()=>detectSeoFindings(previous,{
+    ...current,searchConsole:{...current.searchConsole,start:"2026-02-30"}
+  }),/observation window|ISO date/);
+  assert.throws(()=>detectSeoFindings(previous,{
+    ...current,analytics:{...current.analytics!,end:"2026-11-24"}
+  }),/equal-length/);
+});
