@@ -7,14 +7,14 @@ const BOOKING_URL = typeof window !== "undefined"
 const TIERS = [
   {
     id: "self",
-    mono: "SELF-SERVE",
-    name: "Self-serve",
-    tagline: "A personalised plan you run yourself.",
-    sheaRole: "You get Shea's expertise as a deliverable.",
-    sheaDetail: "Complete the intake. Grok drafts a diagnosis of your situation — a recommended tool stack, setup guides for your AI platform (Grok Bot, Claude, or ChatGPT), and the workflows to install first. Shea reviews that draft before it reaches you. Email support within 2 business days.",
-    price: "$197",
-    cta: "Get started",
-    ctaHref: "/intake?tier=self_serve",
+    mono: "FREE TOOLS",
+    name: "Free Tools",
+    tagline: "Practical AI and workflow tools for small business owners, at no cost.",
+    sheaRole: "Self-guided tools. Hands-on consulting is optional.",
+    sheaDetail: "Complete the free assessment, explore introductory diagnostics, and use self-guided workflow resources in your own accounts. When you want a tailored roadmap or implementation help, upgrade to Guided or Done-for-You consulting.",
+    price: "Free",
+    cta: "Explore free tools",
+    ctaHref: "/intake",
     external: false,
     includes: [
       "Free AI readiness and workflow opportunity assessment",
