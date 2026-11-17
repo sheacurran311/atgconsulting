@@ -4,6 +4,7 @@
  */
 import { getGrokClient, GROK_MODEL, logFallback } from "./grokClient";
 import type { ProspectEvidence } from "./prospecting";
+import { atgBusinessSkills } from "./businessSkillRegistry";
 
 export interface ProspectDraftInput {
   businessName: string;
@@ -19,6 +20,8 @@ export async function generateProspectDraft(input: ProspectDraftInput):Promise<{
   if(!evidence.length) throw new Error("Verified source evidence is required.");
   const safe={businessName:input.businessName.slice(0,160),verifiedEvidence:evidence};
   const fallback=draftFallback(safe);
+  const methods=atgBusinessSkills.filter(skill=>["prospecting","cold-email"].includes(skill.id));
+  const methodGuidance=methods.map(skill=>`${skill.title}: ${skill.consultantAction} Evidence requirement: ${skill.evidenceRequired}`).join("\n");
   const client=getGrokClient();
   if(!client) return {draft:fallback,source:"TEMPLATE"};
   try{
@@ -28,7 +31,7 @@ export async function generateProspectDraft(input: ProspectDraftInput):Promise<{
       max_tokens:550,
       messages:[
         {role:"system",content:"You are drafting a short, professional, unsolicited business introduction for human review. Use ONLY the supplied verified public facts as factual evidence. Do not invent names, job titles, email addresses, website claims, client results, ROI figures, or prior relationships. Do not make claims of audits, analytics access, or personal knowledge. No deceptive subject lines. No high-pressure language. Draft only: do not claim to send any message. Return plain text of 100-160 words, including a courteous opt-out line."},
-        {role:"user",content:JSON.stringify({businessName:safe.businessName,verifiedEvidence:safe.verifiedEvidence.map(x=>({claim:x.claim,sourceUrl:x.sourceUrl,observedAt:x.observedAt}))})},
+        {role:"user",content:JSON.stringify({businessName:safe.businessName,methodGuidance,verifiedEvidence:safe.verifiedEvidence.map(x=>({claim:x.claim,sourceUrl:x.sourceUrl,observedAt:x.observedAt}))})},
       ],
     });
     const draft=result.choices[0]?.message?.content?.trim()??"";
