@@ -37,6 +37,7 @@ const Patch = z.object({
   review: Review.optional(),
   outreachDraft: z.string().trim().max(8000).optional(),
   nextStatus: z.enum(["NEW", "RESEARCHED", "QUALIFIED", "DISQUALIFIED", "DRAFT_READY", "APPROVED", "CONTACTED", "REPLIED", "BOOKED", "WON", "LOST", "SUPPRESSED"]).optional(),
+  expectedUpdatedAt: z.string().datetime().optional(),
 }).strict();
 
 router.get("/admin/prospecting", async (_req, res) => {
@@ -66,6 +67,12 @@ router.patch("/admin/prospecting/:id", async (req, res) => {
   if (!old) { res.status(404).json({ error: "Prospect not found." }); return; }
   const next = parsed.data.nextStatus;
   if (old.status === "SUPPRESSED") { res.status(409).json({ error: "Suppressed prospect is locked." }); return; }
+  if (!parsed.data.expectedUpdatedAt || parsed.data.expectedUpdatedAt !== old.updatedAt.toISOString()) {
+    res.status(409).json({ error: "Prospect changed since you opened it. Reload before editing." }); return;
+  }
+  if (old.status === "APPROVED" && parsed.data.review !== undefined && JSON.stringify(parsed.data.review) !== (old.reviewJson ?? "null")) {
+    res.status(409).json({ error: "Return an approved draft to review before changing qualification evidence." }); return;
+  }
   if (parsed.data.outreachDraft !== undefined && (old.status === "APPROVED" || next === "APPROVED")) {
     res.status(409).json({ error: "Approved drafts cannot be replaced without returning to review." }); return;
   }
@@ -87,7 +94,7 @@ router.patch("/admin/prospecting/:id", async (req, res) => {
   if (next === "APPROVED" && old.status !== "DRAFT_READY") {
     res.status(409).json({ error: "Review draft before approval." }); return;
   }
-  const changed = await prisma.atgProspect.update({ where: { id: old.id }, data: {
+  const data = {
     businessName: parsed.data.businessName ?? old.businessName,
     industry: parsed.data.industry ?? old.industry,
     notes: parsed.data.notes ?? old.notes,
@@ -97,7 +104,10 @@ router.patch("/admin/prospecting/:id", async (req, res) => {
     status: next ?? old.status,
     approvedById: next === "APPROVED" ? actor.id : next === "DRAFT_READY" ? null : old.approvedById,
     approvedAt: next === "APPROVED" ? new Date() : next === "DRAFT_READY" ? null : old.approvedAt,
-  } });
+  };
+  const result = await prisma.atgProspect.updateMany({ where: { id: old.id, status: old.status, updatedAt: old.updatedAt }, data });
+  if (result.count !== 1) { res.status(409).json({ error: "Prospect was modified concurrently. Reload and retry." }); return; }
+  const changed = await prisma.atgProspect.findUniqueOrThrow({ where: { id: old.id } });
   await audit({ actorUserId: actor.id, action: "ATG_PROSPECT_UPDATE", entity: "AtgProspect", entityId: old.id, meta: { from: old.status, to: changed.status }, ip: req.ip });
   res.json({ ...changed, scoreReview: score });
 });
