@@ -64,9 +64,11 @@ export async function checkWorkflowAccess(clientId: string, slug: string, actorR
   if (override && !override.enabled) return { allowed: false, reason: "This workflow has been disabled for your account." };
 
   const clientTierIdx = TIER_ORDER.indexOf(client?.tier ?? "NONE");
-  const minTierIdx    = TIER_ORDER.indexOf(template.minTier);
+  // Existing SELF_SERVE templates are now included in the no-charge Free Tools tier.
+  // Retain legacy tier values for historical schema compatibility.
+  const minTierIdx    = template.minTier === "SELF_SERVE" ? TIER_ORDER.indexOf("NONE") : TIER_ORDER.indexOf(template.minTier);
 
-  if (clientTierIdx < minTierIdx) {
+  if (clientTierIdx < minTierIdx || minTierIdx < 0) {
     return {
       allowed: false,
       reason:  `This workflow requires the ${template.minTier.replace("_", " ").toLowerCase()} plan or above.`,
