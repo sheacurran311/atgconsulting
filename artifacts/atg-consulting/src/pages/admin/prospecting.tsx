@@ -29,6 +29,7 @@ export default function AdminProspectingPage() {
   const [draft,setDraft]=useState(""); const [notes,setNotes]=useState("");
   const [review,setReview]=useState<Review>(emptyReview);
   const [claim,setClaim]=useState(""); const [sourceUrl,setSourceUrl]=useState("");
+  const [evidenceVerified,setEvidenceVerified]=useState(false);
   const [error,setError]=useState(""); const [message,setMessage]=useState(""); const [busy,setBusy]=useState(false);
   async function load() {
     try { setRows(await adminJson<Prospect[]>("/api/admin/prospecting")); }
@@ -46,13 +47,16 @@ export default function AdminProspectingPage() {
   async function save(nextStatus?:Status) {
     if(!selected||busy)return; setBusy(true);setError("");setMessage("");
     try {
-      const evidence = claim.trim() && sourceUrl.trim() ? [{claim:claim.trim(),sourceUrl:sourceUrl.trim(),observedAt:new Date().toISOString(),verified:true}] : [];
+      if ((claim.trim() || sourceUrl.trim()) && (!claim.trim() || !sourceUrl.trim() || !evidenceVerified)) {
+        setError("Enter a complete observation and URL, then confirm you verified the source."); setBusy(false); return;
+      }
+      const evidence = evidenceVerified && claim.trim() && sourceUrl.trim() ? [{claim:claim.trim(),sourceUrl:sourceUrl.trim(),observedAt:new Date().toISOString(),verified:true}] : [];
       const payload:Record<string,unknown>={notes,expectedUpdatedAt:selected.updatedAt,review:{...review,evidence: evidence.length ? evidence : review.evidence}};
       if(selected.status!=="APPROVED"&&nextStatus!=="APPROVED")payload.outreachDraft=draft;
       if(nextStatus)payload.nextStatus=nextStatus;
       const updated=await adminJson<Prospect>(`/api/admin/prospecting/${selected.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       setSelected(updated);setDraft(updated.outreachDraft);setNotes(updated.notes);setReview(updated.review ?? review);
-      setClaim(""); setSourceUrl(""); setMessage("Changes saved. Sending is not automated.");await load();
+      setClaim(""); setSourceUrl(""); setEvidenceVerified(false); setMessage("Changes saved. Sending is not automated.");await load();
     }catch(e){setError(e instanceof Error?e.message:"Unable to save prospect.");}
     finally{setBusy(false);}
   }
@@ -70,7 +74,7 @@ export default function AdminProspectingPage() {
     <div className="grid md:grid-cols-2 gap-4">
       <section className="space-y-2" aria-label="Prospects">
         {rows.length===0&&<p className="text-sm opacity-70">No prospects recorded.</p>}
-        {rows.map(p=><button key={p.id} type="button" onClick={()=>{setSelected(p);setDraft(p.outreachDraft);setNotes(p.notes);setReview(p.review??emptyReview);setClaim("");setSourceUrl("");setMessage("");}}
+        {rows.map(p=><button key={p.id} type="button" onClick={()=>{setSelected(p);setDraft(p.outreachDraft);setNotes(p.notes);setReview(p.review??emptyReview);setClaim("");setSourceUrl("");setEvidenceVerified(false);setMessage("");}}
           className="block w-full text-left rounded-lg border p-3" style={{borderColor:selected?.id===p.id?"var(--blue)":"var(--canvas-border)"}}>
           <div className="font-semibold">{p.businessName}</div><div className="text-xs opacity-70">{p.domain}</div>
           <div className="text-xs mt-2">{p.status} {p.score!==null?`· Fit ${p.score}/100`:""}</div>
@@ -88,7 +92,8 @@ export default function AdminProspectingPage() {
             </label>)}
             <label className="block text-xs">Verified observation<input className="field-input mt-1 w-full" value={claim} onChange={e=>setClaim(e.target.value)} placeholder="Specific observable business fact"/></label>
             <label className="block text-xs">Source URL<input className="field-input mt-1 w-full" value={sourceUrl} onChange={e=>setSourceUrl(e.target.value)} placeholder="https://source.example/page"/></label>
-            <p className="text-xs opacity-70">Only check verified when you have personally confirmed the source; do not invent needs or contacts. Existing observations: {review.evidence.length}.</p>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={evidenceVerified} onChange={e=>setEvidenceVerified(e.target.checked)}/> I personally checked this fact against the supplied public source</label>
+            <p className="text-xs opacity-70">Do not invent needs or contacts. Existing observations: {review.evidence.length}.</p>
           </div>
           <label className="block text-sm font-medium">Research notes
             <textarea className="field-input mt-1 w-full" rows={4} value={notes} onChange={e=>setNotes(e.target.value)}/></label>
