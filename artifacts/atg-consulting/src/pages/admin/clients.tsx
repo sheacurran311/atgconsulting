@@ -1,3 +1,4 @@
+import { adminJson, announceAdminChange } from "@/lib/adminWork";
 import { useFocusedRecord } from "@/lib/useFocusedRecord";
 import MasterPlaybook from "@/components/admin/MasterPlaybook";
 import { useState, useEffect } from "react";
@@ -115,6 +116,7 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
   const [editNotes, setEditNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     api.admin.client(id).then((c) => { setClient(c); setEditNotes(c.notes ?? ""); }).finally(() => setLoading(false));
@@ -122,10 +124,10 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
   }, [id]);
 
   async function updateField(field: string, value: string) {
-    setSaving(true);
-    const updated = await api.admin.updateClient(id, { [field]: value }).catch(() => null);
-    if (updated && client) setClient({ ...client, [field]: value });
-    setSaving(false);
+    setSaving(true); setSaveError("");
+    try { const updated = await api.admin.updateClient(id, { [field]: value }); setClient((current) => current ? { ...current, ...updated } : current); announceAdminChange(); }
+    catch (error) { setSaveError(error instanceof Error ? error.message : "Could not save the account change. Refresh to check the saved state."); }
+    finally { setSaving(false); }
   }
 
   async function saveNotes() {
@@ -150,11 +152,11 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
             <p className="text-canvas-text text-sm">{client.user.email ?? "—"} · {client.industry ?? "—"}</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <select value={client.tier} disabled={saving} onChange={(e) => updateField("tier", e.target.value)}
+            <select aria-label="Client tier" value={client.tier} disabled={saving} onChange={(e) => updateField("tier", e.target.value)}
               className="rounded-xl border border-canvas-border px-3 py-2 text-sm text-canvas-text focus:outline-none focus:ring-2 focus:ring-blue">
               {["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"].map((t) => <option key={t} value={t}>{TIER_LABELS[t] ?? t}</option>)}
             </select>
-            <select value={client.status} disabled={saving} onChange={(e) => updateField("status", e.target.value)}
+            <select aria-label="Client status" value={client.status} disabled={saving} onChange={(e) => updateField("status", e.target.value)}
               className="rounded-xl border border-canvas-border px-3 py-2 text-sm text-canvas-text focus:outline-none focus:ring-2 focus:ring-blue">
               {["PROSPECT", "ACTIVE", "PAUSED", "CHURNED"].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -162,6 +164,7 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
           </div>
         </div>
 
+        {saveError && <p role="alert" className="mb-4">{saveError}</p>}
         {/* Tabs */}
         <div className="flex gap-1 border-b border-canvas-border mb-6 overflow-x-auto">
           {TABS.map((t) => (
@@ -172,10 +175,10 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
         </div>
 
         {/* Tab content */}
-        {tab === "overview" && <OverviewTab client={client} editNotes={editNotes} setEditNotes={setEditNotes} saveNotes={saveNotes} savingNotes={savingNotes} />}
+        {tab === "overview" && <OverviewTab onReload={async () => { setClient(await api.admin.client(id)); }} client={client} editNotes={editNotes} setEditNotes={setEditNotes} saveNotes={saveNotes} savingNotes={savingNotes} />}
         {tab === "brief" && <BriefTab clientId={id} />}
         {tab === "prep" && <PrepTab prep={prep} />}
-        {tab === "playbook" && <PlaybookTabWrapper clientId={id} intakeId={client.intakes[0]?.id} />}
+        {tab === "playbook" && <PlaybookTabWrapper clientId={id} intakeId={client.intakes?.[0]?.id} />}
         {tab === "operations" && <OperatingGuide clientId={id} />}
         {tab === "sessions" && <SessionsTab clientId={id} />}
         {tab === "access" && <AccessLogTabWrapper clientId={id} tier={client.tier} />}
@@ -190,10 +193,17 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
   );
 }
 
-function OverviewTab({ client, editNotes, setEditNotes, saveNotes, savingNotes }: { client: ClientDetail; editNotes: string; setEditNotes: (v: string) => void; saveNotes: () => void; savingNotes: boolean }) {
+function OverviewTab({ client, editNotes, setEditNotes, saveNotes, savingNotes, onReload }: { onReload: () => Promise<void>; client: ClientDetail; editNotes: string; setEditNotes: (v: string) => void; saveNotes: () => void; savingNotes: boolean }) {
   const [sessTotal, setSessTotal] = useState<number | "">(("guidedSessionsTotal" in client ? (client as ClientDetail & { guidedSessionsTotal?: number }).guidedSessionsTotal : null) ?? "");
   const [sessUsed, setSessUsed] = useState<number>(("guidedSessionsUsed" in client ? (client as ClientDetail & { guidedSessionsUsed?: number }).guidedSessionsUsed : 0) ?? 0);
   const [savingSess, setSavingSess] = useState(false);
+  const [linking, setLinking] = useState(false); const [linkNotice, setLinkNotice] = useState("");
+  async function linkAssessments() {
+    setLinking(true); setLinkNotice("");
+    try { const saved = await adminJson<{ linked: number }>(`/api/admin/clients/${client.id}/link-assessments`, { method: "POST" }); await onReload(); announceAdminChange(); setLinkNotice(`${saved.linked} submitted assessment(s) linked to this account.`); }
+    catch (error) { setLinkNotice(error instanceof Error ? error.message : "Linking could not be confirmed. Refresh before retrying."); }
+    finally { setLinking(false); }
+  }
 
   async function saveSessions() {
     if (!sessTotal) return;
@@ -209,6 +219,15 @@ function OverviewTab({ client, editNotes, setEditNotes, saveNotes, savingNotes }
         <Stat label="Consultations" value={String(client.consultations.length)} />
         <Stat label="Documents" value={String(client.documents.length)} />
       </div>
+
+      <section className="rounded-xl border border-canvas-border p-5 space-y-3" aria-label="Saved assessments">
+        <h2 className="font-bold">Saved assessments</h2>
+        {(client.intakes ?? []).map((intake) => <p key={intake.id} className="text-sm"><Link className="underline" to={`/admin/discovery?intake=${encodeURIComponent(intake.id)}`}>{intake.contactName ?? intake.contactEmail ?? "Assessment"} · {new Date(intake.createdAt).toLocaleDateString()} · {intake.status}</Link></p>)}
+        {client.hasLegacyAssessment && <p className="text-sm">An earlier assessment result is saved on this account. It should not block dashboard access.</p>}
+        {!client.intakes?.length && !client.hasLegacyAssessment && <p className="text-sm">No submitted assessment is linked yet. This is separate from the client's tier and account status.</p>}
+        {!!client.unlinkedAssessmentCount && <div className="text-sm"><p>{client.unlinkedAssessmentCount} completed assessment(s) match this account's email but are not yet linked. Already-owned records are never moved.</p><button className="btn-secondary mt-3" disabled={linking} onClick={linkAssessments}>{linking ? "Linking saved assessments…" : "Link matching submitted assessments"}</button></div>}
+        {linkNotice && <p role="status" className="text-sm">{linkNotice}</p>}
+      </section>
 
       {/* Guided session package */}
       {(client.tier === "GUIDED" || sessTotal !== "") && (

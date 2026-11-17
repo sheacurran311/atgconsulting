@@ -1,10 +1,11 @@
+import GenerationProgress, { type GenerationWork } from "@/components/admin/GenerationProgress";
 import { useSearch } from "wouter";
 import { adminJson } from "@/lib/adminWork";
 /**
  * Admin Discovery inbox — lists and manages discovery intake submissions.
  * Shea reviews answers, generates a report draft, approves it, and converts to a client.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 import { Link } from "wouter";
 
@@ -187,13 +188,18 @@ export default function AdminDiscoveryPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<IntakeDetail | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const [generation, setGeneration] = useState<GenerationWork | null>(null);
+  const generationLock = useRef(false);
+  const selectedIntake = useRef<string | null>(null);
+  const [generationError, setGenerationError] = useState("");
+  const [generationNotice, setGenerationNotice] = useState("");
+  const generating = generation?.kind === "report";
+  const generatingProposal = generation?.kind === "proposal";
   const [approving, setApproving] = useState(false);
   const [converting, setConverting] = useState(false);
   const [manualLinkId, setManualLinkId] = useState("");
   const [manualLinking, setManualLinking] = useState(false);
   const [manualLinkMsg, setManualLinkMsg] = useState<string | null>(null);
-  const [generatingProposal, setGeneratingProposal] = useState(false);
   const [proposal, setProposal] = useState<ProposalRow | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [editingReport, setEditingReport] = useState(false);
@@ -231,7 +237,11 @@ export default function AdminDiscoveryPage() {
   useEffect(() => { if (tab === "invites") loadInvites(); }, [tab]);
 
   async function openDetail(id: string) {
+    if (generationLock.current) return;
+    selectedIntake.current = id;
+    setGenerationError(""); setGenerationNotice("");
     const d = await adminJson<IntakeDetail>(`/api/admin/discovery/${id}`);
+    if (selectedIntake.current !== id) return;
     setSelected(d);
     setEditingReport(false);
     setReportForm(null);
@@ -240,7 +250,7 @@ export default function AdminDiscoveryPage() {
     // Load proposal if it exists
     fetch(`/api/admin/discovery/${id}/proposal`, { credentials: "include" })
       .then((r) => r.ok ? r.json() as Promise<ProposalRow> : null)
-      .then((p) => { if (p) setProposal(p); })
+      .then((p) => { if (p && selectedIntake.current === id && !generationLock.current) setProposal(p); })
       .catch(() => null);
   }
 
@@ -286,14 +296,33 @@ export default function AdminDiscoveryPage() {
     setTimeout(() => setManualLinkMsg(null), 5000);
   }
 
-  async function generateProposal() {
-    if (!selected) return;
-    setGeneratingProposal(true);
-    const r = await fetch(`/api/admin/discovery/${selected.id}/proposal`, { method: "POST", credentials: "include" });
-    const d = await r.json() as { ok: boolean; proposal: ProposalRow };
-    if (d.ok) setProposal(d.proposal);
-    setGeneratingProposal(false);
+  async function generate(kind: "report" | "proposal") {
+    if (!selected || generationLock.current) return;
+    const intakeId = selected.id;
+    generationLock.current = true;
+    setGenerationError(""); setGenerationNotice("");
+    setGeneration({ kind, intakeId, label: selected.contactName ?? selected.contactEmail ?? "this assessment", startedAt: Date.now() });
+    try {
+      if (kind === "proposal") {
+        const result = await adminJson<{ ok: boolean; proposal: ProposalRow }>(`/api/admin/discovery/${intakeId}/proposal`, { method: "POST" });
+        if (!result.ok || !result.proposal) throw new Error("The server did not confirm a saved proposal.");
+        if (selectedIntake.current === intakeId) setProposal(result.proposal);
+      } else {
+        const result = await adminJson<{ ok: boolean; report: ReportDraft }>(`/api/admin/discovery/${intakeId}/report`, { method: "POST" });
+        if (!result.ok || !result.report) throw new Error("The server did not confirm a saved report.");
+        if (selectedIntake.current === intakeId) setSelected((current) => current?.id === intakeId ? { ...current, reportDraft: JSON.stringify(result.report), status: "reviewed", reportApprovedAt: null, reportEmailedAt: null, reportEmailError: null } : current);
+      }
+      setGenerationNotice(`${kind === "report" ? "Report" : "Proposal"} draft saved. Review it below; nothing was sent to the client.`);
+      load();
+    } catch (error) {
+      setGenerationError(`Could not confirm the ${kind}: ${error instanceof Error ? error.message : "Request failed."} Reopen this assessment to check for a saved draft before retrying.`);
+    } finally {
+      generationLock.current = false;
+      setGeneration(null);
+    }
   }
+  function generateProposal() { return generate("proposal"); }
+  function generateReport() { return generate("report"); }
 
   async function approveProposal() {
     if (!selected) return;
@@ -305,20 +334,6 @@ export default function AdminDiscoveryPage() {
     });
     setProposal((p) => p ? { ...p, status: "approved", approvedAt: new Date().toISOString() } : p);
     setApproving(false);
-  }
-
-  async function generateReport() {
-    if (!selected) return;
-    setGenerating(true);
-    const r = await fetch(`/api/admin/discovery/${selected.id}/report`, {
-      method: "POST", credentials: "include",
-    });
-    const d = await r.json() as { ok: boolean; report: ReportDraft };
-    if (d.ok) {
-      setSelected((s) => s ? { ...s, reportDraft: JSON.stringify(d.report), status: "reviewed" } : s);
-    }
-    setGenerating(false);
-    load();
   }
 
   function beginReportEdit(report: ReportDraft) {
@@ -434,6 +449,11 @@ export default function AdminDiscoveryPage() {
 
   return (
     <AdminShell>
+      <div className="max-w-wide mx-auto">
+        {generation && <GenerationProgress work={generation} />}
+        {generationError && <p role="alert" className="rounded-xl border border-red-300 p-4 mb-4">{generationError}</p>}
+        {generationNotice && <p role="status" className="rounded-xl border border-canvas-border p-4 mb-4">{generationNotice}</p>}
+      </div>
       <div className="flex gap-6 max-w-wide mx-auto" style={{ minHeight: "calc(100vh - 80px)" }}>
         {/* List panel */}
         <div className="w-72 flex-shrink-0 space-y-4">
@@ -506,6 +526,7 @@ export default function AdminDiscoveryPage() {
                   <button
                     key={row.id}
                     type="button"
+                    disabled={!!generation}
                     onClick={() => openDetail(row.id)}
                     className="w-full text-left rounded-xl p-3 transition-all"
                     style={{
@@ -548,7 +569,7 @@ export default function AdminDiscoveryPage() {
               </div>
               <div className="flex flex-wrap gap-2 flex-shrink-0">
                 {!report && (
-                  <button type="button" onClick={generateReport} disabled={generating} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
+                  <button type="button" onClick={generateReport} disabled={!!generation} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
                     {generating ? "Generating…" : "Generate report"}
                   </button>
                 )}
@@ -569,7 +590,7 @@ export default function AdminDiscoveryPage() {
                 {(deliveryError || selected.reportEmailError) && <p role="alert" className="text-red-700 text-sm w-full">{deliveryError || selected.reportEmailError}</p>}
                 {selected.clientId && <Link href={`/admin/clients/${selected.clientId}/operations`} className="btn-secondary text-sm">Audit & delivery playbook</Link>}
                 {!proposal && (
-                  <button type="button" onClick={generateProposal} disabled={generatingProposal} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
+                  <button type="button" onClick={generateProposal} disabled={!!generation} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
                     {generatingProposal ? "Drafting proposal…" : "Generate proposal"}
                   </button>
                 )}
