@@ -1,5 +1,7 @@
 # Admin work and delivery guide
 
+For the follow-up on report/proposal progress and missing assessment links, see [Generation feedback and saved assessment linking](generation-and-account-linking.md).
+
 This extends the account-routing changes in draft PR #55. Deploy API and frontend together after review. **This batch adds no schema changes or database migrations.** Existing records and accepted proposals are preserved.
 
 ## Which screen to use

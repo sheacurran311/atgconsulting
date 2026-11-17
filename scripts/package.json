@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test:atg": "node ./src/atg-smoke.mjs",
+    "test:generation-linking": "node --import tsx ./src/generation-linking-ui-smoke.mjs",
     "test:admin-operations": "node --import tsx ./src/admin-operations-ui-smoke.mjs",
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"

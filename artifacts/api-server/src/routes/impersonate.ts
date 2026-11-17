@@ -1,3 +1,4 @@
+import { linkSubmittedAssessments } from "../lib/assessmentPresence";
 /**
  * Admin "View as client" impersonation routes.
  *
@@ -12,7 +13,7 @@
  * Impersonation events are written to AuditLog.
  */
 
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { gateAdminRouter, type AuthedRequest } from "../lib/auth";
@@ -22,8 +23,9 @@ import {
   setImpCookie, clearImpCookie, IMP_COOKIE,
 } from "../lib/impersonate";
 
+export function createImpersonateRouter(gate: RequestHandler = gateAdminRouter) {
 const router = Router();
-router.use(gateAdminRouter);
+router.use(gate);
 
 // ── Start impersonation ───────────────────────────────────────────────────────
 
@@ -42,6 +44,8 @@ router.post("/admin/impersonate", async (req, res) => {
   });
   if (!client) { res.status(404).json({ error: "Client not found." }); return; }
 
+  const linkedAssessments = await linkSubmittedAssessments(client.id, client.user?.email);
+
   const token = createImpToken(client.id, actor.id, false);
   setImpCookie(res, token);
 
@@ -50,7 +54,7 @@ router.post("/admin/impersonate", async (req, res) => {
     entity: "Client",
     entityId: client.id,
     actorUserId: actor.id,
-    meta: { adminEmail: actor.email, clientName: client.user?.name ?? "—", clientTier: client.tier },
+    meta: { adminEmail: actor.email, clientName: client.user?.name ?? "—", clientTier: client.tier, linkedAssessments },
   });
 
   res.json({
@@ -272,4 +276,6 @@ router.post("/admin/impersonate/self", async (req, res) => {
   });
 });
 
-export default router;
+return router;
+}
+export default createImpersonateRouter();

@@ -1,3 +1,4 @@
+import { linkSubmittedAssessments } from "./assessmentPresence";
 /**
  * Verified sign-up provisioning.
  *
@@ -42,15 +43,9 @@ export async function ensureClientForVerifiedUser(
     }
   }
 
-  const linked = await prisma.discoveryIntake.updateMany({
-    where: {
-      contactEmail: { equals: normalized, mode: "insensitive" },
-      clientId: null,
-    },
-    data: { clientId },
-  });
+  const linked = await linkSubmittedAssessments(clientId, normalized);
 
-  if (linked.count) {
+  if (linked) {
     const { draftPlaybookIfMissing } = await import("../routes/playbook");
     await draftPlaybookIfMissing(clientId).catch(() => console.error("[playbook] linked assessment pending operator retry"));
   }
