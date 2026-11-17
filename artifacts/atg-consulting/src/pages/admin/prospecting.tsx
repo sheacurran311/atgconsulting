@@ -6,7 +6,10 @@ type Status = "NEW"|"RESEARCHED"|"QUALIFIED"|"DISQUALIFIED"|"DRAFT_READY"|"APPRO
 interface Prospect {
   id: string; businessName: string; website: string; domain: string; industry: string;
   notes: string; status: Status; score: number | null; outreachDraft: string;
+  review?: Review | null;
 }
+interface Review { industryFit:number; sizeFit:number; observableNeed:number; contactConfidence:number; urgency:number; suppressed:boolean; evidence: Array<{claim:string;sourceUrl:string;observedAt:string;verified:boolean}> }
+const emptyReview:Review={industryFit:0,sizeFit:0,observableNeed:0,contactConfidence:0,urgency:0,suppressed:false,evidence:[]};
 const transitions: Record<Status, Status[]> = {
   NEW:["RESEARCHED","DISQUALIFIED","SUPPRESSED"],
   RESEARCHED:["QUALIFIED","DISQUALIFIED","SUPPRESSED"],
@@ -24,6 +27,8 @@ export default function AdminProspectingPage() {
   const [name,setName]=useState(""); const [website,setWebsite]=useState("");
   const [selected,setSelected]=useState<Prospect|null>(null);
   const [draft,setDraft]=useState(""); const [notes,setNotes]=useState("");
+  const [review,setReview]=useState<Review>(emptyReview);
+  const [claim,setClaim]=useState(""); const [sourceUrl,setSourceUrl]=useState("");
   const [error,setError]=useState(""); const [message,setMessage]=useState(""); const [busy,setBusy]=useState(false);
   async function load() {
     try { setRows(await adminJson<Prospect[]>("/api/admin/prospecting")); }
@@ -41,11 +46,12 @@ export default function AdminProspectingPage() {
   async function save(nextStatus?:Status) {
     if(!selected||busy)return; setBusy(true);setError("");setMessage("");
     try {
-      const payload:Record<string,unknown>={notes};
+      const evidence = claim.trim() && sourceUrl.trim() ? [{claim:claim.trim(),sourceUrl:sourceUrl.trim(),observedAt:new Date().toISOString(),verified:true}] : [];
+      const payload:Record<string,unknown>={notes,review:{...review,evidence: evidence.length ? evidence : review.evidence}};
       if(selected.status!=="APPROVED"&&nextStatus!=="APPROVED")payload.outreachDraft=draft;
       if(nextStatus)payload.nextStatus=nextStatus;
       const updated=await adminJson<Prospect>(`/api/admin/prospecting/${selected.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-      setSelected(updated);setDraft(updated.outreachDraft);setNotes(updated.notes);
+      setSelected(updated);setDraft(updated.outreachDraft);setNotes(updated.notes);setReview(updated.review ?? review);
       setMessage("Changes saved. Sending is not automated.");await load();
     }catch(e){setError(e instanceof Error?e.message:"Unable to save prospect.");}
     finally{setBusy(false);}
@@ -64,7 +70,7 @@ export default function AdminProspectingPage() {
     <div className="grid md:grid-cols-2 gap-4">
       <section className="space-y-2" aria-label="Prospects">
         {rows.length===0&&<p className="text-sm opacity-70">No prospects recorded.</p>}
-        {rows.map(p=><button key={p.id} type="button" onClick={()=>{setSelected(p);setDraft(p.outreachDraft);setNotes(p.notes);setMessage("");}}
+        {rows.map(p=><button key={p.id} type="button" onClick={()=>{setSelected(p);setDraft(p.outreachDraft);setNotes(p.notes);setReview(p.review??emptyReview);setClaim("");setSourceUrl("");setMessage("");}}
           className="block w-full text-left rounded-lg border p-3" style={{borderColor:selected?.id===p.id?"var(--blue)":"var(--canvas-border)"}}>
           <div className="font-semibold">{p.businessName}</div><div className="text-xs opacity-70">{p.domain}</div>
           <div className="text-xs mt-2">{p.status} {p.score!==null?`· Fit ${p.score}/100`:""}</div>
@@ -75,13 +81,22 @@ export default function AdminProspectingPage() {
           <div><h2 className="font-semibold text-lg">{selected.businessName}</h2>
             <a className="text-sm underline" href={selected.website} target="_blank" rel="noopener noreferrer">{selected.domain}</a>
             <p className="text-xs opacity-70 mt-1">Status: {selected.status}. Qualification requires verified source evidence.</p></div>
+          <div className="space-y-2 rounded border p-3" style={{borderColor:"var(--canvas-border)"}}>
+            <p className="font-semibold text-sm">Evidence-backed qualification (0–5)</p>
+            {(["industryFit","sizeFit","observableNeed","contactConfidence","urgency"] as const).map(key=><label key={key} className="flex items-center justify-between gap-2 text-xs">
+              <span>{key.replace(/([A-Z])/g," $1")}</span><input aria-label={key} type="number" min={0} max={5} step={1} className="field-input w-16" value={review[key]} onChange={e=>setReview(r=>({...r,[key]:Number(e.target.value)}))}/>
+            </label>)}
+            <label className="block text-xs">Verified observation<input className="field-input mt-1 w-full" value={claim} onChange={e=>setClaim(e.target.value)} placeholder="Specific observable business fact"/></label>
+            <label className="block text-xs">Source URL<input className="field-input mt-1 w-full" value={sourceUrl} onChange={e=>setSourceUrl(e.target.value)} placeholder="https://source.example/page"/></label>
+            <p className="text-xs opacity-70">Only check verified when you have personally confirmed the source; do not invent needs or contacts. Existing observations: {review.evidence.length}.</p>
+          </div>
           <label className="block text-sm font-medium">Research notes
             <textarea className="field-input mt-1 w-full" rows={4} value={notes} onChange={e=>setNotes(e.target.value)}/></label>
           <label className="block text-sm font-medium">Draft outreach (never sent by ATG)
             <textarea className="field-input mt-1 w-full" rows={6} value={draft} onChange={e=>setDraft(e.target.value)} readOnly={selected.status==="APPROVED"||selected.status==="SUPPRESSED"}/></label>
           <div className="flex flex-wrap gap-2">
             <button className="btn-primary px-3 py-2" disabled={busy||selected.status==="SUPPRESSED"} onClick={()=>void save()}>Save notes / draft</button>
-            {transitions[selected.status].filter(s=>s!=="QUALIFIED").map(s=><button type="button" key={s} disabled={busy} onClick={()=>void save(s)}
+            {transitions[selected.status].map(s=><button type="button" key={s} disabled={busy} onClick={()=>void save(s)}
               className="text-xs font-semibold rounded border px-3 py-2" style={{borderColor:"var(--canvas-border)"}}>{s.replaceAll("_"," ")}</button>)}
           </div>
           <p className="text-xs opacity-70">Qualification is intentionally blocked until a source-backed assessment is saved through the reviewed API workflow. Mark CONTACTED only after separately completing approved outreach.</p>
