@@ -5,6 +5,7 @@ import { prisma } from "../lib/db";
 import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { assessProspect, mayAdvanceProspect, normalizeProspectDomain, type ProspectStatus } from "../lib/prospecting";
 import { audit } from "../lib/audit";
+import { generateProspectDraft } from "../lib/prospectDraft";
 
 const router = Router();
 router.use("/admin/prospecting", withUser, requireAdmin);
@@ -111,4 +112,40 @@ router.patch("/admin/prospecting/:id", async (req, res) => {
   await audit({ actorUserId: actor.id, action: "ATG_PROSPECT_UPDATE", entity: "AtgProspect", entityId: old.id, meta: { from: old.status, to: changed.status }, ip: req.ip });
   res.json({ ...changed, review: changed.reviewJson ? JSON.parse(changed.reviewJson) : null, scoreReview: score });
 });
+
+// Generate an unsent outreach draft from already verified evidence.
+// Generation cannot bypass qualification or the later human APPROVED state.
+router.post("/admin/prospecting/:id/draft", async (req, res) => {
+  const parsed = z.object({ expectedUpdatedAt: z.string().datetime() }).strict().safeParse(req.body);
+  if (!parsed.success) { res.status(422).json({ error: "Prospect revision is required." }); return; }
+  const actor = (req as AuthedRequest).atgUser!;
+  const prospect = await prisma.atgProspect.findUnique({ where: { id: req.params.id } });
+  if (!prospect) { res.status(404).json({ error: "Prospect not found." }); return; }
+  if (prospect.status !== "QUALIFIED") { res.status(409).json({ error: "Only qualified prospects can receive an outreach draft." }); return; }
+  if (prospect.updatedAt.toISOString() !== parsed.data.expectedUpdatedAt) {
+    res.status(409).json({ error: "Prospect changed. Reload before drafting." }); return;
+  }
+  const review = prospect.reviewJson ? Review.safeParse(JSON.parse(prospect.reviewJson)) : null;
+  if (!review?.success || assessProspect(review.data).label !== "QUALIFIED") {
+    res.status(422).json({ error: "Verified evidence and adequate qualification are required." }); return;
+  }
+  const generated = await generateProspectDraft({
+    businessName: prospect.businessName,
+    verifiedEvidence: review.data.evidence.filter(e => e.verified),
+  });
+  const saved = await prisma.atgProspect.updateMany({
+    where: { id: prospect.id, status: "QUALIFIED", updatedAt: prospect.updatedAt },
+    data: { outreachDraft: generated.draft, status: "DRAFT_READY", approvedAt: null, approvedById: null },
+  });
+  if (saved.count !== 1) {
+    res.status(409).json({ error: "Prospect changed during drafting. Reload and retry." }); return;
+  }
+  const updated = await prisma.atgProspect.findUniqueOrThrow({ where: { id: prospect.id } });
+  await audit({ actorUserId: actor.id, action: "ATG_PROSPECT_DRAFT_CREATED",
+    entity: "AtgProspect", entityId: prospect.id,
+    meta: { source: generated.source, status: "DRAFT_READY" }, ip: req.ip });
+  res.json({ ...updated, review: updated.reviewJson ? JSON.parse(updated.reviewJson) : null,
+    draftSource: generated.source });
+});
+
 export default router;
