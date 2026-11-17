@@ -13,8 +13,8 @@ import { api, clientIntakeApi, portalApi, type IntakeSummary, type AccessLogEntr
 import DaySetup from "@/components/day/DaySetup";
 
 const TIER_LABELS: Record<string, string> = {
-  NONE: "No plan yet",
-  SELF_SERVE: "Self-serve",
+  NONE: "Free Tools",
+  SELF_SERVE: "Free Tools",
   GUIDED: "Guided",
   WHITE_GLOVE: "White Glove",
 };
