@@ -53,13 +53,31 @@ export default function AdminProspectingPage() {
         setError("Enter a complete observation and URL, then confirm you verified the source."); setBusy(false); return;
       }
       const evidence = evidenceVerified && claim.trim() && sourceUrl.trim() ? [{claim:claim.trim(),sourceUrl:sourceUrl.trim(),observedAt:new Date().toISOString(),verified:true}] : [];
-      const payload:Record<string,unknown>={notes,expectedUpdatedAt:selected.updatedAt,review:{...review,evidence: evidence.length ? evidence : review.evidence}};
+      const payload:Record<string,unknown>={notes,expectedUpdatedAt:selected.updatedAt,review:{...review,evidence: evidence.length ? [...review.evidence,...evidence] : review.evidence}};
       if(selected.status!=="APPROVED"&&nextStatus!=="APPROVED")payload.outreachDraft=draft;
       if(nextStatus)payload.nextStatus=nextStatus;
       const updated=await adminJson<Prospect>(`/api/admin/prospecting/${selected.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       setSelected(updated);setDraft(updated.outreachDraft);setNotes(updated.notes);setReview(updated.review ?? review);
       setClaim(""); setSourceUrl(""); setEvidenceVerified(false); setMessage("Changes saved. Sending is not automated.");await load();
     }catch(e){setError(e instanceof Error?e.message:"Unable to save prospect.");}
+    finally{setBusy(false);}
+  }
+  async function createDraft() {
+    if(!selected||busy||selected.status!=="QUALIFIED")return;
+    if(claim.trim()||sourceUrl.trim()||notes!==selected.notes) {
+      setError("Save all research notes and verified evidence before generating an outreach draft."); return;
+    }
+    setBusy(true);setError("");setMessage("");
+    try {
+      const updated=await adminJson<Prospect>(`/api/admin/prospecting/${selected.id}/draft`,{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({expectedUpdatedAt:selected.updatedAt}),
+      });
+      setSelected(updated);setDraft(updated.outreachDraft);
+      setReview(updated.review??review);
+      setMessage("A draft is ready for review. Nothing has been sent.");
+      await load();
+    }catch(e){setError(e instanceof Error?e.message:"Unable to prepare an outreach draft.");}
     finally{setBusy(false);}
   }
   return <AdminShell><div className="max-w-5xl mx-auto space-y-5">
@@ -103,6 +121,7 @@ export default function AdminProspectingPage() {
             <textarea className="field-input mt-1 w-full" rows={6} value={draft} onChange={e=>setDraft(e.target.value)} readOnly={selected.status==="APPROVED"||selected.status==="SUPPRESSED"}/></label>
           <div className="flex flex-wrap gap-2">
             <button className="btn-primary px-3 py-2" disabled={busy||selected.status==="SUPPRESSED"} onClick={()=>void save()}>Save notes / draft</button>
+            {selected.status==="QUALIFIED"&&<button type="button" className="btn-secondary px-3 py-2" disabled={busy} onClick={()=>void createDraft()}>Prepare AI outreach draft</button>}
             {transitions[selected.status].map(s=><button type="button" key={s} disabled={busy} onClick={()=>void save(s)}
               className="text-xs font-semibold rounded border px-3 py-2" style={{borderColor:"var(--canvas-border)"}}>{s.replaceAll("_"," ")}</button>)}
           </div>
