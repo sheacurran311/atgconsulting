@@ -1,6 +1,6 @@
 # ATG Business Skills Implementation | Approved Plan v2
 Date: 2026-11-17  
-Status: In progress on draft PR #57; not merged, migrated, tested in deployment, or released.
+Status: Coding in progress on draft PR #57; no merge, migration, test execution in project runtime, external OAuth activation, or release.
 
 ## Product decisions
 1. **Free Tools** replaces paid `SELF_SERVE`. The owner confirmed there are no paying clients, so remove Self-Serve checkout, its Stripe price requirement, the $197 public offer, and paywall on former Self-Serve tools. Preserve existing schema enum values only to avoid unnecessary migrations. Guided and DIFY billing remain intact.
@@ -45,3 +45,12 @@ Vite/React/wouter frontend, Express API, Prisma/Postgres, Clerk, existing guided
 
 ## Development note
 All modifications are scoped to draft PR #57, and this document is guidance rather than a claim that the features are live or passing tests.
+
+
+## Implementation progress on branch (2026-11-17)
+- **Free Tools transition:** new checkout accepts Guided and Do-It-For-You only; Self-Serve Stripe price no longer required. Free access logic and public pricing/refund copy updated. Existing `SELF_SERVE` schema value retained only for compatibility.
+- **Internal prospecting:** admin prospect schema, routes, review UI, evidence/score/approval state checks and unit tests committed. No automated outbound.
+- **Guided:** six consultant-only modules added to the admin Delivery Playbook, with discovery questions, resources, implementation steps, acceptance criteria, monitoring and Skill mapping. Existing client-specific playbooks remain the system of record. Separate unit test added.
+- **SEO:** pure, source-separated GSC/GA4 anomaly detection with baseline minimums and tests; strict Google-only read-only OAuth scope allowlist and tests. These are foundations, NOT live Google integrations or scheduled collection.
+- **Remaining release gates:** execute Prisma migration in controlled development environment, typecheck, run regression tests and builds, verify UI/auth/permissions, finish consumer-facing Free Tools references, design/implement GSC/GA4 OAuth/token storage/property selection/scheduling, and validate SEO recommendations against real consented data.
+- Reference Google API scope documentation: https://developers.google.com/webmaster-tools/v1/how-tos/authorizing and https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/properties/runReport
