@@ -17,7 +17,7 @@ test("POST /billing/checkout returns 503 when BILLING_ENABLED is false", async (
   const { default: app } = await import("./app");
   const res = await request(app)
     .post("/api/billing/checkout")
-    .send({ tier: "SELF_SERVE" });
+    .send({ tier: "GUIDED" });
 
   // Without auth it's blocked before it even reaches the billing check (401/500);
   // with auth but billing disabled it would be 503. Either is acceptable here.
@@ -99,7 +99,6 @@ test("billing startup validation reports missing required keys", () => {
     "BILLING_ENABLED",
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",
-    "STRIPE_PRICE_SELF_SERVE",
     "STRIPE_PRICE_GUIDED",
     "STRIPE_PRICE_DFY_SETUP",
     "STRIPE_PRICE_GUIDED_5",
@@ -119,7 +118,6 @@ test("billing startup validation reports missing required keys", () => {
 
     process.env.STRIPE_SECRET_KEY = "sk_test_fake";
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_fake";
-    process.env.STRIPE_PRICE_SELF_SERVE = "price_self";
     process.env.STRIPE_PRICE_GUIDED = "price_guided";
     process.env.STRIPE_PRICE_DFY_SETUP = "price_dfy";
     assert.deepEqual(billingConfigErrors(), []);
