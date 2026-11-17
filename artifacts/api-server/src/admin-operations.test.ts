@@ -111,7 +111,7 @@ test("30 distinct native workflows have recurring setup and the master guide cov
     assert.equal(row.recommended, false);
     for (const p of nativePlatforms) { assert.match(row.setupPrompts[p.id]!, /Native-only requirement/); assert.match(row.setupPrompts[p.id]!, /redacted test/); }
   }
-  assert.deepEqual(deliveryGuide.plans.map((p) => p.key), ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"]);
+  assert.deepEqual(deliveryGuide.plans.map((p) => p.key), ["FREE_TOOLS", "GUIDED", "WHITE_GLOVE"]);
   deliveryGuide.plans.forEach((p) => { assert.ok(p.steps.length >= 6); p.steps.forEach((s) => assert.ok(s.action && s.done && s.href.startsWith("/admin/"))); });
 });
 
@@ -129,7 +129,7 @@ test("native bot recommendations use current and legacy intake priorities withou
   assert.ok(microsoft.find((r) => r.id === "lead-follow-up-queue")!.sources.every((s) => !s.startsWith("Google")));
 });
 
-test("native library API is restricted to admin/DIY and customer intake cannot be switched with a query", async () => {
+test("native library is available to all provisioned accounts while preserving intake isolation", async () => {
   const db = mockDb(); let tier = "SELF_SERVE"; let queriedClient = "";
   db.set(prisma.client, "findUnique", async ({ where }: any) => where.id === "missing" ? null : { id: where.id, tier });
   db.set(prisma.discoveryIntake, "findFirst", async ({ where }: any) => { queriedClient = where.clientId; return { id: "intake-a", createdAt: new Date(), answers: '[{"id":"top_problems","answer":"Sales follow-ups and outreach"}]' }; });
@@ -140,7 +140,7 @@ test("native library API is restricted to admin/DIY and customer intake cannot b
     for (tier of ["NONE", "GUIDED", "WHITE_GLOVE"]) {
       const denied = await request(app).get("/api/automation-library").set("x-role", "CLIENT"); assert.equal(denied.status, 403); assert.ok(!JSON.stringify(denied.body).includes("setupPrompts"));
     }
-    assert.equal((await request(app).get("/api/automation-library").set("x-role", "ADMIN").set("x-view", "true")).status, 403);
+    assert.equal((await request(app).get("/api/automation-library").set("x-role", "ADMIN").set("x-view", "true")).status, 200);
     tier = "SELF_SERVE";
     const diy = await request(app).get("/api/automation-library?clientId=client-b").set("x-role", "CLIENT");
     assert.equal(diy.status, 200); assert.equal(diy.body.bots.length, 30); assert.equal(queriedClient, "client-a"); assert.match(diy.headers["cache-control"], /no-store/);
