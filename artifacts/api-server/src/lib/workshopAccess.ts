@@ -7,7 +7,7 @@ const AVAILABLE = new Set(["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"]);
 
 export function canAccessWorkshop(tier: string | null | undefined, testMode: boolean): boolean {
   if (testMode) return true;
-  return AVAILABLE.has(tier ?? "NONE");
+  return tier !== null && tier !== undefined && AVAILABLE.has(tier);
 }
 
 export function progressPercent(completed: number, total: number): number {
