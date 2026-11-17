@@ -4,9 +4,9 @@ import { canAccessWorkshop, parseQuiz, progressPercent, scoreQuiz } from "./lib/
 import { WORKSHOP_SEEDS } from "./lib/workshopSeed";
 import { clientHealthFlags } from "./lib/adminBoard";
 
-test("workshop opens for paid plans and admin test mode", () => {
-  assert.equal(canAccessWorkshop("NONE", false), false);
-  assert.equal(canAccessWorkshop(null, false), false);
+test("workshop opens for Free Tools and consulting plans", () => {
+  assert.equal(canAccessWorkshop("NONE", false), true);
+  assert.equal(canAccessWorkshop(null, false), true);
   assert.equal(canAccessWorkshop("SELF_SERVE", false), true);
   assert.equal(canAccessWorkshop("GUIDED", false), true);
   assert.equal(canAccessWorkshop("WHITE_GLOVE", false), true);
