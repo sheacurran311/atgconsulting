@@ -146,21 +146,3 @@ export function applicableAnswers<T extends Answer>(answers:T[]):T[]{
 }
 export const ALL_ASSESSMENT_QUESTIONS = [...QUESTION_BANK, ...AUDIT_QUESTIONS];
 export const ALL_ASSESSMENT_MAP = { ...QUESTION_MAP, ...AUDIT_MAP };
-
-/** Deterministic navigation: no model call belongs on the answer-saving path. */
-export function assessmentStep(answers: Answer[], afterQuestionId?: string) {
-  const questionPlan = assessmentQuestions(answers);
-  const after = afterQuestionId ? questionPlan.findIndex((q) => q.id === afterQuestionId) : -1;
-  const next = after >= 0
-    ? questionPlan[after + 1] ?? questionPlan.find((q) => !answers.some((a) => a.id === q.id))
-    : questionPlan.find((q) => !answers.some((a) => a.id === q.id));
-  return { questionPlan, questions: next ? [next] : [], done: !next };
-}
-
-/** Remove answers from branches the visitor has explicitly deselected. */
-export function applicableAnswers<T extends Answer>(answers: T[]): T[] {
-  if (!answers.some((a) => a.id === "audience")) return answers;
-  const applicable = new Set(assessmentQuestions(answers).map((q) => q.id));
-  const branched = new Set(["business_type", "role", "decision_authority", "approver_name", "approver_email", "approver_role", "core_system", "sales_pipeline_stage", "family_sources", "family_coordination", "travel_needs"]);
-  return answers.filter((a) => !branched.has(a.id) || applicable.has(a.id));
-}
