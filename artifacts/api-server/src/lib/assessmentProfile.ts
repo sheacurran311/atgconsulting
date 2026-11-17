@@ -27,7 +27,7 @@ export const AUDIT_QUESTIONS: Question[] = [
   { id: "website_goal", category: "marketing", text: "What do you most want customers to do when they visit your website?", type: "choice", core: false },
 ];
 export const AUDIT_MAP = Object.fromEntries(AUDIT_QUESTIONS.map((q) => [q.id, q]));
-const businessTasks = ["Find and research prospects", "Sales follow-ups and outreach", "Meeting notes and proposals", "Customer requests and admin", "Invoices and expense tracking", "Content and marketing"];
+const businessTasks = ["Find and research prospects", "Sales follow-ups and outreach", "Booking and scheduling", "Quotes and estimates", "Customer requests and admin", "Invoices and expense tracking", "Content and marketing", "Website SEO and search visibility", "Meeting notes and proposals"];
 const personalTasks = ["School and sports schedules", "Family and sports travel", "Household tasks and reminders", "Personal email and paperwork"];
 const selectionQuestions: Record<string, { text: string; options: string[]; type?: "choice" | "multiselect" }> = {
   customer_impact: { text: "What is the main cost of this problem today?", type: "choice", options: ["Lost leads or missed revenue", "Staff time and repetitive work", "Slow response to customers", "Errors or work that has to be redone", "Customer experience or retention", "Not sure yet"] },
@@ -70,10 +70,10 @@ export function assessmentOrder(answers:Answer[]):string[] {
   const priority=selected.includes(values.first_priority??"")?values.first_priority:selected[0]??"";
   const industry=values.business_type??"";
   const trades=business&&hasMatch(industry,/trade|construction|home service|plumb|electri|landscap|roof|clean/);
-  const sales=hasMatch(priority,/sales|prospect|outreach|lead|follow.up/);
+  const sales=hasMatch(priority,/sales|prospect|outreach|lead|follow.up|quote|estimate/);
   const marketing=hasMatch(priority,/content|marketing|social|seo|search|website|advertis/);
   const invoices=hasMatch(priority,/invoice|expense|account|finance|receivable/);
-  const operational=hasMatch(priority,/admin|operat|customer request|schedul|meeting|proposal/);
+  const operational=hasMatch(priority,/admin|operat|customer request|schedul|meeting|proposal|book/);
   const branch:string[]=[];
   if(trades)branch.push("ops_scheduling","quote_process","lead_source","ops_volume");
   if(sales)branch.push("lead_source","sales_pipeline_stage","follow_up_process","lead_volume");
