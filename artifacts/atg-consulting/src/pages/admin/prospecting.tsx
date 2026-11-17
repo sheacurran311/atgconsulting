@@ -45,7 +45,9 @@ export default function AdminProspectingPage() {
     finally {setBusy(false);}
   }
   async function save(nextStatus?:Status) {
-    if(!selected||busy)return; setBusy(true);setError("");setMessage("");
+    if(!selected||busy)return;
+    if(nextStatus==="APPROVED" && draft!==selected.outreachDraft) { setError("Save and review the latest outreach draft before approving it."); return; }
+    setBusy(true);setError("");setMessage("");
     try {
       if ((claim.trim() || sourceUrl.trim()) && (!claim.trim() || !sourceUrl.trim() || !evidenceVerified)) {
         setError("Enter a complete observation and URL, then confirm you verified the source."); setBusy(false); return;
