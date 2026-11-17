@@ -65,6 +65,10 @@ router.patch("/admin/prospecting/:id", async (req, res) => {
   const old = await prisma.atgProspect.findUnique({ where: { id: req.params.id } });
   if (!old) { res.status(404).json({ error: "Prospect not found." }); return; }
   const next = parsed.data.nextStatus;
+  if (old.status === "SUPPRESSED") { res.status(409).json({ error: "Suppressed prospect is locked." }); return; }
+  if (parsed.data.outreachDraft !== undefined && (old.status === "APPROVED" || next === "APPROVED")) {
+    res.status(409).json({ error: "Approved drafts cannot be replaced without returning to review." }); return;
+  }
   if (next && !mayAdvanceProspect(old.status as ProspectStatus, next)) {
     res.status(409).json({ error: "Invalid status transition; review and approval cannot be bypassed." }); return;
   }
@@ -77,7 +81,7 @@ router.patch("/admin/prospecting/:id", async (req, res) => {
   if ((next === "DRAFT_READY" || next === "APPROVED") && !draft.trim()) {
     res.status(422).json({ error: "Prepare an outreach draft before approval." }); return;
   }
-  if (review?.suppressed && next && next !== "SUPPRESSED") {
+  if (review?.suppressed && next !== "SUPPRESSED") {
     res.status(422).json({ error: "Suppressed prospects may not advance." }); return;
   }
   if (next === "APPROVED" && old.status !== "DRAFT_READY") {
