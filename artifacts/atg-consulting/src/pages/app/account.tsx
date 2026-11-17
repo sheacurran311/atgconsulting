@@ -157,7 +157,7 @@ export default function AccountPage() {
               <Link to="/#tiers"><span className="btn-secondary text-sm py-2 px-3">View plans</span></Link>
             )}
           </div>
-          {billingEnabled && tier !== "NONE" && (
+          {billingEnabled && (tier === "GUIDED" || tier === "WHITE_GLOVE") && (
             <div className="space-y-2">
               <button
                 onClick={openBillingPortal}
