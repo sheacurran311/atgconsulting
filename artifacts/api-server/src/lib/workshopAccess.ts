@@ -1,13 +1,13 @@
 /**
  * Workshop gating matches workflow tiers.
- * Paid plans and admin test mode can open it. Unpaid accounts cannot.
+ * Free Tools, Guided and DFY accounts may open learning resources.
  */
 
-const PAID = new Set(["SELF_SERVE", "GUIDED", "WHITE_GLOVE"]);
+const AVAILABLE = new Set(["NONE", "SELF_SERVE", "GUIDED", "WHITE_GLOVE"]);
 
 export function canAccessWorkshop(tier: string | null | undefined, testMode: boolean): boolean {
   if (testMode) return true;
-  return PAID.has(tier ?? "NONE");
+  return AVAILABLE.has(tier ?? "NONE");
 }
 
 export function progressPercent(completed: number, total: number): number {
