@@ -14,6 +14,7 @@
 
 import { DeploymentPlan } from "../lib/clientDeployment";
 import { masterPlaybook, deliveryGuide } from "../lib/masterPlaybook";
+import { guidedConsultantModules } from "../lib/guidedConsultantModules";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
@@ -119,6 +120,7 @@ export async function draftPlaybookIfMissing(clientId: string, intakeId?: string
 
 router.get("/admin/playbook", (_req, res) => { res.json(deliveryGuide); });
 router.get("/admin/playbook/master", (_req, res) => { res.json(masterPlaybook); });
+router.get("/admin/playbook/guided-modules", (_req, res) => { res.json(guidedConsultantModules); });
 
 // Explicit operator attestation supports invoices and payments received before this release.
 router.post("/admin/clients/:id/playbook/confirm-payment", async (req, res) => {
