@@ -138,7 +138,8 @@ test("native library is available to all provisioned accounts while preserving i
     assert.equal((await request(app).get("/api/automation-library")).status, 401);
     assert.equal((await request(app).get("/api/admin/automation-library").set("x-role", "CLIENT")).status, 403);
     for (tier of ["NONE", "GUIDED", "WHITE_GLOVE"]) {
-      const denied = await request(app).get("/api/automation-library").set("x-role", "CLIENT"); assert.equal(denied.status, 403); assert.ok(!JSON.stringify(denied.body).includes("setupPrompts"));
+      const allowed = await request(app).get("/api/automation-library").set("x-role", "CLIENT");
+      assert.equal(allowed.status, 200); assert.equal(allowed.body.bots.length, 30);
     }
     assert.equal((await request(app).get("/api/automation-library").set("x-role", "ADMIN").set("x-view", "true")).status, 200);
     tier = "SELF_SERVE";
