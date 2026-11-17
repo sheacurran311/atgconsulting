@@ -23,6 +23,7 @@ import { gateAdminRouter, type AuthedRequest } from "../lib/auth";
 import { generateClientPlaybook, type PlaybookInput, type SessionSummarySnippet } from "../lib/llm";
 import { sanitiseText, sanitiseShortText } from "../lib/sanitize";
 import { parseIntakeAnswers } from "../lib/intakeAnswers";
+import { buildConsultationBrief } from "../lib/clientConsultationBrief";
 
 const router = Router();
 router.use(gateAdminRouter);
@@ -123,6 +124,23 @@ router.get("/admin/playbook", (_req, res) => { res.json(deliveryGuide); });
 router.get("/admin/playbook/master", (_req, res) => { res.json(masterPlaybook); });
 router.get("/admin/playbook/guided-modules", (_req, res) => { res.json(guidedConsultantModules); });
 router.get("/admin/playbook/business-skills", (_req, res) => { res.json(atgBusinessSkills); });
+
+/** Read-only client-specific preparation sourced from consented assessment data. */
+router.get("/admin/clients/:id/playbook/consultation-brief", async (req, res) => {
+  const client=await prisma.client.findUnique({
+    where:{id:req.params.id},select:{id:true,guidedSessionsTotal:true}
+  });
+  if(!client){res.status(404).json({error:"Client not found."});return;}
+  const intake=await prisma.discoveryIntake.findFirst({
+    where:{clientId:client.id,consentGiven:true},
+    orderBy:{createdAt:"desc"},select:{answers:true,createdAt:true,id:true},
+  });
+  if(!intake){res.status(404).json({error:"No submitted, consented assessment for this client yet."});return;}
+  const brief=buildConsultationBrief(intake.answers,client.guidedSessionsTotal??3);
+  res.setHeader("Cache-Control","private, no-store");
+  res.json({...brief,intakeId:intake.id,assessmentSubmittedAt:intake.createdAt.toISOString()});
+});
+
 
 // Explicit operator attestation supports invoices and payments received before this release.
 router.post("/admin/clients/:id/playbook/confirm-payment", async (req, res) => {
