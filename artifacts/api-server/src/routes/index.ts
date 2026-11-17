@@ -30,6 +30,7 @@ import engagementRouter from "./engagement";
 import catalogRouter from "./catalog";
 import contentRouter from "./content";
 import adminTodayRouter from "./adminToday";
+import prospectingRouter from "./prospecting";
 import workshopRouter from "./workshop";
 import operationsRouter from "./operations";
 import { IMP_COOKIE } from "../lib/impersonate";
@@ -76,6 +77,7 @@ router.use(engagementRouter);
 router.use(catalogRouter);
 router.use(contentRouter);
 router.use(adminTodayRouter);
+router.use(prospectingRouter);
 router.use(workshopRouter);
 router.use(operationsRouter);
 
