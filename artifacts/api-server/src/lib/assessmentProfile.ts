@@ -132,7 +132,20 @@ export function assessmentStep(answers:Answer[],afterQuestionId?:string){
 /** Prune stale branch answers when someone changes audience or primary priority. */
 export function applicableAnswers<T extends Answer>(answers:T[]):T[]{
   if(!answers.some(a=>a.id==="audience"))return answers;
-  const applicable=new Set(assessmentQuestions(answers).map(q=>q.id));
+  const audience=audienceFrom(answers);
+  // When a user changes audience, remove known selections from the old audience.
+  // A fully incompatible problem selection must be re-asked instead of treated as answered.
+  const normalized=answers.flatMap(answer=>{
+    if(answer.id!=="top_problems")return [answer];
+    const selected=selectedProblems(answer.answer);
+    if(!selected.length)return [answer];
+    const retained=selected.filter(value=>
+      !(audience==="personal"&&businessTasks.includes(value)) &&
+      !(audience==="business"&&personalTasks.includes(value)));
+    if(!retained.length)return [];
+    return [{...answer,answer:JSON.stringify(retained)} as T];
+  });
+  const applicable=new Set(assessmentQuestions(normalized).map(q=>q.id));
   const branched=new Set([
     "company_name","business_type","team_size","role","decision_authority","decision_process",
     "website_url","first_priority","current_software","core_system","customer_impact",
@@ -142,7 +155,7 @@ export function applicableAnswers<T extends Answer>(answers:T[]):T[]{
     "family_sources","family_coordination","travel_needs",
     "approver_name","approver_email","approver_role",
   ]);
-  return answers.filter(a=>!branched.has(a.id)||applicable.has(a.id));
+  return normalized.filter(a=>!branched.has(a.id)||applicable.has(a.id));
 }
 export const ALL_ASSESSMENT_QUESTIONS = [...QUESTION_BANK, ...AUDIT_QUESTIONS];
 export const ALL_ASSESSMENT_MAP = { ...QUESTION_MAP, ...AUDIT_MAP };
