@@ -14,8 +14,10 @@ export function createAutomationLibraryRouter(resolve: RequestHandler = withUser
   router.get("/automation-library", resolve, requireAuth, async (req, res) => {
     const user = (req as AuthedRequest).atgUser!;
     const client = user.clientId ? await prisma.client.findUnique({ where: { id: user.clientId }, select: { tier: true } }) : null;
-    if (!(user.role === "ADMIN" && !user.isImpersonating) && client?.tier !== "SELF_SERVE") {
-      res.status(403).json({ error: "The native automation library is available to DIY / Self-serve accounts and administrators." }); return;
+    // Free Tools includes native workflow recipes for all provisioned accounts.
+    // Intake access remains bound to the authenticated user, never a caller-supplied ID.
+    if (!(user.role === "ADMIN" && !user.isImpersonating) && !client) {
+      res.status(404).json({ error: "Complete the intake to access free workflow resources." }); return;
     }
     res.setHeader("Cache-Control", "private, no-store");
     res.json(await libraryFor(user.clientId)); // Caller-supplied customer IDs are deliberately ignored.
