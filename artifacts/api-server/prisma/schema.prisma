@@ -1242,3 +1242,24 @@ model OperatingEvent {
   createdAt DateTime @default(now())
   @@index([planId, createdAt])
 }
+
+
+// ATG-owned prospecting queue: internal only; not related to customer records.
+// No sending integration or third-party OAuth is attached to these records.
+model AtgProspect {
+  id           String   @id @default(cuid())
+  domain       String   @unique
+  businessName String
+  website      String
+  industry     String   @default("")
+  notes        String   @default("")
+  status       String   @default("NEW")
+  reviewJson   String?
+  score        Int?
+  outreachDraft String  @default("")
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@index([status, updatedAt])
+}
