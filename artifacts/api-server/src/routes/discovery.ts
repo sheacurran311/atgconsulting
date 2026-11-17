@@ -138,7 +138,7 @@ router.post("/discovery/start", async (req, res) => {
       ? [{ id: "contact_email", category: "contact", question: "What's your email?", answer: startBody.data.contactEmail }]
       : []),
   ].map((a) => [a.id, a])).values()];
-  const tierMap = { self_serve: "SELF_SERVE", guided: "GUIDED", done_for_you: "WHITE_GLOVE" } as const;
+  const tierMap = { self_serve: null, guided: "GUIDED", done_for_you: "WHITE_GLOVE" } as const;
   const requestedTier = startBody.success && startBody.data.requestedTier
     ? tierMap[startBody.data.requestedTier]
     : null;
@@ -1094,7 +1094,7 @@ function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<
   const company = answers.find((a) => a.id === "company_name")?.answer ?? "your company";
   const problems = answers.find((a) => a.id === "top_problems")?.answer ?? "the challenges discussed";
   const suggestedTier = (reportDraft.suggestedTier as string | undefined) ?? "GUIDED";
-  const tierPrices: Record<string, string> = { SELF_SERVE: "$197", GUIDED: "$997", WHITE_GLOVE: "$3,500" };
+  const tierPrices: Record<string, string> = { SELF_SERVE: "Free Tools", NONE: "Free Tools", GUIDED: "$997", WHITE_GLOVE: "$3,500" };
 
   // Authority-aware scope and acceptance
   const authorityNote = (() => {
