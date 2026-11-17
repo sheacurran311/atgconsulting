@@ -3,7 +3,7 @@ Date: 2026-11-17
 Status: In progress on draft PR #57; not merged, migrated, tested in deployment, or released.
 
 ## Product decisions
-1. **Free Tools** replaces new sales of paid `SELF_SERVE`. Retain legacy tier/transaction records, preserve refunds and purchased access until reviewed. No direct deletion or automatic downgrade.
+1. **Free Tools** replaces paid `SELF_SERVE`. The owner confirmed there are no paying clients, so remove Self-Serve checkout, its Stripe price requirement, the $197 public offer, and paywall on former Self-Serve tools. Preserve existing schema enum values only to avoid unnecessary migrations. Guided and DIFY billing remain intact.
 2. **Guided** means consultant-led sessions with private ATG admin playbooks, implementation steps, verification evidence, deliverables and monitoring summaries.
 3. **DIFY** means Do-It-For-You consulting. Do not install the third-party Dify platform.
 4. Third-party OAuth is prohibited **except Google Search Console and Google Analytics 4**, both read-only and limited to authorized Guided/DIFY SEO monitoring. No Gmail, Outlook, social media or CRM OAuth.
