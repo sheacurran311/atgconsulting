@@ -4,7 +4,7 @@ import { adminJson } from "@/lib/adminWork";
 
 type Status = "NEW"|"RESEARCHED"|"QUALIFIED"|"DISQUALIFIED"|"DRAFT_READY"|"APPROVED"|"CONTACTED"|"REPLIED"|"BOOKED"|"WON"|"LOST"|"SUPPRESSED";
 interface Prospect {
-  id: string; businessName: string; website: string; domain: string; industry: string;
+  id: string; businessName: string; website: string; domain: string; industry: string; updatedAt: string;
   notes: string; status: Status; score: number | null; outreachDraft: string;
   review?: Review | null;
 }
@@ -47,12 +47,12 @@ export default function AdminProspectingPage() {
     if(!selected||busy)return; setBusy(true);setError("");setMessage("");
     try {
       const evidence = claim.trim() && sourceUrl.trim() ? [{claim:claim.trim(),sourceUrl:sourceUrl.trim(),observedAt:new Date().toISOString(),verified:true}] : [];
-      const payload:Record<string,unknown>={notes,review:{...review,evidence: evidence.length ? evidence : review.evidence}};
+      const payload:Record<string,unknown>={notes,expectedUpdatedAt:selected.updatedAt,review:{...review,evidence: evidence.length ? evidence : review.evidence}};
       if(selected.status!=="APPROVED"&&nextStatus!=="APPROVED")payload.outreachDraft=draft;
       if(nextStatus)payload.nextStatus=nextStatus;
       const updated=await adminJson<Prospect>(`/api/admin/prospecting/${selected.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       setSelected(updated);setDraft(updated.outreachDraft);setNotes(updated.notes);setReview(updated.review ?? review);
-      setMessage("Changes saved. Sending is not automated.");await load();
+      setClaim(""); setSourceUrl(""); setMessage("Changes saved. Sending is not automated.");await load();
     }catch(e){setError(e instanceof Error?e.message:"Unable to save prospect.");}
     finally{setBusy(false);}
   }
