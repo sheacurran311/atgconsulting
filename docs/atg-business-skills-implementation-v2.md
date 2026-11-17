@@ -54,3 +54,14 @@ All modifications are scoped to draft PR #57, and this document is guidance rath
 - **SEO:** pure, source-separated GSC/GA4 anomaly detection with baseline minimums and tests; strict Google-only read-only OAuth scope allowlist and tests. These are foundations, NOT live Google integrations or scheduled collection.
 - **Remaining release gates:** execute Prisma migration in controlled development environment, typecheck, run regression tests and builds, verify UI/auth/permissions, finish consumer-facing Free Tools references, design/implement GSC/GA4 OAuth/token storage/property selection/scheduling, and validate SEO recommendations against real consented data.
 - Reference Google API scope documentation: https://developers.google.com/webmaster-tools/v1/how-tos/authorizing and https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/properties/runReport
+
+## Phase 3 approved implementation batch
+Owner approved the Phase 2 Master Implementation Specification v4.0. This branch is an isolated working implementation, not a release.
+
+- Free Tools public pricing now uses $0, no `SELF_SERVE` checkout, and customer-facing native automation recipes are accessible to authenticated, provisioned Free Tools accounts. Guided and DFY keep paid checkout.
+- Existing admin playbook shows verified marketing and business Skill source references in internal, Guided, and DFY views. Skill metadata does not install third-party code or connect external accounts.
+- Internal prospecting uses its own admin-only record, source-backed evaluation, manual state transitions and a draft-only Grok generation action. Qualified source evidence and the current record version are required. No email delivery or Gmail OAuth was added.
+- New source and route-level tests are registered in the standard API test script. They have not been executed in the project runtime in this session.
+- SEO analysis date-window validations and test cases were improved. OAuth callback flow, secret storage, scheduled GSC/GA4 synchronization and AI remediation are subsequent work, not live features.
+
+**Validation gate:** Use a complete pinned repository checkout to execute Prisma generate, API regression suite, typechecks and frontend/backend builds. Validate prospect admin UI, Free Tools signup/permissions and data isolation in a controlled Replit deployment. Only then advance to the production Google integration.
