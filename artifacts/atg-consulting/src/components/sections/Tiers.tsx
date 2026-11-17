@@ -7,24 +7,21 @@ const BOOKING_URL = typeof window !== "undefined"
 const TIERS = [
   {
     id: "self",
-    mono: "SELF-SERVE",
-    name: "Self-serve",
-    tagline: "A personalised plan you run yourself.",
-    sheaRole: "You get Shea's expertise as a deliverable.",
-    sheaDetail: "Complete the intake. Grok drafts a diagnosis of your situation — a recommended tool stack, setup guides for your AI platform (Grok Bot, Claude, or ChatGPT), and the workflows to install first. Shea reviews that draft before it reaches you. Email support within 2 business days.",
-    price: "$197",
-    cta: "Get started",
-    ctaHref: "/intake?tier=self_serve",
+    mono: "FREE TOOLS",
+    name: "Free Tools",
+    tagline: "Practical AI and workflow tools for small business owners, at no cost.",
+    sheaRole: "Self-guided tools. Hands-on consulting is optional.",
+    sheaDetail: "Complete the free assessment, explore introductory diagnostics, and use self-guided workflow resources in your own accounts. When you want a tailored roadmap or implementation help, upgrade to Guided or Done-for-You consulting.",
+    price: "Free",
+    cta: "Explore free tools",
+    ctaHref: "/intake",
     external: false,
     includes: [
-      "Grok-drafted diagnosis, reviewed by Shea before you see it",
-      "Personalised tool plan — which tools to use and why, for your work or household",
-      "Platform setup guides (Grok Bot, Claude, or ChatGPT) with exact steps",
-      "Recommended workflows to install first, as SKILL.md files",
-      "Self-serve workflows in the Workbench: lead follow-up, inbox triage, review requests, social calendar, and SEO audit",
-      "Email support — replies within 2 business days",
+      "Free AI readiness and workflow opportunity assessment",
+      "Introductory business and website diagnostics when available",
+      "A clear path to Guided consulting and Do-It-For-You services",
     ],
-    notIncluded: ["1:1 calls with Shea", "Shea sets up or runs your workflows for you"],
+    notIncluded: ["Private consulting or implementation", "Managed SEO monitoring or recurring operations"],
   },
   {
     id: "guided",
@@ -32,7 +29,7 @@ const TIERS = [
     name: "Guided",
     tagline: "A package of live 1:1 sessions with Shea.",
     sheaRole: "Shea builds with you, directly.",
-    sheaDetail: "The same Grok-drafted diagnosis as Self-serve, reviewed by Shea, plus Shea joins you on live calls to guide the full install of your tools and workflows — screen-share, walk-through, and hands-on configuration. Sessions recorded with your consent so you get a recap. Ongoing check-ins and updated reports as your business changes.",
+    sheaDetail: "A consultant-reviewed assessment, plus Shea joins you on live calls to guide the full install of your tools and workflows — screen-share, walk-through, and hands-on configuration. Sessions recorded with your consent so you get a recap. Ongoing check-ins and updated reports as your business changes.",
     price: "$997",
     priceNote: "3 × 90-min sessions",
     priceAlt: "$1,497 for 5 sessions",
@@ -41,7 +38,7 @@ const TIERS = [
     external: false,
     featured: true,
     includes: [
-      "Everything in Self-serve, including the diagnosis Shea reviews",
+      "Free tools plus a consultant-reviewed implementation plan",
       "3 × 90-min 1:1 sessions with Shea (or 5 × for $1,497)",
       "Screen-share setup: your tools, your AI platform, your workflows",
       "Session recordings (with your consent) — recap available after each call",
@@ -89,7 +86,7 @@ export default function Tiers() {
             Your plan, your level of involvement.
           </h2>
           <p className="text-base" style={{ color: "var(--canvas-text-2)" }}>
-            Simple, flat pricing. 30-day refund on Self-serve and unused Guided sessions.{" "}
+            Start with free tools, or choose a paid consulting package. Guided refund terms apply to unused sessions.{" "}
             <Link to="/refunds"><span className="underline" style={{ color: "var(--blue-btn)" }}>See refund policy →</span></Link>
           </p>
         </div>

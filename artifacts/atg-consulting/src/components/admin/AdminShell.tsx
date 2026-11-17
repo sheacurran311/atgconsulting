@@ -26,6 +26,7 @@ const navItems: { label: string; to: string; icon: LucideIcon }[] = [
   { label: "Automation bots", to: "/admin/automations", icon: Workflow },
   { label: "Delivery playbook", to: "/admin/playbook", icon: BookOpen },
   { label: "Intakes",     to: "/admin/discovery",          icon: ClipboardList },
+  { label: "Prospecting", to: "/admin/prospecting", icon: Search },
   { label: "Engagements", to: "/admin/engagements",        icon: Users },
   { label: "Catalog",     to: "/admin/catalog",            icon: Search },
   { label: "Content",     to: "/admin/content",            icon: BookOpen },

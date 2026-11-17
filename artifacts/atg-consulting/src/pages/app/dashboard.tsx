@@ -155,7 +155,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {account?.tier === "SELF_SERVE" && <section className="rounded-xl border border-canvas-border p-4 my-4"><Link to="/app/automations" className="font-semibold underline">Your recommended automation bots →</Link><p className="text-sm mt-1">30 native workflow guides with intake-matched starting recommendations. Set up and test one in your own platform.</p></section>}
+        {account && <section className="rounded-xl border border-canvas-border p-4 my-4"><Link to="/app/automations" className="font-semibold underline">Explore free automation guides →</Link><p className="text-sm mt-1">30 native workflow guides with intake-matched starting recommendations. Set up and test one in your own platform.</p></section>}
         {tab === "home" && (
           home ? <ClientHome home={home} />
           : <p className="text-sm" style={{ color: "var(--canvas-text-3)" }}>{homeError ?? "Loading your home…"}</p>

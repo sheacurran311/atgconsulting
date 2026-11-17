@@ -13,8 +13,8 @@ import { api, clientIntakeApi, portalApi, type IntakeSummary, type AccessLogEntr
 import DaySetup from "@/components/day/DaySetup";
 
 const TIER_LABELS: Record<string, string> = {
-  NONE: "No plan yet",
-  SELF_SERVE: "Self-serve",
+  NONE: "Free Tools",
+  SELF_SERVE: "Free Tools",
   GUIDED: "Guided",
   WHITE_GLOVE: "White Glove",
 };
@@ -157,7 +157,7 @@ export default function AccountPage() {
               <Link to="/#tiers"><span className="btn-secondary text-sm py-2 px-3">View plans</span></Link>
             )}
           </div>
-          {billingEnabled && tier !== "NONE" && (
+          {billingEnabled && (tier === "GUIDED" || tier === "WHITE_GLOVE") && (
             <div className="space-y-2">
               <button
                 onClick={openBillingPortal}

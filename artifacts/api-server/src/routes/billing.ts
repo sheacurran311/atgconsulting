@@ -31,7 +31,7 @@ function billingCheck(res: Response): boolean {
 // ── Create Checkout session ───────────────────────────────────────────────────
 
 const CheckoutSchema = z.object({
-  tier: z.enum(["SELF_SERVE", "GUIDED", "WHITE_GLOVE"]),
+  tier: z.enum(["GUIDED", "WHITE_GLOVE"]),
 });
 
 router.post("/billing/checkout", withUser, requireAuth, async (req, res) => {
@@ -137,7 +137,7 @@ router.get("/billing/portal", withUser, requireAuth, async (req, res) => {
 // ── Stripe Webhook ────────────────────────────────────────────────────────────
 // NOTE: this route uses express.raw() — mounted before json() in app.ts.
 
-const CHECKOUT_TIERS: CheckoutTier[] = ["SELF_SERVE", "GUIDED", "WHITE_GLOVE"];
+const CHECKOUT_TIERS: CheckoutTier[] = ["GUIDED", "WHITE_GLOVE"];
 
 function isCheckoutTier(value: string | undefined): value is CheckoutTier {
   return !!value && (CHECKOUT_TIERS as string[]).includes(value);

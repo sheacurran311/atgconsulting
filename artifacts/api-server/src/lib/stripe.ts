@@ -6,7 +6,6 @@
  * Env vars:
  *   STRIPE_SECRET_KEY          — Stripe secret key (sk_test_... or sk_live_...)
  *   STRIPE_WEBHOOK_SECRET      — from Stripe dashboard → Webhooks → endpoint secret
- *   STRIPE_PRICE_SELF_SERVE    — Price ID for Self-serve (one-time)
  *   STRIPE_PRICE_GUIDED        — Price ID for the 3-session Guided package (one-time)
  *   STRIPE_PRICE_GUIDED_5      — optional Price ID for the 5-session package
  *   STRIPE_PRICE_DFY_SETUP     — Price ID for Done-for-you setup fee (one-time)
@@ -35,13 +34,13 @@ export function getStripe(): Stripe {
 }
 
 /** Tier → Price IDs from env */
-export type CheckoutTier = "SELF_SERVE" | "GUIDED" | "WHITE_GLOVE";
+export type CheckoutTier = "GUIDED" | "WHITE_GLOVE";
 export type GuidedPriceSize = 3 | 5;
 
 export function priceEnvKey(tier: CheckoutTier, guidedSessions?: GuidedPriceSize): string {
   if (tier === "GUIDED") return guidedSessions === 5 ? "STRIPE_PRICE_GUIDED_5" : "STRIPE_PRICE_GUIDED";
   if (tier === "WHITE_GLOVE") return "STRIPE_PRICE_DFY_SETUP";
-  return "STRIPE_PRICE_SELF_SERVE";
+  throw new Error("Only Guided and Do-It-For-You are billable.");
 }
 
 export function getPriceId(tier: CheckoutTier, guidedSessions?: GuidedPriceSize): string | null {
@@ -49,7 +48,6 @@ export function getPriceId(tier: CheckoutTier, guidedSessions?: GuidedPriceSize)
     return process.env.STRIPE_PRICE_GUIDED_5 ?? null;
   }
   const map: Record<CheckoutTier, string | undefined> = {
-    SELF_SERVE:  process.env.STRIPE_PRICE_SELF_SERVE,
     GUIDED:      process.env.STRIPE_PRICE_GUIDED,
     WHITE_GLOVE: process.env.STRIPE_PRICE_DFY_SETUP,
   };
@@ -69,7 +67,6 @@ export function billingConfigErrors(): string[] {
   const required = [
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",
-    "STRIPE_PRICE_SELF_SERVE",
     "STRIPE_PRICE_GUIDED",
     "STRIPE_PRICE_DFY_SETUP",
   ];

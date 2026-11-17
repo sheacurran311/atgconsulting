@@ -1,15 +1,15 @@
 <!-- DRAFT: not legal advice; have a Colorado attorney review before publishing. Delete this line to publish. -->
 # Refund Policy
 
-**Last updated:** October 27, 2026
+**Last updated:** November 17, 2026
 
 We want you to feel confident buying from ATG Consulting LTD. This policy explains when and how you can get a refund.
 
 ## 1. The 30-day window
 You can request a refund within **30 days of purchase**. If no Guided or Done-for-you work has been performed, you get a **full refund**. If work has been performed, we refund what you paid minus the value of the work already done, as described below.
 
-## 2. Self-serve
-**Full refund within 30 days of purchase**, even after your report has been delivered.
+## 2. Free Tools
+Free Tools have no subscription or purchase charge, so no refund is necessary. Guided and Done-for-you are separately priced services.
 
 ## 3. Guided session packages
 - If no sessions have taken place, you get a **full refund** within 30 days.
