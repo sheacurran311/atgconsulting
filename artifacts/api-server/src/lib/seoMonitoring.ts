@@ -32,6 +32,17 @@ export interface SeoFinding {
   nextStep: string;
   source: "GSC" | "GA4";
 }
+function periodLengthDays(start:string,end:string):number {
+  const day=/^\d{4}-\d{2}-\d{2}$/;
+  if(!day.test(start)||!day.test(end)) throw new RangeError("Invalid ISO date");
+  const startMs=Date.parse(start+"T00:00:00Z");
+  const endMs=Date.parse(end+"T00:00:00Z");
+  if(!Number.isFinite(startMs)||!Number.isFinite(endMs)
+    || new Date(startMs).toISOString().slice(0,10)!==start
+    || new Date(endMs).toISOString().slice(0,10)!==end
+    || endMs<startMs) throw new RangeError("Invalid observation window");
+  return Math.round((endMs-startMs)/86400000)+1;
+}
 function finiteNonnegative(value: number, name: string): void {
   if (!Number.isFinite(value) || value < 0) throw new RangeError(`Invalid metric: ${name}`);
 }
@@ -63,6 +74,10 @@ function makeFinding(id:string,metric:SeoFinding["metric"],source:SeoFinding["so
  */
 export function detectSeoFindings(previous:SeoSnapshot,current:SeoSnapshot):SeoFinding[] {
   validateSeoSnapshot(previous); validateSeoSnapshot(current);
+  if(periodLengthDays(previous.searchConsole.start,previous.searchConsole.end)!==periodLengthDays(current.searchConsole.start,current.searchConsole.end))
+    throw new RangeError("Search Console comparison requires equal-length observation windows");
+  if(previous.analytics && current.analytics && periodLengthDays(previous.analytics.start,previous.analytics.end)!==periodLengthDays(current.analytics.start,current.analytics.end))
+    throw new RangeError("GA4 comparison requires equal-length observation windows");
   const p=previous.searchConsole,c=current.searchConsole;
   const findings:SeoFinding[]=[];
   const clickChange=percentChange(c.clicks,p.clicks);
