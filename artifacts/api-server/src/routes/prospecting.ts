@@ -1,5 +1,5 @@
 /** Admin-only ATG prospect review. No automated outreach or external account connections. */
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
@@ -7,8 +7,9 @@ import { assessProspect, mayAdvanceProspect, normalizeProspectDomain, type Prosp
 import { audit } from "../lib/audit";
 import { generateProspectDraft } from "../lib/prospectDraft";
 
+export function createProspectingRouter(resolve: RequestHandler = withUser) {
 const router = Router();
-router.use("/admin/prospecting", withUser, requireAdmin);
+router.use("/admin/prospecting", resolve, requireAdmin);
 
 const Evidence = z.object({
   claim: z.string().trim().min(1).max(500),
@@ -148,4 +149,6 @@ router.post("/admin/prospecting/:id/draft", async (req, res) => {
     draftSource: generated.source });
 });
 
-export default router;
+return router;
+}
+export default createProspectingRouter();
