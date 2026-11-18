@@ -82,3 +82,11 @@ test("navigation skips answered fields, presents one question and terminates cor
   const q=assessmentQuestions([business,answer("top_problems",select("Content and marketing","Sales follow-ups and outreach"))]);
   assert.deepEqual(q.find(item=>item.id==="first_priority")?.options,["Content and marketing","Sales follow-ups and outreach"]);
 });
+
+test("changing the selected problems invalidates an obsolete first priority",()=>{
+ const original=[business,answer("top_problems",select("Content and marketing","Sales follow-ups and outreach")),
+   answer("first_priority","Quotes and estimates")];
+ const cleaned=applicableAnswers(original);
+ assert.ok(!cleaned.some(item=>item.id==="first_priority"));
+ assert.equal(assessmentStep(cleaned,"top_problems").questions[0]?.id,"first_priority");
+});
