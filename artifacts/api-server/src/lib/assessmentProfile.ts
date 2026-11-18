@@ -145,7 +145,9 @@ export function applicableAnswers<T extends Answer>(answers:T[]):T[]{
     if(!retained.length)return [];
     return [{...answer,answer:JSON.stringify(retained)} as T];
   });
-  const applicable=new Set(assessmentQuestions(normalized).map(q=>q.id));
+  const choices=selectedProblems(normalized.find(a=>a.id==="top_problems")?.answer??"");
+  const withoutStalePriority=normalized.filter(a=>a.id!=="first_priority"||choices.includes(a.answer));
+  const applicable=new Set(assessmentQuestions(withoutStalePriority).map(q=>q.id));
   const branched=new Set([
     "company_name","business_type","team_size","role","decision_authority","decision_process",
     "website_url","first_priority","current_software","core_system","customer_impact",
@@ -155,7 +157,7 @@ export function applicableAnswers<T extends Answer>(answers:T[]):T[]{
     "family_sources","family_coordination","travel_needs",
     "approver_name","approver_email","approver_role",
   ]);
-  return normalized.filter(a=>!branched.has(a.id)||applicable.has(a.id));
+  return withoutStalePriority.filter(a=>!branched.has(a.id)||applicable.has(a.id));
 }
 export const ALL_ASSESSMENT_QUESTIONS = [...QUESTION_BANK, ...AUDIT_QUESTIONS];
 export const ALL_ASSESSMENT_MAP = { ...QUESTION_MAP, ...AUDIT_MAP };
