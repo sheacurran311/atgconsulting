@@ -220,7 +220,7 @@ export default function IntakePage() {
       preAnswers.push({ id: "audience", category: "goals", question: "Where would you like help?",
         answer: requestedVertical === "household" ? "My personal and family life" : "My business" });
     }
-    if (requestedVertical && verticalBusinessTypes[requestedVertical] && !preAnswers.some((a) => a.id === "business_type")) {
+    if (requestedAudience !== "personal" && requestedVertical && verticalBusinessTypes[requestedVertical] && !preAnswers.some((a) => a.id === "business_type")) {
       preAnswers.push({ id: "business_type", category: "company",
         question: "Which best describes your work?", answer: verticalBusinessTypes[requestedVertical]! });
     }
