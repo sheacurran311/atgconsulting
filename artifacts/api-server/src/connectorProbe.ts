@@ -11,7 +11,7 @@
 type Connector = { id: string; connector_name: string };
 type Client = {
   listConnections: () => Promise<unknown>;
-  proxy: (name: string, path: string, options: { connectionId: string }) => Promise<unknown>;
+  proxy: (name: string, path: string) => Promise<Response>;
 };
 export type ProbeState = "pass" | "not_connected" | "needs_test_document" | "error";
 export type ProbeResult = { service: string; state: ProbeState; detail: string };
@@ -36,7 +36,7 @@ export function parseConnections(result: unknown): Connector[] {
   return rows.flatMap((value): Connector[] => {
     if (!isRecord(value)) return [];
     const id = value.id;
-    const name = value.connector_name ?? value.connectorName;
+    const name = value.connector_name ?? value.connectorName ?? (isRecord(value.connector) ? (value.connector.name ?? value.connector.slug) : undefined);
     return typeof id === "string" && typeof name === "string" ? [{ id, connector_name: name }] : [];
   });
 }
@@ -50,8 +50,8 @@ export function classifyError(err: unknown): string {
   return status ? `Read-only connector request failed (HTTP ${status}).` : "Connector request failed. Inspect Replit runtime diagnostics privately.";
 }
 async function callReadOnly(client: Client, conn: Connector, path: string): Promise<void> {
-  const result = await client.proxy(conn.connector_name, path, { connectionId: conn.id });
-  if (isRecord(result) && typeof result.status === "number" && result.status >= 400) {
+  const result = await client.proxy(conn.connector_name, path);
+  if (!result.ok) {
     throw { status: result.status };
   }
   // SDK versions may return either a fetch-like Response or an already parsed object.
