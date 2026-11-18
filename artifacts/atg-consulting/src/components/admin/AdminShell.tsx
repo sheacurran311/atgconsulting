@@ -5,6 +5,7 @@ import {
   BookOpen,
   ClipboardList,
   Contact,
+  ChevronDown,
   Layers,
   MessageSquare,
   ScrollText,
@@ -21,26 +22,41 @@ import LogoLockup from "@/components/LogoLockup";
 import AdminSignOut from "@/components/admin/AdminSignOut";
 import AdminSwitcher from "@/components/admin/AdminSwitcher";
 
-const navItems: { label: string; to: string; icon: LucideIcon }[] = [
-  { label: "Today",       to: "/admin/today",              icon: Sparkles },
-  { label: "Automation bots", to: "/admin/automations", icon: Workflow },
-  { label: "Delivery playbook", to: "/admin/playbook", icon: BookOpen },
-  { label: "Intakes",     to: "/admin/discovery",          icon: ClipboardList },
-  { label: "Prospecting", to: "/admin/prospecting", icon: Search },
-  { label: "Engagements", to: "/admin/engagements",        icon: Users },
-  { label: "Catalog",     to: "/admin/catalog",            icon: Search },
-  { label: "Content",     to: "/admin/content",            icon: BookOpen },
-  { label: "Workshop",    to: "/admin/workshop",           icon: BookOpen },
-  { label: "Clients",     to: "/admin/clients",            icon: Contact },
-  { label: "Plans & DFY", to: "/admin/tiers",              icon: Layers },
-  { label: "Messages",    to: "/admin/messages",           icon: MessageSquare },
-  { label: "Reports",     to: "/admin/reports",            icon: BarChart3 },
-  { label: "Templates",   to: "/admin/workflow-templates", icon: Workflow },
-  { label: "Tools",       to: "/admin/tools",              icon: Wrench },
-  { label: "AI usage",    to: "/admin/ai-usage",           icon: Sparkles },
-  { label: "Account",     to: "/admin/account",            icon: UserRound },
-  { label: "Audit log",   to: "/admin/audit",              icon: ScrollText },
+type NavItem = { label: string; to: string; icon: LucideIcon };
+type NavGroup = { title: string; description: string; items: NavItem[] };
+
+/** All existing destinations retained, grouped by the work the operator is doing. */
+const navGroups: NavGroup[] = [
+  { title: "Overview", description: "Priorities", items: [
+    { label: "Today", to: "/admin/today", icon: Sparkles },
+  ] },
+  { title: "Growth & Prospecting", description: "Acquire and qualify clients", items: [
+    { label: "Prospecting", to: "/admin/prospecting", icon: Search },
+    { label: "Intakes", to: "/admin/discovery", icon: ClipboardList },
+    { label: "Content", to: "/admin/content", icon: BookOpen },
+  ] },
+  { title: "Clients & Delivery", description: "Manage engagements", items: [
+    { label: "Clients", to: "/admin/clients", icon: Contact },
+    { label: "Engagements", to: "/admin/engagements", icon: Users },
+    { label: "Plans & DFY", to: "/admin/tiers", icon: Layers },
+    { label: "Messages", to: "/admin/messages", icon: MessageSquare },
+    { label: "Reports", to: "/admin/reports", icon: BarChart3 },
+  ] },
+  { title: "Playbooks & Resources", description: "Reusable methods and tools", items: [
+    { label: "Delivery playbook", to: "/admin/playbook", icon: BookOpen },
+    { label: "Automation bots", to: "/admin/automations", icon: Workflow },
+    { label: "Templates", to: "/admin/workflow-templates", icon: Workflow },
+    { label: "Catalog", to: "/admin/catalog", icon: Search },
+    { label: "Tools", to: "/admin/tools", icon: Wrench },
+    { label: "Workshop", to: "/admin/workshop", icon: BookOpen },
+  ] },
+  { title: "System & Settings", description: "Administration", items: [
+    { label: "AI usage", to: "/admin/ai-usage", icon: Sparkles },
+    { label: "Audit log", to: "/admin/audit", icon: ScrollText },
+    { label: "Account", to: "/admin/account", icon: UserRound },
+  ] },
 ];
+const navItems = navGroups.flatMap((group) => group.items);
 
 const MOBILE_PRIMARY = new Set(["/admin/today", "/admin/discovery", "/admin/clients"]);
 
@@ -86,22 +102,34 @@ export default function AdminShell({ children }: Props) {
           </div>
         </div>
 
-        <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5 mt-1" aria-label="Admin navigation">
-          {navItems.map((item) => {
-            const active = location.startsWith(item.to);
+        <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2 mt-1" aria-label="Admin navigation">
+          {navGroups.map((group) => {
+            const groupActive = group.items.some((item) => location.startsWith(item.to));
             return (
-              <Link key={item.to} to={item.to}>
-                <span
-                  className="flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer"
-                  style={{
-                    color: "#FFFFFF",
-                    background: active ? "var(--ink-2)" : "transparent",
-                  }}
-                >
-                  <item.icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" strokeWidth={1.75} style={{ color: active ? "var(--blue)" : "#FFFFFF" }} />
-                  {item.label}
-                </span>
-              </Link>
+              <details key={group.title} defaultOpen={group.title === "Overview" || groupActive}
+                className="rounded-md border" style={{ borderColor: groupActive ? "var(--ink-border)" : "transparent" }}>
+                <summary className="flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-2 text-xs font-semibold"
+                  style={{ color: groupActive ? "#FFFFFF" : "#C7C7CF", background: groupActive ? "var(--ink-2)" : "transparent" }}>
+                  <span>{group.title}</span>
+                  <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
+                </summary>
+                <div className="space-y-0.5 pb-1 pl-2">
+                  {group.items.map((item) => {
+                    const active = location.startsWith(item.to);
+                    return (
+                      <Link key={item.to} to={item.to}>
+                        <span className="flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors"
+                          aria-current={active ? "page" : undefined}
+                          style={{ color: "#FFFFFF", background: active ? "var(--ink-2)" : "transparent" }}>
+                          <item.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" strokeWidth={1.75}
+                            style={{ color: active ? "var(--blue)" : "#FFFFFF" }} />
+                          {item.label}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </details>
             );
           })}
         </nav>
@@ -144,19 +172,27 @@ export default function AdminShell({ children }: Props) {
           </button>
         </div>
         {moreOpen && (
-          <div className="grid grid-cols-2 gap-1 px-2 pb-2" style={{ borderTop: "1px solid var(--ink-border)" }}>
-            {mobileMore.map((item) => (
-              <Link key={item.to} to={item.to}>
-                <span
-                  className="flex items-center gap-1.5 px-2 py-2 text-xs font-semibold cursor-pointer"
-                  style={{ color: "#FFFFFF" }}
-                  onClick={() => setMoreOpen(false)}
-                >
-                  <item.icon className="w-3.5 h-3.5" aria-hidden="true" strokeWidth={1.75} style={{ color: location.startsWith(item.to) ? "var(--blue)" : "#FFFFFF" }} />
-                  {item.label}
-                </span>
-              </Link>
-            ))}
+          <div className="max-h-[70vh] overflow-y-auto px-3 pb-3" style={{ borderTop: "1px solid var(--ink-border)" }}>
+            {navGroups.map((group) => {
+              const items=group.items.filter(item=>!MOBILE_PRIMARY.has(item.to));
+              if(!items.length) return null;
+              return <div key={group.title} className="pt-3">
+                <p className="px-2 pb-1 text-2xs font-semibold uppercase tracking-wide" style={{ color: "#BFC2CA" }}>{group.title}</p>
+                <div className="grid grid-cols-2 gap-1">
+                  {items.map((item) => (
+                    <Link key={item.to} to={item.to}>
+                      <span className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs font-semibold"
+                        aria-current={location.startsWith(item.to) ? "page" : undefined}
+                        style={{ color: location.startsWith(item.to) ? "var(--blue)" : "#FFFFFF", background: location.startsWith(item.to) ? "var(--ink-2)" : "transparent" }}
+                        onClick={() => setMoreOpen(false)}>
+                        <item.icon className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" strokeWidth={1.75} />
+                        {item.label}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>;
+            })}
           </div>
         )}
       </div>

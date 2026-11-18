@@ -27,10 +27,6 @@ export interface Vertical {
 }
 
 export const VERTICALS: Vertical[] = [
-  { id: "household", label: "Personal & family", tagline: "School, sports, travel, and household coordination", workflows: [
-    { name: "Weekly family briefing", what: "Collect permitted schedule updates in one weekly checklist and flag calendar conflicts for you to resolve.", area: "ea", outputType: "briefing", hoursPerWeek: [0, 0] },
-    { name: "Tournament travel plan", what: "Turn a confirmed event schedule into a packing list, itinerary, and proposed reminders. You approve bookings and changes.", area: "ea", outputType: "briefing", hoursPerWeek: [0, 0] },
-  ] },
   {
     id: "trades",
     label: "Home services & trades",
@@ -91,6 +87,10 @@ export const VERTICALS: Vertical[] = [
       { name: "Client notes organised after sessions", what: "Session recordings turned into clean notes and action items for your client file.", area: "ea", outputType: "briefing", hoursPerWeek: [1, 3] },
     ],
   },
+  { id: "household", label: "Personal & family", tagline: "School, sports, travel, and household coordination", workflows: [
+    { name: "Weekly family briefing", what: "Collect permitted schedule updates in one weekly checklist and flag calendar conflicts for you to resolve.", area: "ea", outputType: "briefing", hoursPerWeek: [0, 0] },
+    { name: "Tournament travel plan", what: "Turn a confirmed event schedule into a packing list, itinerary, and proposed reminders. You approve bookings and changes.", area: "ea", outputType: "briefing", hoursPerWeek: [0, 0] },
+  ] }
 ];
 
 export const VERTICAL_MAP: Record<string, Vertical> = Object.fromEntries(
