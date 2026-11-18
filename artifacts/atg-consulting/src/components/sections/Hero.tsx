@@ -55,16 +55,16 @@ export default function Hero() {
             </h1>
 
             <p className="text-md leading-relaxed mb-4" style={{ color: "var(--ink-text-2)", maxWidth: "480px" }}>
-              Shea designs AI workflows for your work and home: sales follow-ups, school schedules, sports travel, and the admin in between.
-              Self-serve means you install them from a diagnosis he reviews. Guided means he joins you on calls.
-              Done-for-you means he installs and tests them in your accounts. You approve the output. Nothing is sent automatically.
+              ATG helps home services, trades, and growing businesses use practical AI for lead follow-ups, estimates, scheduling, marketing, and repetitive administration.
+              Start with Free Tools to find opportunities. Choose Guided consulting to implement workflows alongside ATG,
+              or Done-for-you for an agreed, managed setup in your own accounts. Automation permissions and approvals are defined for each workflow.
             </p>
 
             <div className="space-y-2 mb-7">
               {[
                 "Approval-first — you decide which actions need review",
                 "Portable — take any workflow as a skill into Grok Bot or Claude",
-                "Three ways to work — run it yourself, build it with Shea, or have him run it",
+                "Three options — start with Free Tools, build together, or delegate implementation",
               ].map((point) => (
                 <p key={point} className="flex gap-2 text-sm" style={{ color: "var(--ink-text-2)" }}>
                   <span style={{ color: "var(--blue)" }}>›</span>
