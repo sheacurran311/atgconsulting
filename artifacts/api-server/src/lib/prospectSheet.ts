@@ -28,6 +28,7 @@ function val(v:unknown):string {return typeof v==="string" ? v.slice(0,CELL_LIMI
 function safeUrl(v:string): string {try {const u=new URL(v);return ["https:","http:"].includes(u.protocol)?u.href:"";}catch{return "";}}
 export function parseProspectSheet(data:SheetData, spreadsheetId:string, now=new Date()):Pipeline {
   const values=Array.isArray(data.values) ? data.values : [];
+  if(values.length>MAX_ROWS+2)throw new Error("Google Sheets returned more rows than the bounded read permits.");
   const header=Array.isArray(values[0])? values[0].map(val):[];
   // Fail closed on altered or reordered schemas instead of mislabeling PII or stages.
   if(SHEET_HEADERS.some((h,i)=>header[i]!==h))throw new Error("Prospect Sheet headers changed; reconcile the schema before enabling the dashboard.");
@@ -67,7 +68,7 @@ export async function readProspectPipeline(
   const sheetId=opts.sheetId??process.env.ATG_PROSPECT_SHEET_ID??DEFAULT_ATG_PROSPECT_SHEET_ID;
   if(!/^[a-zA-Z0-9_-]{20,100}$/.test(sheetId))throw new Error("ATG prospect spreadsheet ID is invalid.");
   const client=opts.client??new ReplitConnectors();
-  const path=`/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/%27Prospects%27%21A1%3AZ${MAX_ROWS+1}?valueRenderOption=FORMATTED_VALUE`;
+  const path=`/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/%27Prospects%27%21A1%3AZ${MAX_ROWS+2}?valueRenderOption=FORMATTED_VALUE`;
   const resp=await client.proxy("google-sheet",path);
   if(!resp.ok) {
     if(resp.status===403||resp.status===401)throw new Error("ATG Google Sheets connector lacks access. Verify the project-level grant.");
