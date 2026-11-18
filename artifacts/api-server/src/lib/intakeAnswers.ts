@@ -6,6 +6,10 @@
 
 export interface ParsedIntake {
   audience: "business" | "personal" | "both";
+  companyName: string | null;
+  website: string | null;
+  firstPriority: string | null;
+  leadVolume: string | null;
   role: string | null;
   industry: string | null;
   bizSize: string | null;
@@ -91,11 +95,15 @@ function comfort(raw: string | undefined): number | null {
 
 export function parseIntakeAnswers(raw: string | null | undefined): ParsedIntake {
   const map = answerMap(raw);
-  const tools = [map.ai_tools_today, map.crm_tool, map.core_system, map.invoicing_tool, map.currentSoftware]
+  const tools = [map.ai_tools_today, map.crm_tool, map.core_system, map.current_software, map.invoicing_tool, map.currentSoftware]
     .map((item) => item?.trim())
     .filter((item): item is string => Boolean(item));
   return {
     audience: map.audience?.toLowerCase().includes("both") ? "both" : /personal|family/i.test(map.audience ?? "") ? "personal" : "business",
+    companyName: map.company_name?.trim() || null,
+    website: map.website_url?.trim() || null,
+    firstPriority: map.first_priority?.trim() || null,
+    leadVolume: map.lead_volume?.trim() || null,
     role: map.role?.trim() || null,
     industry: map.business_type?.trim() || map.industry?.trim() || null,
     bizSize: map.team_size?.trim() || map.bizSize?.trim() || null,

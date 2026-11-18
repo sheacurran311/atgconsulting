@@ -1,5 +1,6 @@
 import ClientDeployment from "./ClientDeployment";
 import MasterPlaybook from "./MasterPlaybook";
+import ConsultationBriefPanel from "./ConsultationBriefPanel";
 /**
  * Playbook tab — admin-only operator playbook for a client.
  * Generate, view, inline-edit, mark final, and view version history.
@@ -456,6 +457,7 @@ ${deployment ? `Provider: ${deployment.providerPreference}. ${deployment.provide
 
   return (
     <div>
+      <ConsultationBriefPanel clientId={clientId} />
       <MasterPlaybook />
       {!playbook && <details className="my-4"><summary>Confirm a previously received payment</summary><p className="text-sm">Check your invoice or payment receipt and assign the purchased tier first. This records payment verification and generates a draft when the assessment is linked.</p>
         <button className="btn-secondary mt-2" disabled={generating} onClick={async () => {
