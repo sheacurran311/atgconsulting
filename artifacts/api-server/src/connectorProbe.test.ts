@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseConnections, classifyError, runConnectorProbe } from "./connectorProbe";
+import { parseConnections, classifyError, explainInitializationError, runConnectorProbe } from "./connectorProbe";
 
 test("connection enumeration understands Replit SDK response wrappers", () => {
   assert.deepEqual(parseConnections({ connections: [{ id: "a", connector_name: "gmail" }] }), [{ id: "a", connector_name: "gmail" }]);
@@ -36,4 +36,12 @@ test("Sheet remains untested until a sheet ID is supplied", async () => {
 test("errors do not leak raw provider payload or credentials", () => {
   assert.match(classifyError({ status: 403, message: "SECRET_TOKEN" }), /403/);
   assert.ok(!classifyError({ status: 403, message: "SECRET_TOKEN" }).includes("SECRET_TOKEN"));
+});
+
+test("initialization error reporting identifies phase and safe status without leaking messages", () => {
+  assert.equal(explainInitializationError({name:"TypeError",message:"SECRET_TOKEN"}, "discovery"),
+    "phase=discovery | category=TypeError | hint=SDK method signature may not match the installed package");
+  assert.equal(explainInitializationError({name:"AuthenticationError",status:401,body:{token:"SECRET_TOKEN"}}, "discovery"),
+    "phase=discovery | category=AuthenticationError | http=401 | hint=connector identity may not be granted to this Repl");
+  assert.ok(!explainInitializationError(new Error("SECRET_TOKEN"), "constructor").includes("SECRET_TOKEN"));
 });
