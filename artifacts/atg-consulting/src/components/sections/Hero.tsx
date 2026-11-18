@@ -74,7 +74,7 @@ export default function Hero() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <Link to="/intake">
+              <Link to={`/intake?vertical=${encodeURIComponent(demo.id)}`}>
                 <span className="btn-primary" style={{ fontSize: "15px", padding: "12px 22px" }}>
                   Start your free assessment →
                 </span>
