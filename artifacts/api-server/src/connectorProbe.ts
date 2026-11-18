@@ -108,8 +108,8 @@ async function main() {
   let sdk: typeof import("@replit/connectors-sdk");
   try { sdk = await import("@replit/connectors-sdk"); }
   catch (error) { throw new ProbeInitializationError("sdk_import", error); }
-  let client: InstanceType<typeof sdk.ConnectorsClient>;
-  try { client = new sdk.ConnectorsClient(); }
+  let client: InstanceType<typeof sdk.ReplitConnectors>;
+  try { client = new sdk.ReplitConnectors(); }
   catch (error) { throw new ProbeInitializationError("constructor", error); }
   if (typeof client.listConnections !== "function")
     throw new ProbeInitializationError("discovery", new TypeError("missing expected method"));
