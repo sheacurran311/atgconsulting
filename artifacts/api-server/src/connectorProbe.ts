@@ -17,7 +17,7 @@ export type ProbeState = "pass" | "not_connected" | "needs_test_document" | "err
 export type ProbeResult = { service: string; state: ProbeState; detail: string };
 
 const specs = [
-  { service: "Gmail", pattern: /^(gmail|google-gmail)$/i, path: "/gmail/v1/users/me/profile" },
+  { service: "Gmail", pattern: /^(gmail|google-gmail|google-mail)$/i, path: "/gmail/v1/users/me/profile" },
   { service: "Google Drive", pattern: /^(google-drive|google_drive|drive)$/i, path: "/drive/v3/about?fields=user(emailAddress)" },
   { service: "Google Sheets", pattern: /^(google-sheet|google-sheets|google_sheet)$/i, path: null },
   { service: "Google Calendar", pattern: /^(google-calendar|google_calendar)$/i, path: "/calendar/v3/users/me/calendarList?maxResults=1" },

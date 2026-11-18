@@ -45,3 +45,16 @@ test("initialization error reporting identifies phase and safe status without le
     "phase=discovery | category=AuthenticationError | http=401 | hint=connector identity may not be granted to this Repl");
   assert.ok(!explainInitializationError(new Error("SECRET_TOKEN"), "constructor").includes("SECRET_TOKEN"));
 });
+
+test("recognizes the Replit project-level google-mail connector", async () => {
+  const seen: string[] = [];
+  const output = await runConnectorProbe({
+    listConnections: async () => ({ connections: [{ id: "mail", connector_name: "google-mail" }] }),
+    proxy: async (connector, path) => {
+      seen.push(`${connector}:${path}`);
+      return new Response(null, { status: 200 });
+    },
+  });
+  assert.equal(output.find(x => x.service === "Gmail")?.state, "pass");
+  assert.deepEqual(seen, ["google-mail:/gmail/v1/users/me/profile"]);
+});
