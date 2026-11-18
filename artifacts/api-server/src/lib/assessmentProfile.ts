@@ -84,7 +84,7 @@ export function assessmentOrder(answers:Answer[]):string[] {
   const branchLimit=audience==="both"?2:3;
   const branchQuestions=[...new Set(branch)].slice(0,branchLimit);
   const needsApprover=business&&/partial|^no\b/i.test(values.decision_authority??"");
-  const travel=personal&&hasMatch(priority||values.top_problems??"",/travel|trip|sports/);
+  const travel=personal&&hasMatch(priority || (values.top_problems ?? ""),/travel|trip|sports/);
   const plan=[
     "contact_email","contact_name","audience",
     ...(business?["company_name","business_type","team_size","role","decision_authority",...(needsApprover?["decision_process"]:[]),"website_url"]:[]),
