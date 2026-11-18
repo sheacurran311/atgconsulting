@@ -106,7 +106,7 @@ export default function AdminShell({ children }: Props) {
           {navGroups.map((group) => {
             const groupActive = group.items.some((item) => location.startsWith(item.to));
             return (
-              <details key={group.title} defaultOpen={group.title === "Overview" || groupActive}
+              <details key={group.title} open={group.title === "Overview" || groupActive}
                 className="rounded-md border" style={{ borderColor: groupActive ? "var(--ink-border)" : "transparent" }}>
                 <summary className="flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-2 text-xs font-semibold"
                   style={{ color: groupActive ? "#FFFFFF" : "#C7C7CF", background: groupActive ? "var(--ink-2)" : "transparent" }}>
