@@ -59,7 +59,7 @@ async function callReadOnly(client: Client, conn: Connector, path: string): Prom
 }
 export async function runConnectorProbe(client: Client, opts: { sheetId?: string; docId?: string } = {}): Promise<ProbeResult[]> {
   const connections = parseConnections(await client.listConnections());
-  return Promise.all(specs.map(async spec: typeof specs[number]): Promise<ProbeResult> => {
+  return Promise.all(specs.map(async (spec): Promise<ProbeResult> => {
     const conn = connections.find(c => spec.pattern.test(c.connector_name));
     if (!conn) return { service: spec.service, state: "not_connected", detail: "Not available to this Replit app runtime." };
     const path = spec.service === "Google Sheets"
