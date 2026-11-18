@@ -82,6 +82,15 @@ export default function IntakePage() {
   const requestedTier = searchParams.get("tier");
   const requestedSessions = searchParams.get("sessions");
   const requestedAudience = searchParams.get("audience");
+  const requestedVertical = searchParams.get("vertical");
+  const verticalBusinessTypes: Record<string,string> = {
+    trades: "Trades, construction or home services",
+    realestate: "Real estate",
+    hospitality: "Hospitality",
+    professional: "Professional services or consulting",
+    salesrep: "Sales or business development",
+    solo: "Coaching or content creation",
+  };
   const inviteToken = matchInvite ? paramsInvite?.token : null;
   const engMemberToken = matchEngMember ? paramsEngMember?.token : null;
 
@@ -207,6 +216,14 @@ export default function IntakePage() {
     const preAnswers = [...importedAnswers];
     const audienceLabels: Record<string, string> = { business: "My business", personal: "My personal and family life", both: "Both business and personal life" };
     if (requestedAudience && audienceLabels[requestedAudience] && !preAnswers.some((a) => a.id === "audience")) preAnswers.push({ id: "audience", category: "goals", question: "Where would you like help?", answer: audienceLabels[requestedAudience]! });
+    if (!requestedAudience && requestedVertical && (requestedVertical === "household" || verticalBusinessTypes[requestedVertical]) && !preAnswers.some((a) => a.id === "audience")) {
+      preAnswers.push({ id: "audience", category: "goals", question: "Where would you like help?",
+        answer: requestedVertical === "household" ? "My personal and family life" : "My business" });
+    }
+    if (requestedVertical && verticalBusinessTypes[requestedVertical] && !preAnswers.some((a) => a.id === "business_type")) {
+      preAnswers.push({ id: "business_type", category: "company",
+        question: "Which best describes your work?", answer: verticalBusinessTypes[requestedVertical]! });
+    }
     if (prefilledName) preAnswers.push({ id: "contact_name", category: "contact", question: "What's your name?", answer: prefilledName });
     if (prefilledCompany) preAnswers.push({ id: "company_name", category: "company", question: "What's your company name?", answer: prefilledCompany });
     const r = await fetch("/api/discovery/start", {
@@ -217,6 +234,7 @@ export default function IntakePage() {
         ...(contactEmail ? { contactEmail: contactEmail.trim().toLowerCase() } : {}),
         inviteToken: currentInviteToken.current,
         engMemberToken: currentEngMemberToken.current,
+        ...(requestedVertical && verticalBusinessTypes[requestedVertical] ? { businessType: verticalBusinessTypes[requestedVertical] } : {}),
         ...(requestedTier ? { requestedTier } : {}),
         ...(requestedSessions ? { requestedSessions: Number(requestedSessions) } : {}),
       }),
@@ -246,7 +264,7 @@ export default function IntakePage() {
     }
 
     setLoading(false);
-  }, [prefilledName, prefilledCompany, contactEmail, requestedTier, requestedSessions, requestedAudience]);
+  }, [prefilledName, prefilledCompany, contactEmail, requestedTier, requestedSessions, requestedAudience, requestedVertical]);
 
   // Auto-start when arriving via engagement member token
   useEffect(() => {
