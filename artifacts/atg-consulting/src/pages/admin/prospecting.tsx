@@ -9,6 +9,16 @@ interface Prospect {
   review?: Review | null;
 }
 interface Review { industryFit:number; sizeFit:number; observableNeed:number; contactConfidence:number; urgency:number; suppressed:boolean; evidence: Array<{claim:string;sourceUrl:string;observedAt:string;verified:boolean}> }
+interface SheetProspect {
+  rowNumber:number; businessName:string; website:string; domain:string; category:string; city:string; state:string;
+  contactName:string; contactEmail:string; emailStatus:string; observedSignal:string; suggestedService:string;
+  priority:string; outreachStage:string; owner:string; lastContacted:string; nextFollowUp:string;
+  doNotContact:boolean; researchSegment:string; businessSourceUrl:string; contactSourceUrl:string;
+}
+interface SheetPipeline {
+  url:string; prospectCount:number; rows:SheetProspect[]; byStage:Record<string,number>;
+  suppressedCount:number; followUpsDue:number; dataTruncated:boolean;
+}
 const emptyReview:Review={industryFit:0,sizeFit:0,observableNeed:0,contactConfidence:0,urgency:0,suppressed:false,evidence:[]};
 const transitions: Record<Status, Status[]> = {
   NEW:["RESEARCHED","DISQUALIFIED","SUPPRESSED"],
@@ -24,6 +34,17 @@ const transitions: Record<Status, Status[]> = {
 };
 export default function AdminProspectingPage() {
   const [rows,setRows]=useState<Prospect[]>([]);
+  const [sheet,setSheet]=useState<SheetPipeline|null>(null);
+  const [sheetLoading,setSheetLoading]=useState(true);
+  const [sheetError,setSheetError]=useState("");
+  const [sheetFilter,setSheetFilter]=useState("");
+  async function loadSheet() {
+    setSheetLoading(true);setSheetError("");
+    try { setSheet(await adminJson<SheetPipeline>("/api/admin/prospecting/google-sheet")); }
+    catch(e) { setSheetError(e instanceof Error?e.message:"Unable to load the connected Google Sheet."); }
+    finally { setSheetLoading(false); }
+  }
+
   const [name,setName]=useState(""); const [website,setWebsite]=useState("");
   const [selected,setSelected]=useState<Prospect|null>(null);
   const [draft,setDraft]=useState(""); const [notes,setNotes]=useState("");
@@ -36,6 +57,7 @@ export default function AdminProspectingPage() {
     catch(e) { setError(e instanceof Error ? e.message : "Unable to load prospects."); }
   }
   useEffect(()=>{void load();},[]);
+  useEffect(()=>{void loadSheet();},[]);
   async function add(e: React.FormEvent) {
     e.preventDefault(); if(busy) return; setBusy(true); setError(""); setMessage("");
     try {
@@ -84,6 +106,58 @@ export default function AdminProspectingPage() {
     <div><p className="text-xs font-semibold uppercase tracking-widest" style={{color:"var(--blue)"}}>ATG INTERNAL SALES</p>
       <h1 className="text-2xl font-bold">Prospect Review</h1>
       <p className="text-sm opacity-70">Private research queue. No outbound emails, OAuth connections, or automated messages.</p></div>
+    <section aria-label="Google Sheets prospect pipeline" className="rounded-xl border p-4 space-y-4" style={{borderColor:"var(--canvas-border)"}}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">Google Sheets Pipeline</h2>
+          <p className="text-xs opacity-70">Read-only live ledger maintained by the prospecting agent. Separate from manual prospect reviews below.</p>
+        </div>
+        <div className="flex gap-2">
+          {sheet&&<a className="btn-secondary px-3 py-2 text-sm" href={sheet.url} target="_blank" rel="noopener noreferrer">Open Google Sheet</a>}
+          <button type="button" className="btn-secondary px-3 py-2 text-sm" disabled={sheetLoading} onClick={()=>void loadSheet()}>Refresh</button>
+        </div>
+      </div>
+      {sheetLoading&&<p role="status" className="text-sm opacity-70">Reading Google Sheet...</p>}
+      {sheetError&&<p role="alert" className="text-sm text-red-600">{sheetError}</p>}
+      {sheet&&!sheetLoading&&<>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {([
+            ["Prospects reviewed",sheet.prospectCount],
+            ["Follow-ups due",sheet.followUpsDue],
+            ["Do not contact",sheet.suppressedCount],
+            ["Pipeline stages",Object.keys(sheet.byStage).length],
+          ] as const).map(([label,value])=><div key={label} className="rounded border p-3" style={{borderColor:"var(--canvas-border)"}}>
+            <div className="text-xl font-bold">{value}</div><div className="text-xs opacity-70">{label}</div>
+          </div>)}
+        </div>
+        {sheet.dataTruncated&&<p className="text-xs text-amber-700">Showing the first 500 prospects. The Sheet remains the complete source of record.</p>}
+        <div className="flex flex-wrap gap-2 text-xs">{Object.entries(sheet.byStage).map(([stage,count])=><span key={stage} className="rounded border px-2 py-1" style={{borderColor:"var(--canvas-border)"}}>{stage}: {count}</span>)}</div>
+        <label className="block text-sm">Filter business, location, service, contact, or outreach stage
+          <input className="field-input block w-full mt-1" value={sheetFilter} onChange={e=>setSheetFilter(e.target.value)} placeholder="Search current Sheet rows"/>
+        </label>
+        <div className="overflow-x-auto max-h-96 overflow-y-auto">
+          <table className="w-full text-xs text-left">
+            <thead><tr className="border-b" style={{borderColor:"var(--canvas-border)"}}>
+              <th className="p-2">Business</th><th className="p-2">Location</th><th className="p-2">Signal / ATG fit</th><th className="p-2">Contact</th><th className="p-2">Stage</th><th className="p-2">Follow-up</th>
+            </tr></thead>
+            <tbody>{sheet.rows.filter(r=>{
+              const q=sheetFilter.trim().toLowerCase();return !q||[r.businessName,r.city,r.category,r.suggestedService,r.contactName,r.outreachStage].some(v=>v.toLowerCase().includes(q));
+            }).map(r=><tr key={r.rowNumber} className="border-b align-top" style={{borderColor:"var(--canvas-border)"}}>
+              <td className="p-2"><div className="font-semibold">{r.businessName}</div>
+                <div className="opacity-70">{r.category}</div>
+                {r.website&&<a href={r.website} target="_blank" rel="noopener noreferrer" className="underline">Website</a>}
+              </td>
+              <td className="p-2">{[r.city,r.state].filter(Boolean).join(", ")}</td>
+              <td className="p-2 max-w-72"><div>{r.observedSignal}</div><div className="font-semibold mt-1">{r.suggestedService}</div></td>
+              <td className="p-2"><div>{r.contactName}</div><div>{r.contactEmail}</div><div className="opacity-70">{r.emailStatus}</div></td>
+              <td className="p-2">{r.outreachStage}{r.doNotContact&&<div className="text-red-600 font-semibold">Do not contact</div>}</td>
+              <td className="p-2">{r.nextFollowUp||"Not scheduled"}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+        {sheet.prospectCount===0&&<p className="text-sm opacity-70">No researched prospects yet. The agent can populate the Sheet without changes here.</p>}
+      </>}
+    </section>
     {error&&<p role="alert" className="p-3 rounded bg-red-100 text-red-900">{error}</p>}
     {message&&<p role="status" className="p-3 rounded bg-green-100 text-green-900">{message}</p>}
     <form onSubmit={add} className="flex flex-wrap gap-2">
