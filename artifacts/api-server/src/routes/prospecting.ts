@@ -6,6 +6,7 @@ import { withUser, requireAdmin, type AuthedRequest } from "../lib/auth";
 import { assessProspect, mayAdvanceProspect, normalizeProspectDomain, type ProspectStatus } from "../lib/prospecting";
 import { audit } from "../lib/audit";
 import { generateProspectDraft } from "../lib/prospectDraft";
+import { readProspectPipeline } from "../lib/prospectSheet";
 
 export function createProspectingRouter(resolve: RequestHandler = withUser) {
 const router = Router();
@@ -41,6 +42,19 @@ const Patch = z.object({
   nextStatus: z.enum(["NEW", "RESEARCHED", "QUALIFIED", "DISQUALIFIED", "DRAFT_READY", "APPROVED", "CONTACTED", "REPLIED", "BOOKED", "WON", "LOST", "SUPPRESSED"]).optional(),
   expectedUpdatedAt: z.string().datetime().optional(),
 }).strict();
+
+// Internal Sheets-ledger view, isolated from the existing manually reviewed DB prospects.
+// Authenticated admin only. Never mutates the Sheet or creates duplicate Prisma records.
+router.get("/admin/prospecting/google-sheet", async (_req, res) => {
+  try {
+    const pipeline = await readProspectPipeline();
+    res.setHeader("Cache-Control", "private, no-store");
+    res.json(pipeline);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "Unable to read Google Sheet.";
+    res.status(502).json({ error: detail });
+  }
+});
 
 router.get("/admin/prospecting", async (_req, res) => {
   const rows = await prisma.atgProspect.findMany({ orderBy: { updatedAt: "desc" }, take: 200 });
