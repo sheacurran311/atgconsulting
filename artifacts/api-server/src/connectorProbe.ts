@@ -77,18 +77,50 @@ export async function runConnectorProbe(client: Client, opts: { sheetId?: string
     }
   }));
 }
+class ProbeInitializationError {
+  constructor(
+    readonly phase: "sdk_import" | "constructor" | "discovery",
+    readonly cause: unknown,
+  ) {}
+}
+/** Only allowlisted error attributes; never dump provider or credential-bearing responses. */
+export function explainInitializationError(error: unknown, phase: "sdk_import"|"constructor"|"discovery"): string {
+  const status = isRecord(error) && typeof error.status === "number" ? error.status
+    : isRecord(error) && isRecord(error.response) && typeof error.response.status === "number" ? error.response.status : null;
+  const name = isRecord(error) && typeof error.name === "string" ? error.name : "";
+  const knownName = ["TypeError","ReferenceError","APIConnectionError","APIConnectionTimeoutError","AuthenticationError","PermissionDeniedError","NotFoundError","FetchError"].includes(name) ? name : "UnknownError";
+  const parts = [`phase=${phase}`, `category=${knownName}`];
+  if (status !== null && Number.isInteger(status) && status >= 100 && status < 600) parts.push(`http=${status}`);
+  if (phase === "discovery" && knownName === "TypeError")
+    parts.push("hint=SDK method signature may not match the installed package");
+  if (phase === "discovery" && status === 401)
+    parts.push("hint=connector identity may not be granted to this Repl");
+  if (phase === "discovery" && status === 403)
+    parts.push("hint=connector permissions may be missing for this Repl");
+  return parts.join(" | ");
+}
 async function main() {
   if (process.env.NODE_ENV === "production") {
     throw new Error("Connector diagnostic must not run in production.");
   }
   // SDK is already declared at the ATG repository root; import it from
   // the Replit runtime rather than implementing or logging OAuth tokens.
-  const sdk = await import("@replit/connectors-sdk");
-  const client = new sdk.ConnectorsClient();
-  const results = await runConnectorProbe(client, {
-    sheetId: process.env.ATG_GOOGLE_CONNECTOR_TEST_SHEET_ID,
-    docId: process.env.ATG_GOOGLE_CONNECTOR_TEST_DOC_ID,
-  });
+  let sdk: typeof import("@replit/connectors-sdk");
+  try { sdk = await import("@replit/connectors-sdk"); }
+  catch (error) { throw new ProbeInitializationError("sdk_import", error); }
+  let client: InstanceType<typeof sdk.ConnectorsClient>;
+  try { client = new sdk.ConnectorsClient(); }
+  catch (error) { throw new ProbeInitializationError("constructor", error); }
+  if (typeof client.listConnections !== "function")
+    throw new ProbeInitializationError("discovery", new TypeError("missing expected method"));
+  console.log("SDK loaded and client constructed; discovering Replit app connector bindings.");
+  let results: ProbeResult[];
+  try {
+    results = await runConnectorProbe(client, {
+      sheetId: process.env.ATG_GOOGLE_CONNECTOR_TEST_SHEET_ID,
+      docId: process.env.ATG_GOOGLE_CONNECTOR_TEST_DOC_ID,
+    });
+  } catch (error) { throw new ProbeInitializationError("discovery", error); }
   console.log("\nATG Replit Google connector smoke test (read-only)\n");
   for (const r of results) console.log(`${r.service}: ${r.state.toUpperCase()} | ${r.detail}`);
   console.log("\nNo messages were sent; no Google files were modified.\n");
@@ -96,7 +128,9 @@ async function main() {
 }
 if (process.argv[1]?.endsWith("connectorProbe.ts")) {
   main().catch((err: unknown) => {
-    console.error("Probe initialization failed: " + classifyError(err));
+    const phase = err instanceof ProbeInitializationError ? err.phase : "discovery";
+    const cause = err instanceof ProbeInitializationError ? err.cause : err;
+    console.error("Probe initialization failed: " + explainInitializationError(cause, phase));
     process.exitCode = 1;
   });
 }
