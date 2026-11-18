@@ -15,7 +15,7 @@ test("probe sends only GET-style read paths and reports no mailbox contents", as
       { id: "sheets", connector_name: "google-sheet" },
       { id: "drive", connector_name: "google-drive" },
     ] }),
-    proxy: async (_name: string, path: string) => { calls.push(path); return { status: 200, body: { secret: "never print" } }; },
+    proxy: async (_name: string, path: string) => { calls.push(path); return new Response(null, { status: 200 }); },
   };
   const result = await runConnectorProbe(mock, { sheetId: "test-sheet" });
   assert.equal(result.find(x => x.service === "Gmail")?.state, "pass");
@@ -28,7 +28,7 @@ test("Sheet remains untested until a sheet ID is supplied", async () => {
   let count = 0;
   const result = await runConnectorProbe({
     listConnections: async () => [{ id: "sheet", connector_name: "google-sheet" }],
-    proxy: async () => { count++; return {}; },
+    proxy: async () => { count++; return new Response(null, { status: 200 }); },
   });
   assert.equal(count, 0);
   assert.equal(result.find(x => x.service === "Google Sheets")?.state, "needs_test_document");
