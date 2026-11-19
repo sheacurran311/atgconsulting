@@ -23,9 +23,10 @@ interface GmailMatch {
   rowNumber:number;businessName:string;contactEmail:string;
   status:"reply_detected"|"outbound_found"|"inbound_without_outbound"|"no_recent_match"|"error";
   lastOutboundAt:string|null;lastInboundAt:string|null;threadCount:number;
+  suggestedAction:"review_reply"|"verify_outreach"|"inspect_inbound"|"none";
 }
 interface GmailReconciliation {
-  account:string;checked:number;eligibleCount:number;limited:boolean;
+  account:string;checked:number;eligibleCount:number;limited:boolean;offset:number;nextOffset:number|null;
   skippedSuppressed:number;skippedAmbiguous:number;matches:GmailMatch[];
   summary:{replyDetected:number;outboundFound:number;inboundWithoutOutbound:number;noRecentMatch:number;errors:number};
 }
@@ -48,10 +49,10 @@ export default function AdminProspectingPage() {
   const [gmail,setGmail]=useState<GmailReconciliation|null>(null);
   const [gmailBusy,setGmailBusy]=useState(false);
   const [gmailError,setGmailError]=useState("");
-  async function checkGmail() {
+  async function checkGmail(offset=0) {
     if(gmailBusy)return;
     setGmailBusy(true);setGmailError("");setGmail(null);
-    try { setGmail(await adminJson<GmailReconciliation>("/api/admin/prospecting/gmail-reconciliation")); }
+    try { setGmail(await adminJson<GmailReconciliation>(`/api/admin/prospecting/gmail-reconciliation?offset=${offset}`)); }
     catch(e){setGmailError(e instanceof Error?e.message:"Unable to check Gmail.");}
     finally {setGmailBusy(false);}
   }
@@ -185,14 +186,14 @@ export default function AdminProspectingPage() {
           <h2 className="font-semibold text-lg">Gmail Conversation Matching</h2>
           <p className="text-xs opacity-70">On-demand, read-only Gmail metadata check against unique, non-suppressed Sheet contact emails. No messages are sent and no statuses are changed.</p>
         </div>
-        <button type="button" className="btn-secondary px-3 py-2 text-sm" disabled={gmailBusy||sheetLoading||!sheet} onClick={()=>void checkGmail()}>
+        <button type="button" className="btn-secondary px-3 py-2 text-sm" disabled={gmailBusy||sheetLoading||!sheet} onClick={()=>void checkGmail(0)}>
           {gmailBusy?"Checking…":"Check Gmail"}
         </button>
       </div>
       {gmailError&&<p role="alert" className="text-sm text-red-600">{gmailError}</p>}
       {gmail&&<>
-        <p className="text-xs opacity-70">Connected mailbox: {gmail.account}. Checked {gmail.checked} of {gmail.eligibleCount} eligible contacts. Excluded {gmail.skippedSuppressed} suppressed and {gmail.skippedAmbiguous} duplicate-email records.</p>
-        {gmail.limited&&<p className="text-xs text-amber-700">This check is limited to the first 12 eligible contacts and at most 3 recent matching threads per contact. A missing match does not prove there was no outreach.</p>}
+        <p className="text-xs opacity-70">Connected mailbox: {gmail.account}. Checked {gmail.checked} contacts (batch starting at {gmail.offset+1}) of {gmail.eligibleCount} eligible contacts. Excluded {gmail.skippedSuppressed} suppressed and {gmail.skippedAmbiguous} duplicate-email records.</p>
+        {gmail.limited&&<p className="text-xs text-amber-700">Each batch checks up to 12 eligible contacts and at most 3 recent matching threads per contact. A missing match does not prove there was no outreach.</p>}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
           {([
             ["Replies detected",gmail.summary.replyDetected],
@@ -205,7 +206,7 @@ export default function AdminProspectingPage() {
         <div className="overflow-x-auto max-h-72 overflow-y-auto">
           <table className="w-full text-xs text-left">
             <thead><tr className="border-b" style={{borderColor:"var(--canvas-border)"}}>
-              <th className="p-2">Business</th><th className="p-2">Contact</th><th className="p-2">Gmail evidence</th><th className="p-2">Latest outbound</th><th className="p-2">Latest inbound</th>
+              <th className="p-2">Business</th><th className="p-2">Contact</th><th className="p-2">Gmail evidence</th><th className="p-2">Latest outbound</th><th className="p-2">Latest inbound</th><th className="p-2">Suggested next step</th>
             </tr></thead><tbody>
             {gmail.matches.map(m=><tr key={m.rowNumber} className="border-b" style={{borderColor:"var(--canvas-border)"}}>
               <td className="p-2">{m.businessName}</td><td className="p-2">{m.contactEmail}</td>
@@ -218,8 +219,16 @@ export default function AdminProspectingPage() {
               } as const)[m.status]}</td>
               <td className="p-2">{m.lastOutboundAt?new Date(m.lastOutboundAt).toLocaleDateString():""}</td>
               <td className="p-2">{m.lastInboundAt?new Date(m.lastInboundAt).toLocaleDateString():""}</td>
+              <td className="p-2">{({review_reply:"Review response",verify_outreach:"Verify sent message",inspect_inbound:"Review inbound",none:"No change"} as const)[m.suggestedAction]}</td>
             </tr>)}
           </tbody></table>
+        </div>
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <div className="text-xs opacity-70">Batch {Math.floor(gmail.offset/12)+1}; results are evidence only, not confirmed CRM statuses.</div>
+          <div className="flex gap-2">
+            {gmail.offset>0&&<button type="button" className="btn-secondary px-3 py-2 text-xs" disabled={gmailBusy} onClick={()=>void checkGmail(Math.max(0,gmail.offset-12))}>Previous 12</button>}
+            {gmail.nextOffset!==null&&<button type="button" className="btn-secondary px-3 py-2 text-xs" disabled={gmailBusy} onClick={()=>void checkGmail(gmail.nextOffset!)}>Next 12</button>}
+          </div>
         </div>
         <p className="text-xs opacity-70">A detected reply is evidence for human review, not an automatic qualified lead or booking. All Sheet and database stages remain unchanged.</p>
       </>}

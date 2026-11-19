@@ -67,3 +67,22 @@ test("reconciliation fetches Gmail thread metadata only, never bodies or writes"
   assert.ok(requested.every(p=>!/send|modify|draft|batch|format=full/i.test(p)));
   assert.ok(requested.some(p=>p.includes("format=metadata")));
 });
+
+test("pages Gmail matches without repeating records", async () => {
+  const contacts=Array.from({length:14},(_,i)=>prospect({rowNumber:i+2,contactEmail:"owner"+i+"@example.net"}));
+  const client={proxy:async (_name:string,path:string)=>new Response(JSON.stringify(path.includes("/profile")?{emailAddress:account}:{threads:[]}),{status:200})};
+  const pipelineReader=async()=>({spreadsheetId:"x",url:"",prospectCount:14,rows:contacts,byStage:{New:14},suppressedCount:0,followUpsDue:0,dataTruncated:false});
+  const first=await reconcileGmail({client,pipelineReader,offset:0});
+  const second=await reconcileGmail({client,pipelineReader,offset:12});
+  assert.equal(first.checked,12);
+  assert.equal(first.nextOffset,12);
+  assert.equal(second.checked,2);
+  assert.equal(second.nextOffset,null);
+  assert.equal(second.matches[0]?.contactEmail,"owner12@example.net");
+});
+test("rejects invalid Gmail page offsets before connector calls",async()=>{
+  let called=false;
+  const client={proxy:async()=>{called=true;return new Response(null,{status:200})}};
+  await assert.rejects(()=>reconcileGmail({client,offset:-1}),/Invalid Gmail reconciliation offset/);
+  assert.equal(called,false);
+});
