@@ -19,6 +19,16 @@ interface SheetPipeline {
   url:string; prospectCount:number; rows:SheetProspect[]; byStage:Record<string,number>;
   suppressedCount:number; followUpsDue:number; dataTruncated:boolean;
 }
+interface GmailMatch {
+  rowNumber:number;businessName:string;contactEmail:string;
+  status:"reply_detected"|"outbound_found"|"inbound_without_outbound"|"no_recent_match"|"error";
+  lastOutboundAt:string|null;lastInboundAt:string|null;threadCount:number;
+}
+interface GmailReconciliation {
+  account:string;checked:number;eligibleCount:number;limited:boolean;
+  skippedSuppressed:number;skippedAmbiguous:number;matches:GmailMatch[];
+  summary:{replyDetected:number;outboundFound:number;inboundWithoutOutbound:number;noRecentMatch:number;errors:number};
+}
 const emptyReview:Review={industryFit:0,sizeFit:0,observableNeed:0,contactConfidence:0,urgency:0,suppressed:false,evidence:[]};
 const transitions: Record<Status, Status[]> = {
   NEW:["RESEARCHED","DISQUALIFIED","SUPPRESSED"],
@@ -35,6 +45,17 @@ const transitions: Record<Status, Status[]> = {
 export default function AdminProspectingPage() {
   const [rows,setRows]=useState<Prospect[]>([]);
   const [sheet,setSheet]=useState<SheetPipeline|null>(null);
+  const [gmail,setGmail]=useState<GmailReconciliation|null>(null);
+  const [gmailBusy,setGmailBusy]=useState(false);
+  const [gmailError,setGmailError]=useState("");
+  async function checkGmail() {
+    if(gmailBusy)return;
+    setGmailBusy(true);setGmailError("");setGmail(null);
+    try { setGmail(await adminJson<GmailReconciliation>("/api/admin/prospecting/gmail-reconciliation")); }
+    catch(e){setGmailError(e instanceof Error?e.message:"Unable to check Gmail.");}
+    finally {setGmailBusy(false);}
+  }
+
   const [sheetLoading,setSheetLoading]=useState(true);
   const [sheetError,setSheetError]=useState("");
   const [sheetFilter,setSheetFilter]=useState("");
@@ -156,6 +177,51 @@ export default function AdminProspectingPage() {
           </table>
         </div>
         {sheet.prospectCount===0&&<p className="text-sm opacity-70">No researched prospects yet. The agent can populate the Sheet without changes here.</p>}
+      </>}
+    </section>
+    <section aria-label="Gmail outreach reconciliation" className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--canvas-border)"}}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-semibold text-lg">Gmail Conversation Matching</h2>
+          <p className="text-xs opacity-70">On-demand, read-only Gmail metadata check against unique, non-suppressed Sheet contact emails. No messages are sent and no statuses are changed.</p>
+        </div>
+        <button type="button" className="btn-secondary px-3 py-2 text-sm" disabled={gmailBusy||sheetLoading||!sheet} onClick={()=>void checkGmail()}>
+          {gmailBusy?"Checking…":"Check Gmail"}
+        </button>
+      </div>
+      {gmailError&&<p role="alert" className="text-sm text-red-600">{gmailError}</p>}
+      {gmail&&<>
+        <p className="text-xs opacity-70">Connected mailbox: {gmail.account}. Checked {gmail.checked} of {gmail.eligibleCount} eligible contacts. Excluded {gmail.skippedSuppressed} suppressed and {gmail.skippedAmbiguous} duplicate-email records.</p>
+        {gmail.limited&&<p className="text-xs text-amber-700">This check is limited to the first 12 eligible contacts and at most 3 recent matching threads per contact. A missing match does not prove there was no outreach.</p>}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+          {([
+            ["Replies detected",gmail.summary.replyDetected],
+            ["Outbound found",gmail.summary.outboundFound],
+            ["Inbound only",gmail.summary.inboundWithoutOutbound],
+            ["No recent match",gmail.summary.noRecentMatch],
+          ] as const).map(([label,n])=><div key={label} className="rounded border p-3" style={{borderColor:"var(--canvas-border)"}}><div className="text-xl font-bold">{n}</div><div className="text-xs opacity-70">{label}</div></div>)}
+        </div>
+        {gmail.summary.errors>0&&<p className="text-xs text-red-600">{gmail.summary.errors} contact checks could not be completed. No assumptions were made about their outreach status.</p>}
+        <div className="overflow-x-auto max-h-72 overflow-y-auto">
+          <table className="w-full text-xs text-left">
+            <thead><tr className="border-b" style={{borderColor:"var(--canvas-border)"}}>
+              <th className="p-2">Business</th><th className="p-2">Contact</th><th className="p-2">Gmail evidence</th><th className="p-2">Latest outbound</th><th className="p-2">Latest inbound</th>
+            </tr></thead><tbody>
+            {gmail.matches.map(m=><tr key={m.rowNumber} className="border-b" style={{borderColor:"var(--canvas-border)"}}>
+              <td className="p-2">{m.businessName}</td><td className="p-2">{m.contactEmail}</td>
+              <td className="p-2">{({
+                reply_detected:"Reply observed in a matching thread",
+                outbound_found:"Outbound message observed",
+                inbound_without_outbound:"Inbound message; outbound not confirmed",
+                no_recent_match:"No match in limited search",
+                error:"Unable to check",
+              } as const)[m.status]}</td>
+              <td className="p-2">{m.lastOutboundAt?new Date(m.lastOutboundAt).toLocaleDateString():""}</td>
+              <td className="p-2">{m.lastInboundAt?new Date(m.lastInboundAt).toLocaleDateString():""}</td>
+            </tr>)}
+          </tbody></table>
+        </div>
+        <p className="text-xs opacity-70">A detected reply is evidence for human review, not an automatic qualified lead or booking. All Sheet and database stages remain unchanged.</p>
       </>}
     </section>
     {error&&<p role="alert" className="p-3 rounded bg-red-100 text-red-900">{error}</p>}
