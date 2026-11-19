@@ -3,16 +3,72 @@
 **Canonical status document:** November 19, 2026  
 **Previous baseline:** [November 15 implementation plan](audits/2026-11-15/ATG-implementation-plan-2026-11-15.md) and [product audit](audits/2026-11-15/ATG-product-audit-2026-11-15.md). Both remain historical evidence, not the current backlog.
 
+## 0. Approved commercial direction | November 19, 2026
+
+**This section supersedes every historical fixed-package pricing instruction elsewhere in this file or in the November 15 audit.** ATG Consulting is a **product-enabled technology consultancy**, not primarily a fixed-price SaaS subscription. The business-owner decision is approved for implementation planning, **not yet deployed as code**.
+
+**Promise:** *Your Business. Modernized.* ATG helps small businesses and individuals improve their online presence, eliminate repetitive work, and implement practical AI with an experienced technical and commercial partner. The differentiation is not getting AI answers, but designing, configuring, testing, teaching, and supporting repeatable **customer-controlled workflows**. Safe, approved low-risk processes may run automatically; consequential actions require consent and appropriate review. Client-owned platforms execute client email, calendar, CRM and recurring automations, never ATG servers acting on their behalf.
+
+**Customer positioning:** Local-first in Castle Rock, Douglas County, Denver and neighboring communities, serving businesses and individuals throughout the U.S. Trades, ranch/equestrian businesses, service providers, contractors, retailers and professionals are examples of relevant audiences, not stereotypes about technical literacy. Keep a separate personal/household service path. Never limit site lead capture to Colorado or imply local-only delivery.
+
+### 0.1 Services offered and how they are sold
+
+| Core service | Client outcome | Pricing and delivery |
+| --- | --- | --- |
+| **Website Design, Development & Modernization** | Appropriate site redesign/rebuild, migrations where justified, responsive UX, lead capture, SEO continuity, analytics, testing, hosting/ownership handoff | Standalone custom-scope proposal, not a universal price per page |
+| **AI Consulting & Business Automation** | Identify, configure, document and test AI and integration workflows in client-controlled systems, with approval boundaries and training | Scoped diagnostic, guided/co-built or done-for-you implementation, priced in a tailored proposal |
+| **Fractional Technical Partner** | Defined technical guidance, website improvement, maintenance, troubleshooting, software coordination, workflow iteration | Optional separately accepted engagement with explicit capacity, response expectations, exclusions and change control |
+| **Complete Business Modernization** | Combined website, lead flow, AI automation, business process redesign, training and handoff | Multi-workstream implementation with explicit scope, milestones, acceptance and custom quote |
+| **Free Assessment & Resources** | Education, sample tools, diagnostic entry point and project qualification | Free; no obligatory paid subscription |
+
+**The old Self-serve / Guided / WHITE_GLOVE labels are currently technical tier/entitlement identifiers, not final public service categories or compulsory 3/5-session packages.** Preserve schema and historical entitlements while migrating. Existing $997/$1,497 Guided and from-$3,500 DFY prices are *historical implementation*, not the new public price policy. Do not create alternative fixed-price price cards.
+
+**Position founder experience accurately:** approximately twelve years of sales and business development, nearly a decade building/managing websites and digital workflows at varying levels, and roughly three years hands-on AI-assisted technology development. Showcase founder-built projects Fandomly.AI, TruDeF.AI and AgentSEO.guru as capability examples, **not invented paid-client results or proven customer ROI**. Verify production claims before publication.
+
+**Technology selection:** Don't default to migrating every WordPress/WYSIWYG site. Diagnose the actual editing workflow, CMS requirements, performance, SEO history, accessibility, cost, ownership and security. Provide redirects, URL/metadata preservation, staging QA, backup/rollback, analytics validation and client-controlled domains/hosting when migration is justified. Define third-party software/hosting/API charges separately. ATG's app remains a planning and tracking layer, not an unauthorized execution system for customer data.
+
+### 0.2 Proposal-led sales architecture
+
+**Free assessment/inquiry → short free qualification/discovery call → fit/no-fit decision → reviewed custom proposal (or paid scoped diagnostic when discovery is insufficient) → explicit customer acceptance → authorized deposit/invoice payment → implementation → tested acceptance and handoff → optional separately contracted support.**
+
+- Do not automatically generate a binding proposal after every meeting. Qualify business needs, decision authority, scope feasibility, urgency, budget, dependencies and next actions.
+- Build all quotes from *workstreams and deliverables*, not preset subscription or session counts. A website-only, automation-only, individual, or bundled project must all work.
+- Each proposal must include exact quoted fee/currency, itemized scope, dependencies, exclusions, deliverables, acceptance criteria, payment schedule, anticipated third-party costs, change orders, timeline, ownership and support terms. All published quotes and legal terms require operator approval.
+- Internal scoping should account for labor, costs, risk, margin and credible customer value. Do not invent ROI or customer outcomes. Deposits and milestone splits are negotiable proposal terms, never universal pre-authorized charges.
+- The client must know how to review, modify, pause and manage the installed customer-owned automation; human review can be applied per risk/authorization rather than required on every harmless run.
+- Record the first three paying engagements' lead source, quote, negotiations, scope changes, actual hours, costs, accepted outcomes and support demand. This is learning evidence, not statistically validated market pricing. **There are zero paying clients as of this decision.**
+
+### 0.3 Website, marketing and checkout migration requirements
+
+**Replace public pricing blocks, fixed-dollar CTAs, and "buy a 3/5-session package" positioning** with:
+- Service-focused homepage: *Your Business. Modernized.* Websites, AI automation, and hands-on technology consulting, locally rooted and nationally available.
+- Three service pillars plus a clearly presented complete business modernization package and a distinct **For Individuals** path.
+- `How We Work` section: assessment → discovery → tailored proposal → implementation/handoff.
+- A prominent **"How much does this cost?" FAQ**: no single price fits every client; the initial assessment and short consultation are free; a tailored quote follows discovery; more extensive diagnostics can be separately quoted; software/hosting charges and optional support are disclosed.
+- Primary CTAs: **Start Free Assessment**, **Schedule a Consultation**, **Request a Proposal**. Reserve **Apply** for genuinely capacity-limited projects. Provide direct website project inquiry as an alternative to completing a long AI assessment.
+- Accessible copy and local trust signals without geographic limitations; accurate founder portfolio rather than invented testimonials.
+
+**Stripe does not disappear.** Remove fixed-price checkout as the **new sales path** only with a tested replacement for custom invoices, deposits, milestone payments and separately authorized support. Keep the old Stripe products and historical data available for reconciliation. Do not simply delete billing code or change existing entitlements. Search and update every stale fixed-dollar reference in `Tiers.tsx`, landing-page components, proposal-generation fallbacks, `stripe.ts`, billing routes, intake defaults, legal/refunds, portal purchase prompts, SEO metadata and emails. A customer-accepted versioned quote and valid payment evidence are prerequisites to granting any scoped entitlements.
+
+### 0.4 Engineering boundaries and phased acceptance
+
+- Keep existing Clerk authentication, Prisma/Postgres, React/Vite, Express and xAI/Grok fallback unless separately approved.
+- Build a coherent service-intent taxonomy (`website`, `automation`, `combined`, `fractional_support`, `personal`, `unsure`) into intake and fit call, with conditional website fields (URL/CMS, content/editing needs, pages, conversions, integrations, SEO migration risks, timeline, estimated budget) and shared questions asked only once.
+- Version accepted proposals with quoted USD amount, workstreams, invoices/deposit/milestones, customer authorization and change orders. Distinguish quote approval, customer acceptance, payment receipt, start of service, milestone signoff and delivery completion.
+- Extend the project/task/workstream model for website work as well as AI implementations; avoid duplicate task stores. Document client content dependencies, DNS/hosting change approvals, backups, regression checks and handoff.
+- Run a migration inventory, tests and authenticated staging journey before removing legacy checkout. No new fixed price charges or automatic recurring care enrollments.
+- The November 19 Phase 5 migration SQL has been reviewed as additive, not yet confirmed as applied. Do not label the live fit-call/proposal journey verified before the user tests it.
+
 ## 1. What we are building
 
-ATG is an approval-first AI consulting platform serving individuals and small businesses across Self-serve, Guided, and Done-for-You delivery. Its customer value is the completed journey:
+ATG is a proposal-led website, AI automation and technology consultancy serving individuals and small businesses. Guided and Done-for-You describe possible delivery methods, not public fixed-fee shopping-cart packages. Its customer value is the completed journey:
 
 **Discovery/assessment → relevant first pilot → structured fit call → reviewed scope and commercial decision → payment/entitlement → customer-owned implementation → verified acceptance and handoff → sustainable support.**
 
 The app should diagnose, prescribe, preview, document, and track. Customer-owned platforms execute customer email, CRM, calendar, and automations. The ATG administration team's own Google account can be used for its internal prospecting and approved proposal documents. **Do not confuse ATG operational connectors with authorization to access customers' accounts.**
 
 Retain:
-- Existing tier pricing and commercial decisions: Free tools / Self-serve as currently configured, Guided $997 for 3 sessions and $1,497 for 5 sessions, and DFY from $3,500 with separately accepted, optional $750/month care where offered. Do not implement the historical $29/$299 monthly membership hypotheses without an explicit commercial decision.
+- **Approved current commercial model:** the proposal-led consulting architecture in section 0 replaces those historic fixed package fees as the sales model. No new preset memberships, universal session prices or automatic care subscription has been approved.
 - Clerk authentication and admin authorization; React/Vite/TypeScript frontend; Express/Prisma/Postgres API; existing xAI/Grok integration and deterministic fallback.
 - Human review before sharing customer-specific approved deliverables, native-account execution, no client OAuth tokens, and no unauthorized messages, calendar events, or background customer automations.
 - A single source of commercial truth for each accepted proposal and separately evidenced payment, entitlement, session usage, and delivery acceptance.
@@ -60,7 +116,16 @@ Record failures as discrete blockers without declaring the entire phase unimplem
 
 ### P0 | Trust, integrity and cash-relevant delivery
 
-**P0-A: Commercial integrity and proposal lifecycle (historical batch B).**
+**P0-0: Consulting sales-model and website conversion cutover (new prerequisite).**
+
+- Implement section 0.3's service pillars, direct website inquiry, free assessment/discovery, cost FAQ and custom proposal CTAs, replacing public package prices.
+- Add service-intent branches and website-specific fit-call data; preserve the personal pathway and existing customer-side functionality.
+- Identify all fixed-price entry points and retire new-client generic Stripe checkout safely, without deleting historical products or billing records.
+- Make proposal workstreams, custom quote, milestone/deposit terms and deliverable acceptance the inputs to any new purchase and fulfillment code.
+- Verify end-to-end synthetic website-only, AI-only, combined and personal paths, including a declined/no-fit path.
+- **Exit:** visitors can inquire about real services and receive tailored quotes without entering a fixed-price purchase funnel.
+
+**P0-A: Custom consulting commercial integrity and proposal lifecycle (supersedes historical batch B).**
 
 The Phase 5 proposal has approval and a delivery snapshot, **but not a complete immutable purchase-and-fulfillment ledger**. Before enabling wider paid checkout, implement:
 - Accepted proposal identity and immutable version/hash shown to the accepting user, tied to approved scope and exact quoted price.
@@ -72,9 +137,9 @@ The Phase 5 proposal has approval and a delivery snapshot, **but not a complete 
 
 **Exit criteria:** repeated and out-of-order events do not duplicate entitlement grants or overwrite payment state, and every entitlement maps to a specific accepted scope and purchase.
 
-**P0-B: Full session → decisions → actions → acceptance journey (historical batch E).**
+**P0-B: Consultation / website build / AI implementation → decisions → client tasks → accepted delivery (historical batch E).**
 
-Build on existing `Consultation`, `SessionRecord`, `ActionItem`, `ClientPlaybook`, and client task infrastructure. Do not duplicate data models without a demonstrated gap.
+Build on existing `Consultation`, `SessionRecord`, `ActionItem`, `ClientPlaybook`, and client task infrastructure. Add website migration/launch milestones and customer content dependencies without duplicating data models.
 - Use a stable identity connecting scheduled/completed consultations to the actual SessionRecord; reconcile same-day calls and recording/consent status.
 - Distinguish completion of a real Guided session from package consumption with an idempotent ledger; don't double-count or consume on mere scheduling.
 - Preserve authorized transcript/source segments, clearly report partial processing and references; do not process unconsented recordings/transcripts.
@@ -85,7 +150,7 @@ Build on existing `Consultation`, `SessionRecord`, `ActionItem`, `ClientPlaybook
 
 **Exit criteria:** schedule → prepare → consented source → private summary → reviewed recap → approved tasks → verified acceptance → updated private/client guidance forms a traceable, retryable, correctly entitled journey.
 
-**Sequencing:** P0-A and P0-B can be designed together; deploy financial/entitlement mutations only after the purchase ledger is tested. Session data linking and draft action workflows can proceed independently behind safe gates.
+**Sequencing:** P0-0's conversion changes precede any new payment experience. P0-A and P0-B can be designed together around one project/workstream identity, but deploy financial/entitlement mutations only after custom quote and invoice-ledger tests. Session data linking and draft action workflows can proceed independently behind safe gates.
 
 ### P1 | Durable documents and reliable releases (historical batch C)
 
@@ -101,7 +166,7 @@ Build on existing `Consultation`, `SessionRecord`, `ActionItem`, `ClientPlaybook
 ### P1 | Finish assessment-to-pilot polish (remaining historical batch D)
 
 Phase 5 covers persistent fit-call outcomes and proposal creation, but several historical batch D items remain:
-- Canonical assessment profile across current selection IDs, legacy inputs and household/business splits.
+- Canonical assessment profile across current selection IDs, legacy inputs, website/AI/combined service intents and household/business splits.
 - New linked assessment revisions rather than reopening immutable submitted intake sessions.
 - Separate free fit-call booking and paid Guided session booking copy/links.
 - Rank one commercially valuable first pilot using documented workflow signals, while retaining later opportunities in a backlog.
@@ -130,7 +195,13 @@ After actual paid pilot delivery, measure consulting effort and retention demand
 
 **Exit criteria:** internal operations reduce manual work without creating unreviewed external communication or diluting the consulting product roadmap.
 
-## 6. Non-goals and decisions not yet approved
+## 6. Commercial decisions and remaining approvals
+
+**Approved:** a full-service, local-first and nationally available consultancy that delivers website modernization, AI implementation, fractional technical guidance and complete business modernization; custom proposal-led pricing replaces fixed public package checkout. This changes the implementation roadmap, not the live website or payment configuration.
+
+**Not decided:** enforceable standard terms for deposits/refunds, exact support hours/response times, tax treatment, hosting ownership/transfer conditions, insurance or warranties, optional care rates, and whether/when to offer any future standardized service. Do not insert invented legal or financial obligations into product code.
+
+## 6.1 Non-goals and decisions not yet approved
 
 Do not implement without a separate business/technical decision:
 - $29/month Self-serve or $299/month Guided memberships from the original audit.
@@ -138,7 +209,7 @@ Do not implement without a separate business/technical decision:
 - Unreviewed client proposal publication, automated Docs sharing, automatic outreach or automatic CRM stage changes.
 - Unvalidated payment activation, recurring care opt-in, or changing purchased Guided session balances.
 - Broad transcriptions or third-party recording import without documented source rights and consent.
-- Replacing xAI/Grok or changing the approved brand/pricing system merely because a historical audit suggested alternatives.
+- Replacing xAI/Grok or reintroducing fixed subscription/package checkout without a separate owner decision.
 
 ## 7. Engineering and delivery contract for every subsequent phase
 
@@ -151,12 +222,13 @@ Do not implement without a separate business/technical decision:
 7. Validate destructive/durable changes with backup and rollback. Record the precise failure and fix instead of repeatedly expanding scope.
 8. Mark a capability live only with observed authenticated evidence; report empty source data as empty, not a successful provider end-to-end check.
 
-## 8. Work queue to begin next
+## 8. Updated implementation order
 
-1. **Acceptance checkpoint:** Phase 5 migration status + one synthetic consultation-to-proposal-to-paid-playbook path.
-2. **Next major build:** P0-B session/task/milestone loop, prioritizing data integrity and publish approvals; coordinate its ledger with P0-A commercial integrity.
-3. **Next safety/commerce gate:** P0-A purchased-package identity and idempotent fulfillment before enabling or scaling paid checkout.
-4. **Next operational foundation:** P1 durable document storage and release validation.
-5. **Then:** assessment revision/pilot polish, repeatable guided/DFY delivery, and only afterward recurring care and selectively chosen integrations.
+1. **Phase 5 acceptance:** verify the intended database schema was actually applied and run a synthetic assessment → fit call → approved proposal → accepted entitlement/playbook scenario. Keep Docs and Sheet writes gated.
+2. **P0-0: Brand/website conversion and sales-flow migration.** Replace public fixed-price cards with services/How We Work/FAQ, add website and personal inquiries, preserve historic Stripe payments and avoid new charges before replacement.
+3. **P0-A: Custom proposal commerce.** Scoped workstreams, precise USD quotes, approved revisions and acceptance, deposits/invoices/milestones, Stripe test-mode reconciliation and explicit optional support.
+4. **P0-B: Service delivery.** Unify consultation, web projects and automation implementation with reviewed tasks, milestone evidence and handoff, preserving consent and purchased entitlements.
+5. **P1/P2:** secure document storage, website launch/handoff playbooks, assessment optimization and separately contracted fractional support.
+6. **P3:** only after active leads/customers justify it, revisit Calendar, prospecting enrichment or additional connectors.
 
-The owner can reorder P0-A/P0-B based on launch timing; **do not treat additional Google connectors as blockers for the core customer delivery loop.**
+**Operating rule:** ATG's client-owned workflow execution boundaries remain unchanged. The refreshed consulting business model is approved for planning, but no customer-facing commercial change is live until implementation, testing and deployment are separately verified.
