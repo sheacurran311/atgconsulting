@@ -1,5 +1,7 @@
 # ATG implementation plan for approval
 
+> **Historical November 15 baseline.** The active, reconciled product roadmap is [ATG Current Product Master Plan](../../MASTER_IMPLEMENTATION_PLAN.md). The statuses, estimates and requested approvals below describe the original audit, not outstanding tasks as of November 19, 2026.
+
 > Historical audit baseline at `3dbff3e`, recorded before implementation. The approved first batch is tracked in [the implementation and verification record](../../private-drafts-sharing.md). Statements about unchanged files and proposed work describe that earlier audit, not this implementation branch.
 
 November 15, 2026 • Based on GitHub main at 3dbff3ede885b23f65cd7d8c033a5208861d9b24
