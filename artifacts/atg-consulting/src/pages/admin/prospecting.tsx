@@ -174,7 +174,7 @@ export default function AdminProspectingPage() {
   return <AdminShell><div className="max-w-5xl mx-auto space-y-5">
     <div><p className="text-xs font-semibold uppercase tracking-widest" style={{color:"var(--blue)"}}>ATG INTERNAL SALES</p>
       <h1 className="text-2xl font-bold">Prospect Review</h1>
-      <p className="text-sm opacity-70">Private research queue. No outbound emails, OAuth connections, or automated messages.</p></div>
+      <p className="text-sm opacity-70">Private research queue and internal Google integrations. No automated outbound messages.</p></div>
     <section aria-label="Google Sheets prospect pipeline" className="rounded-xl border p-4 space-y-4" style={{borderColor:"var(--canvas-border)"}}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -267,7 +267,7 @@ export default function AdminProspectingPage() {
     </section>
     <section aria-label="Prospect Calendar" className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--canvas-border)"}}>
       <div className="flex flex-wrap justify-between items-center gap-2">
-        <div><h2 className="font-semibold text-lg">Upcoming Prospect Consultations</h2>
+        <div><h2 className="font-semibold text-lg">Upcoming Prospect Calendar Events</h2>
           <p className="text-xs opacity-70">Read-only: matches Google Calendar attendees with unique, non-suppressed prospect emails over the next 60 days.</p></div>
         <button type="button" className="btn-secondary px-3 py-2 text-sm" disabled={calendarBusy||sheetLoading||!sheet} onClick={()=>void checkCalendar()}>{calendarBusy?"Checking…":"Check Calendar"}</button>
       </div>
@@ -275,7 +275,7 @@ export default function AdminProspectingPage() {
       {calendar&&<>
         <p className="text-sm font-medium">{calendar.meetingCount} matching consultation(s)</p>
         {calendar.limited&&<p className="text-xs text-amber-700">Only the first 100 upcoming Calendar events were examined, or Sheet coverage is incomplete. Not an exhaustive count.</p>}
-        {calendar.matches.length===0&&<p className="text-sm opacity-70">No matching scheduled consultations found.</p>}
+        {calendar.matches.length===0&&<p className="text-sm opacity-70">No upcoming Calendar events matched eligible prospect contacts.</p>}
         <div className="space-y-2">{calendar.matches.map((meeting,i)=><div key={meeting.rowNumber+"-"+meeting.startsAt+"-"+i} className="rounded border p-3 text-sm" style={{borderColor:"var(--canvas-border)"}}>
           <div className="font-semibold">{meeting.businessName}</div>
           <div>{new Date(meeting.startsAt).toLocaleString()} | {meeting.responseStatus}</div>
