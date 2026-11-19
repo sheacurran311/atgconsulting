@@ -614,7 +614,7 @@ export default function AdminDiscoveryPage() {
                     <a href={`/api/admin/discovery/${selected.id}/proposal.html`} target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
                       Print view
                     </a>
-                    <button type="button" onClick={() => approveProposal()} disabled={approving||!fitCallMeta?.completed||proposal.fitCallRevision!==fitCallMeta.revision} title={proposal.fitCallRevision!==fitCallMeta?.revision?"Regenerate the proposal after the latest completed fit call.":undefined} className="btn-primary text-sm" style={{ padding: "7px 14px", background: "#16A34A" }}>
+                    <button type="button" onClick={() => approveProposal()} disabled={approving||!fitCallMeta?.completed||proposal.fitCallRevision!==fitCallMeta?.revision} title={proposal.fitCallRevision!==fitCallMeta?.revision?"Regenerate the proposal after the latest completed fit call.":undefined} className="btn-primary text-sm" style={{ padding: "7px 14px", background: "#16A34A" }}>
                       {approving ? "…" : "Approve"}
                     </button>
                   </>
