@@ -1226,16 +1226,16 @@ export async function generateProposalDraft(
 ): Promise<ProposalContent> {
   const fallback = buildFallbackProposal(answers, reportDraft, contactName, authority);
   const fitCallContext=fitCallAnswers?fitCallPromptContext(fitCallAnswers):"";
-  if(fitCallAnswers){
-    const call=fitCallAnswers;
-    fallback.reviewSummary+="\nConfirmed fit-call details were used for the scope checkpoints. Review dependencies and commercial terms.";
-    fallback.scope+=[
-      "\n\nConfirmed fit-call scope checkpoints:",
-      call.pilot?"- First pilot: "+call.pilot:"",
-      call.successMetric?"- Acceptance criterion: "+call.successMetric:"",
-      call.clientDependencies?"- Client responsibilities: "+call.clientDependencies:"",
-      call.exclusions?"- Explicit exclusions: "+call.exclusions:"",
-    ].filter(Boolean).join("\n");
+  const confirmedScope=fitCallAnswers?[
+    "Confirmed fit-call scope checkpoints:",
+    "- First pilot: "+fitCallAnswers.pilot,
+    "- Acceptance criterion: "+fitCallAnswers.successMetric,
+    fitCallAnswers.clientDependencies?"- Client responsibilities: "+fitCallAnswers.clientDependencies:"",
+    fitCallAnswers.exclusions?"- Explicit exclusions: "+fitCallAnswers.exclusions:"",
+  ].filter(Boolean).join("\n"):"";
+  if(confirmedScope){
+    fallback.reviewSummary+="\nFit-call scope checkpoints included. Review dependencies and commercial terms.";
+    fallback.scope+="\n\n"+confirmedScope;
   }
   if(!isAiEnabled())return {...fallback,tokensUsed:0};
   const { getGrokClient: grokClient, GROK_MODEL: grokModel, logFallback: logFall } = await import("../lib/grokClient");
@@ -1294,7 +1294,7 @@ Keep it professional, plain English, no invented stats or outcomes.`;
       reviewSummary:   raw.reviewSummary   ?? fallback.reviewSummary,
       execSummary:     raw.execSummary     ?? fallback.execSummary,
       understanding:   raw.understanding   ?? fallback.understanding,
-      scope:           raw.scope           ?? fallback.scope,
+      scope:           typeof raw.scope==="string"&&raw.scope.trim() ? raw.scope+(confirmedScope?"\n\n"+confirmedScope:"") : fallback.scope,
       howWeConnect:    raw.howWeConnect    ?? fallback.howWeConnect,
       milestones:      typeof raw.milestones === "string" ? raw.milestones : JSON.stringify(raw.milestones ?? []),
       investment:      typeof raw.investment === "string" ? raw.investment : JSON.stringify(raw.investment ?? {}),
