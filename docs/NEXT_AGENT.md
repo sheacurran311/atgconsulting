@@ -1,3 +1,5 @@
+> **Current roadmap:** [ATG Product Master Plan](MASTER_IMPLEMENTATION_PLAN.md) (November 19, 2026). This document retains historical implementation detail and mandatory product boundaries. For current priorities, verified merge/test/live status, and pending acceptance gates, use the master plan. Do not treat older merge-order checklists as pending work without checking GitHub main.
+
 # Current release note — November 13, 2026
 
 See [operations-launch.md](operations-launch.md) for the current business/personal assessment, operating-guide delivery workflow, and required additive database rollout. This takes precedence over older product descriptions below. ATG may explicitly email its own reviewed assessment report; customer outreach and live workflow execution remain in customer-owned platforms. Draft guides and internal notes are never published automatically.
