@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { approveSheetUpdate, verifyProposedChange, ProspectWriteConflict, type ReviewWrite } from "./lib/prospectWriteback";
-import { SHEET_HEADERS } from "./lib/prospectSheet";
+import { SHEET_HEADERS, parseProspectSheet } from "./lib/prospectSheet";
 
 const sheetId="testSpreadsheetIdentifier123";
 function row(){
@@ -10,6 +10,7 @@ function row(){
  r[19]="Ready";r[21]="";r[22]="";r[23]="";
  return r;
 }
+const pipelineReader=async()=>parseProspectSheet({values:[SHEET_HEADERS,row()]},"testSpreadsheetIdentifier123");
 const update:ReviewWrite={
  rowNumber:2,expectedBusiness:"ABC Plumbing",expectedDomain:"abcplumbing.example",
  expectedEmail:"owner@abcplumbing.example",expectedStage:"Ready",
@@ -42,7 +43,7 @@ test("approved write touches only T, V, W and verifies live headers and row",asy
      :{values:[row()]};
    return new Response(JSON.stringify(value),{status:200});
  }};
- const result=await approveSheetUpdate(update,{client,sheetId,allowWrites:true});
+ const result=await approveSheetUpdate(update,{client,sheetId,allowWrites:true,pipelineReader});
  assert.equal(result.stage,"Contacted");
  assert.equal(calls.length,3);
  assert.equal(calls[2]?.options?.method,"POST");
@@ -60,5 +61,17 @@ test("changed row aborts before any write",async()=>{
    return new Response(JSON.stringify(data),{status:200});
  }};
  await assert.rejects(()=>approveSheetUpdate(update,{client,sheetId,allowWrites:true}),/Do not contact/);
+ assert.equal(writes,0);
+});
+
+test("duplicate business identity is rejected before any Sheet POST",async()=>{
+ let writes=0;
+ const dup=row();dup[0]="Other Listing";
+ const client={proxy:async (_name:string,path:string,options?:{method?:string})=>{
+   if(options?.method==="POST")writes++;
+   return new Response(JSON.stringify(path.includes("A1%3AZ1")?{values:[SHEET_HEADERS]}:{values:[row()]}),{status:200});
+ }};
+ const duplicates=async()=>parseProspectSheet({values:[SHEET_HEADERS,row(),dup]},"testSpreadsheetIdentifier123");
+ await assert.rejects(()=>approveSheetUpdate(update,{client,sheetId,allowWrites:true,pipelineReader:duplicates}),/Duplicate domain/);
  assert.equal(writes,0);
 });
