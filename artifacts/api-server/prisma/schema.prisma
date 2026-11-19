@@ -1036,6 +1036,10 @@ model DiscoveryProposal {
   fitCallRevision     Int?
   /// Private delivery milestone snapshot, populated from an approved proposal.
   deliveryPlanJson    String    @default("{}")
+  /// Operator-initiated ATG-owned Google Docs export, never public/shared automatically.
+  googleDocId          String?
+  googleDocExportState String    @default("none") // none|creating|ready|error
+  googleDocExportedAt  DateTime?
 
   approvedAt         DateTime?
   portalPublishedAt  DateTime?
