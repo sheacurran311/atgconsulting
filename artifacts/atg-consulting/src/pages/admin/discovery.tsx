@@ -2,6 +2,7 @@ import GenerationProgress, { type GenerationWork } from "@/components/admin/Gene
 import FitCallPanel from "@/components/admin/FitCallPanel";
 import ProposalReviewPanel from "@/components/admin/ProposalReviewPanel";
 import DeliveryContractPanel from "@/components/admin/DeliveryContractPanel";
+import ProposalDocExportPanel from "@/components/admin/ProposalDocExportPanel";
 import { useSearch } from "wouter";
 import { adminJson } from "@/lib/adminWork";
 /**
@@ -844,8 +845,10 @@ export default function AdminDiscoveryPage() {
             )}
             {proposal&&<ProposalReviewPanel key={proposal.id} intakeId={selected.id}
               proposal={proposal} onSaved={updated=>setProposal(updated)}/>}
-            {proposal&&proposal.status==="approved"&&<DeliveryContractPanel key={proposal.id}
-              intakeId={selected.id}/>}
+            {proposal&&proposal.approvedAt&&proposal.status!=="draft"&&<>
+              <DeliveryContractPanel key={proposal.id} intakeId={selected.id}/>
+              <ProposalDocExportPanel key={proposal.id+"-doc"} intakeId={selected.id}/>
+            </>}
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center" style={{ color: "var(--canvas-text-3)" }}>
