@@ -114,7 +114,7 @@ async function attachAcceptedProposalScope(intakeId:string,content:Record<string
     where:{discoveryIntakeId:intakeId},
     select:{id:true,status:true,acceptedAt:true,deliveryPlanJson:true},
   });
-  if(!approved||approved.status!=="approved"||!approved.acceptedAt)return content;
+  if(!approved||approved.status==="draft"||!approved.acceptedAt)return content;
   try {
     const raw:unknown=JSON.parse(approved.deliveryPlanJson);
     if(!raw||typeof raw!=="object"||Array.isArray(raw))return content;
