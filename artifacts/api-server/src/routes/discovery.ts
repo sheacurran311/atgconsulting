@@ -940,7 +940,8 @@ const ProposalPatch = z.object({
   milestones:      z.string().max(10000).optional(),
   investment:      z.string().max(5000).optional(),
   acceptanceClause:z.string().max(5000).optional(),
-});
+  expectedUpdatedAt:z.string().datetime(),
+}).strict();
 
 // Admin: generate proposal draft using Grok
 router.post("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req, res) => {
@@ -974,11 +975,19 @@ router.post("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req,
   }, fitCall?fitCallPromptContext(parseFitCallAnswers(fitCall.answersJson)):undefined);
   const { tokensUsed, ...content } = proposalContent;
 
-  const proposal = await prisma.discoveryProposal.upsert({
-    where: { discoveryIntakeId: intake.id },
-    create: { discoveryIntakeId: intake.id, ...content,fitCallRevision:fitCall?.revision??null },
-    update: {...content,fitCallRevision:fitCall?.revision??null},
-  });
+  const proposalData={...content,fitCallRevision:fitCall?.revision??null};
+  let proposal;
+  if(oldProposal){
+    const updated=await prisma.discoveryProposal.updateMany({
+      where:{id:oldProposal.id,status:"draft",updatedAt:oldProposal.updatedAt},
+      data:proposalData,
+    });
+    if(updated.count!==1){res.status(409).json({error:"Proposal changed while generating. Reload before retrying."});return;}
+    proposal=await prisma.discoveryProposal.findUniqueOrThrow({where:{id:oldProposal.id}});
+  }else{
+    try{proposal=await prisma.discoveryProposal.create({data:{discoveryIntakeId:intake.id,...proposalData}});}
+    catch{res.status(409).json({error:"Another proposal was created. Reload before editing."});return;}
+  }
 
   await prisma.discoveryIntake.update({
     where: { id: intake.id },
@@ -1003,11 +1012,16 @@ router.patch("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req
   const proposal = await prisma.discoveryProposal.findUnique({ where: { discoveryIntakeId: req.params.id as string } });
   if (!proposal) { res.status(404).json({ error: "No proposal draft. Generate one first." }); return; }
   if(proposal.status!=="draft"){res.status(409).json({error:"Approved proposals cannot be edited."});return;}
-  const updated = await prisma.discoveryProposal.update({
-    where: { id: proposal.id },
-    data: parsed.data,
+  if(proposal.updatedAt.toISOString()!==parsed.data.expectedUpdatedAt){
+    res.status(409).json({error:"Proposal changed since you opened it. Reload before editing."});return;
+  }
+  const {expectedUpdatedAt,...changes}=parsed.data;
+  const update=await prisma.discoveryProposal.updateMany({
+    where:{id:proposal.id,status:"draft",updatedAt:proposal.updatedAt},
+    data:changes,
   });
-  res.json(updated);
+  if(update.count!==1){res.status(409).json({error:"Proposal was changed concurrently. Reload."});return;}
+  res.json(await prisma.discoveryProposal.findUniqueOrThrow({where:{id:proposal.id}}));
 });
 
 // Admin: get proposal
@@ -1032,19 +1046,34 @@ router.post("/admin/discovery/:id/proposal/approve", withUser, requireAdmin, asy
   if(!proposal.scope.trim()||deliveryPlan.milestones.length===0){
     res.status(422).json({error:"Proposal requires reviewed scope and at least one valid milestone."});return;
   }
-  const updated = await prisma.discoveryProposal.update({
-    where: { id: proposal.id },
-    data: {
-      status: "approved",
-      approvedAt: new Date(),
-      deliveryPlanJson: JSON.stringify(deliveryPlan),
-    },
+  const result=await prisma.discoveryProposal.updateMany({
+    where:{id:proposal.id,status:"draft",updatedAt:proposal.updatedAt},
+    data:{status:"approved",approvedAt:new Date(),deliveryPlanJson:JSON.stringify(deliveryPlan)},
   });
+  if(result.count!==1){res.status(409).json({error:"Proposal changed before approval. Reload."});return;}
+  const updated=await prisma.discoveryProposal.findUniqueOrThrow({where:{id:proposal.id}});
   await audit({
     actorUserId: actor.id, action: "PROPOSAL_APPROVED", entity: "DiscoveryIntake",
     entityId: req.params.id as string, meta: { clientVisible: true },
   });
   res.json({ ok: true, proposal: updated });
+});
+
+// Internal delivery contract is created only from an approved proposal snapshot.
+router.get("/admin/discovery/:id/delivery-contract", withUser, requireAdmin, async(req,res)=>{
+  res.setHeader("Cache-Control","private, no-store");
+  const proposal=await prisma.discoveryProposal.findUnique({
+    where:{discoveryIntakeId:req.params.id as string},
+    select:{status:true,deliveryPlanJson:true,acceptedAt:true,fitCallRevision:true,updatedAt:true},
+  });
+  if(!proposal||proposal.status!=="approved"){
+    res.status(404).json({error:"An approved proposal is required before delivery planning."});return;
+  }
+  try {
+    const contract:unknown=JSON.parse(proposal.deliveryPlanJson);
+    res.json({contract,acceptedAt:proposal.acceptedAt?.toISOString()??null,
+      fitCallRevision:proposal.fitCallRevision,approvedProposalUpdatedAt:proposal.updatedAt.toISOString()});
+  } catch {res.status(500).json({error:"Approved delivery snapshot is unavailable."});}
 });
 
 // Admin: export proposal as branded print-ready HTML
