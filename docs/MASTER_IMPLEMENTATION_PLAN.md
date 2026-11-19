@@ -114,7 +114,7 @@ Record failures as discrete blockers without declaring the entire phase unimplem
 
 ## 5. Prioritized product roadmap (restructured)
 
-### P0 | Trust, integrity and cash-relevant delivery
+### P0 | Consulting conversion, commercial integrity and cash-relevant delivery
 
 **P0-0: Consulting sales-model and website conversion cutover (new prerequisite).**
 
@@ -131,11 +131,11 @@ The Phase 5 proposal has approval and a delivery snapshot, **but not a complete 
 - Accepted proposal identity and immutable version/hash shown to the accepting user, tied to approved scope and exact quoted price.
 - Explicit separation of prospect conversion, acceptance, order/payment receipt, entitlement, Guided package size and optional DFY care.
 - Idempotent fulfillment for concurrent, duplicated, delayed and failed Stripe events; never reset used session counts.
-- Exact 3-vs-5 Guided package price validation against actual Stripe products in test mode; no unresolved placeholder price can become a charge.
-- Separate, explicitly accepted recurring care; cancellation/refund terms and existing granted-rights behavior.
-- Durable pending/running/failed/completed generation jobs and recovery, with source revision validation.
+- Replace fixed Guided 3/5 and DFY checkout with accepted custom quote amounts, deposits and milestone invoices verified against Stripe test-mode records; no placeholder amount or deprecated package price may become a new charge.
+- Separately accepted fractional technical support/recurring care with agreed capacity, fees, cancellation/refund terms and retention of already granted rights.
+- Durable pending/running/failed/completed generation jobs and recovery, with source revision validation. Do not silently regenerate a commercially accepted proposal.
 
-**Exit criteria:** repeated and out-of-order events do not duplicate entitlement grants or overwrite payment state, and every entitlement maps to a specific accepted scope and purchase.
+**Exit criteria:** repeated and out-of-order events do not duplicate payment fulfillment or overwrite project rights, and every invoice, entitlement and delivery commitment maps to a specific accepted, custom-priced scope.
 
 **P0-B: Consultation / website build / AI implementation → decisions → client tasks → accepted delivery (historical batch E).**
 
@@ -145,8 +145,8 @@ Build on existing `Consultation`, `SessionRecord`, `ActionItem`, `ClientPlaybook
 - Preserve authorized transcript/source segments, clearly report partial processing and references; do not process unconsented recordings/transcripts.
 - Draft structured decisions and action items; consultant reviews owner, due date, evidence, client visibility, and milestone relationship before publishing.
 - Project approved action items to the customer task view exactly once; support status and evidence changes without duplicating tasks.
-- Flag delivery guides/playbooks stale on material approved changes; prepare new private drafts, preserving final/customer-published versions.
-- Surface processing failures, stale approvals, retries and next responsible operator actions in one admin work queue.
+- Flag delivery guides/playbooks stale on material approved changes, including website migration/launch revisions; prepare private drafts without overwriting customer-published versions.
+- Surface processing failures, stale approvals, missing client website assets, hosting/DNS launch blockers, retries and responsible operator actions in one admin work queue.
 
 **Exit criteria:** schedule → prepare → consented source → private summary → reviewed recap → approved tasks → verified acceptance → updated private/client guidance forms a traceable, retryable, correctly entitled journey.
 
