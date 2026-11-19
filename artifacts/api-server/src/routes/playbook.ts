@@ -109,7 +109,7 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
  * Append the exact accepted commercial delivery scope to the private operator playbook.
  * This preserves the already-purchased tier and doesn't convert payment into delivery.
  */
-async function attachAcceptedProposalScope(intakeId:string,content:Record<string,unknown>) {
+async function attachAcceptedProposalScope<T extends {source:string}>(intakeId:string,content:T):Promise<T & {approvedProposalDelivery?:{proposalId:string;acceptedAt:string;contract:unknown}}> {
   const approved=await prisma.discoveryProposal.findUnique({
     where:{discoveryIntakeId:intakeId},
     select:{id:true,status:true,acceptedAt:true,deliveryPlanJson:true},
