@@ -954,6 +954,8 @@ model DiscoveryIntake {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  fitCall         FitCallOutcome?
+
   catalogMatches  CatalogMatch[]
 
   @@index([contactEmail])
@@ -1000,6 +1002,20 @@ model DiscoveryInvite {
 /// ATG-branded proposal generated from a discovery intake.
 /// Shea edits and approves; nothing is sent automatically.
 /// Proposal is exported as a print-ready HTML page (browser print-to-PDF).
+// Operator-only structured outcome from the 20-minute fit call.
+// An approved proposal remains an independent immutable client-facing snapshot.
+model FitCallOutcome {
+  id                 String   @id @default(cuid())
+  discoveryIntakeId  String   @unique
+  intake             DiscoveryIntake @relation(fields: [discoveryIntakeId], references: [id], onDelete: Cascade)
+  answersJson        String   @default("{}")
+  status             String   @default("draft") // draft|completed
+  revision           Int      @default(1)
+  completedAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
 model DiscoveryProposal {
   id                 String    @id @default(cuid())
   discoveryIntakeId  String    @unique
@@ -1016,6 +1032,10 @@ model DiscoveryProposal {
   milestones         String    @default("[]")  // JSON array of {label, description}
   investment         String    @default("{}")  // JSON {tier, price, care, notes}
   acceptanceClause   String    @default("")  // signature/acceptance section
+  /// Fit-call revision used to prepare the currently reviewed proposal draft.
+  fitCallRevision     Int?
+  /// Private delivery milestone snapshot, populated from an approved proposal.
+  deliveryPlanJson    String    @default("{}")
 
   approvedAt         DateTime?
   portalPublishedAt  DateTime?
