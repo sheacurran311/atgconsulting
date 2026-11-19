@@ -44,6 +44,7 @@ import { QUESTION_BANK, QUESTION_MAP, FALLBACK_ORDER } from "../lib/questionBank
 import { getPainChips } from "../lib/catalogAI";
 import { isAiEnabled } from "../lib/grokClient";
 import { FitCallSave, parseFitCallAnswers, fitCallMissing, fitCallAgenda, fitCallPromptContext, proposalDeliveryPlan } from "../lib/fitCall";
+import { createATGProposalDoc } from "../lib/proposalDocs";
 import { assessmentQuestions, assessmentOrder, assessmentStep, applicableAnswers, ALL_ASSESSMENT_QUESTIONS, ALL_ASSESSMENT_MAP } from "../lib/assessmentProfile";
 
 const router = Router();
@@ -1064,9 +1065,9 @@ router.get("/admin/discovery/:id/delivery-contract", withUser, requireAdmin, asy
   res.setHeader("Cache-Control","private, no-store");
   const proposal=await prisma.discoveryProposal.findUnique({
     where:{discoveryIntakeId:req.params.id as string},
-    select:{status:true,deliveryPlanJson:true,acceptedAt:true,fitCallRevision:true,updatedAt:true},
+    select:{status:true,approvedAt:true,deliveryPlanJson:true,acceptedAt:true,fitCallRevision:true,updatedAt:true},
   });
-  if(!proposal||proposal.status!=="approved"){
+  if(!proposal||!proposal.approvedAt||proposal.status==="draft"){
     res.status(404).json({error:"An approved proposal is required before delivery planning."});return;
   }
   try {
@@ -1074,6 +1075,77 @@ router.get("/admin/discovery/:id/delivery-contract", withUser, requireAdmin, asy
     res.json({contract,acceptedAt:proposal.acceptedAt?.toISOString()??null,
       fitCallRevision:proposal.fitCallRevision,approvedProposalUpdatedAt:proposal.updatedAt.toISOString()});
   } catch {res.status(500).json({error:"Approved delivery snapshot is unavailable."});}
+});
+
+// Google Docs export is never automatic, never customer-shared and disabled by default.
+router.get("/admin/discovery/:id/proposal/google-doc",withUser,requireAdmin,async(req,res)=>{
+  res.setHeader("Cache-Control","private, no-store");
+  const proposal=await prisma.discoveryProposal.findUnique({
+    where:{discoveryIntakeId:req.params.id as string},
+    select:{approvedAt:true,status:true,googleDocId:true,googleDocExportState:true,googleDocExportedAt:true},
+  });
+  if(!proposal){res.status(404).json({error:"Proposal not found."});return;}
+  const docId=proposal.googleDocId;
+  res.json({enabled:process.env.ATG_ENABLE_PROPOSAL_DOCS_EXPORT==="true",
+    eligible:!!proposal.approvedAt&&proposal.status!=="draft",
+    state:proposal.googleDocExportState,
+    docUrl:docId&&proposal.googleDocExportState==="ready"?
+      `https://docs.google.com/document/d/${encodeURIComponent(docId)}/edit`:null,
+    exportedAt:proposal.googleDocExportedAt?.toISOString()??null});
+});
+
+router.post("/admin/discovery/:id/proposal/google-doc",withUser,requireAdmin,async(req,res)=>{
+  res.setHeader("Cache-Control","private, no-store");
+  if(process.env.ATG_ENABLE_PROPOSAL_DOCS_EXPORT!=="true"){
+    res.status(409).json({error:"ATG Google Docs exports are disabled until approved connector write testing."});return;
+  }
+  const proposal=await prisma.discoveryProposal.findUnique({
+    where:{discoveryIntakeId:req.params.id as string},
+  });
+  if(!proposal||!proposal.approvedAt||proposal.status==="draft"){
+    res.status(409).json({error:"An approved proposal is required for Google Docs export."});return;
+  }
+  if(proposal.googleDocExportState!=="none"){
+    res.status(409).json({error:"Proposal document export already exists or needs operator reconciliation."});return;
+  }
+  const intake=await prisma.discoveryIntake.findUnique({
+    where:{id:proposal.discoveryIntakeId},select:{answers:true,contactName:true},
+  });
+  if(!intake){res.status(404).json({error:"Assessment not found."});return;}
+  const answers:AnsweredQuestion[]=(()=>{
+    try{const parsed:unknown=JSON.parse(intake.answers);return Array.isArray(parsed)?parsed as AnsweredQuestion[]:[];}
+    catch{return [];}
+  })();
+  const company=answers.find(a=>a.id==="company_name")?.answer||intake.contactName||"Client";
+  const claimed=await prisma.discoveryProposal.updateMany({
+    where:{id:proposal.id,googleDocExportState:"none",updatedAt:proposal.updatedAt},
+    data:{googleDocExportState:"creating"},
+  });
+  if(claimed.count!==1){res.status(409).json({error:"Document export is already running. Refresh status."});return;}
+  try{
+    const doc=await createATGProposalDoc({
+      proposal,company,
+      folderId:process.env.ATG_PROPOSALS_DRIVE_FOLDER_ID,
+      onCreated:async id=>{
+        await prisma.discoveryProposal.update({
+          where:{id:proposal.id},data:{googleDocId:id},
+        });
+      },
+    });
+    const updated=await prisma.discoveryProposal.update({
+      where:{id:proposal.id},
+      data:{googleDocExportState:"ready",googleDocExportedAt:new Date()},
+    });
+    await audit({actorUserId:(req as AuthedRequest).atgUser!.id,
+      action:"PROPOSAL_DOC_EXPORTED",entity:"DiscoveryProposal",entityId:proposal.id,
+      meta:{status:updated.googleDocExportState},ip:req.ip});
+    res.json({ok:true,state:"ready",url:doc.url});
+  }catch{
+    await prisma.discoveryProposal.update({
+      where:{id:proposal.id},data:{googleDocExportState:"error"},
+    }).catch(()=>null);
+    res.status(502).json({error:"Google Docs export could not be completed. Inspect the export state before retrying; an unshared document may already exist."});
+  }
 });
 
 // Admin: export proposal as branded print-ready HTML
