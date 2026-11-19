@@ -1,4 +1,7 @@
 import GenerationProgress, { type GenerationWork } from "@/components/admin/GenerationProgress";
+import FitCallPanel from "@/components/admin/FitCallPanel";
+import ProposalReviewPanel from "@/components/admin/ProposalReviewPanel";
+import DeliveryContractPanel from "@/components/admin/DeliveryContractPanel";
 import { useSearch } from "wouter";
 import { adminJson } from "@/lib/adminWork";
 /**
@@ -21,6 +24,7 @@ interface ProposalRow {
   understanding: string; scope: string; howWeConnect: string;
   milestones: string; investment: string; acceptanceClause: string;
   approvedAt: string | null; portalPublishedAt: string | null;
+  updatedAt:string;fitCallRevision:number|null;deliveryPlanJson?:string;
 }
 
 interface IntakeRow {
@@ -325,15 +329,16 @@ export default function AdminDiscoveryPage() {
   function generateReport() { return generate("report"); }
 
   async function approveProposal() {
-    if (!selected) return;
-    setApproving(true);
-    await fetch(`/api/admin/discovery/${selected.id}/proposal/approve`, {
-      method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    setProposal((p) => p ? { ...p, status: "approved", approvedAt: new Date().toISOString() } : p);
-    setApproving(false);
+    if (!selected || approving) return;
+    setApproving(true);setGenerationError("");
+    try {
+      const result=await adminJson<{ok:boolean;proposal:ProposalRow}>(
+        `/api/admin/discovery/${selected.id}/proposal/approve`,{method:"POST"});
+      if(!result.ok||!result.proposal)throw new Error("Approval was not confirmed by the server.");
+      setProposal(result.proposal);
+      setGenerationNotice("Proposal approved. The delivery scope snapshot is now locked.");
+    }catch(e){setGenerationError(e instanceof Error?e.message:"Proposal approval failed.");}
+    finally{setApproving(false);}
   }
 
   function beginReportEdit(report: ReportDraft) {
@@ -594,6 +599,12 @@ export default function AdminDiscoveryPage() {
                     {generatingProposal ? "Drafting proposal…" : "Generate proposal"}
                   </button>
                 )}
+                {proposal&&proposal.status==="draft"&&(
+                  <button type="button" onClick={generateProposal} disabled={!!generation}
+                    className="btn-secondary text-sm" style={{padding:"7px 14px"}}>
+                    {generatingProposal?"Regenerating…":"Regenerate proposal draft"}
+                  </button>
+                )}
                 {proposal && proposal.status === "draft" && (
                   <>
                     <a href={`/api/admin/discovery/${selected.id}/proposal.html`} target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
@@ -800,6 +811,8 @@ export default function AdminDiscoveryPage() {
               </div>
             )}
 
+            <FitCallPanel key={selected.id} intakeId={selected.id} onCompleted={()=>setGenerationNotice("Fit call completed. You can now generate a proposal using these confirmed facts.")}/>
+            
             {/* Proposal draft panel */}
             {proposal && (
               <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--canvas-border)" }}>
@@ -829,6 +842,10 @@ export default function AdminDiscoveryPage() {
                 </div>
               </div>
             )}
+            {proposal&&<ProposalReviewPanel key={proposal.id} intakeId={selected.id}
+              proposal={proposal} onSaved={updated=>setProposal(updated)}/>}
+            {proposal&&proposal.status==="approved"&&<DeliveryContractPanel key={proposal.id}
+              intakeId={selected.id}/>}
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center" style={{ color: "var(--canvas-text-3)" }}>
