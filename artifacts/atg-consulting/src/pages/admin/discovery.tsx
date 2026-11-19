@@ -844,7 +844,7 @@ export default function AdminDiscoveryPage() {
               </div>
             )}
             {proposal&&<ProposalReviewPanel key={proposal.id} intakeId={selected.id}
-              proposal={proposal} onSaved={updated=>setProposal(updated)}/>}
+              proposal={proposal} onSaved={updated=>setProposal(current=>current?{...current,...updated}:current)}/>}
             {proposal&&proposal.approvedAt&&proposal.status!=="draft"&&<>
               <DeliveryContractPanel key={proposal.id} intakeId={selected.id}/>
               <ProposalDocExportPanel key={proposal.id+"-doc"} intakeId={selected.id}/>
