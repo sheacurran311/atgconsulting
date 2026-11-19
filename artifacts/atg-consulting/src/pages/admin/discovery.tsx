@@ -206,6 +206,7 @@ export default function AdminDiscoveryPage() {
   const [manualLinking, setManualLinking] = useState(false);
   const [manualLinkMsg, setManualLinkMsg] = useState<string | null>(null);
   const [proposal, setProposal] = useState<ProposalRow | null>(null);
+  const [fitCallMeta,setFitCallMeta]=useState<{completed:boolean;revision:number}|null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [editingReport, setEditingReport] = useState(false);
   const [reportForm, setReportForm] = useState<ReportForm | null>(null);
@@ -251,7 +252,7 @@ export default function AdminDiscoveryPage() {
     setEditingReport(false);
     setReportForm(null);
     setReportEditError("");
-    setProposal(null);
+    setProposal(null);setFitCallMeta(null);
     // Load proposal if it exists
     fetch(`/api/admin/discovery/${id}/proposal`, { credentials: "include" })
       .then((r) => r.ok ? r.json() as Promise<ProposalRow> : null)
@@ -596,22 +597,24 @@ export default function AdminDiscoveryPage() {
                 {(deliveryError || selected.reportEmailError) && <p role="alert" className="text-red-700 text-sm w-full">{deliveryError || selected.reportEmailError}</p>}
                 {selected.clientId && <Link href={`/admin/clients/${selected.clientId}/operations`} className="btn-secondary text-sm">Audit & delivery playbook</Link>}
                 {!proposal && (
-                  <button type="button" onClick={generateProposal} disabled={!!generation} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
+                  <button type="button" onClick={generateProposal} disabled={!!generation||!fitCallMeta?.completed} title={!fitCallMeta?.completed?"Complete the fit-call worksheet first.":undefined} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
                     {generatingProposal ? "Drafting proposal…" : "Generate proposal"}
                   </button>
                 )}
                 {proposal&&proposal.status==="draft"&&(
-                  <button type="button" onClick={generateProposal} disabled={!!generation}
+                  <button type="button" onClick={generateProposal} disabled={!!generation||!fitCallMeta?.completed} title={!fitCallMeta?.completed?"Complete the fit-call worksheet first.":undefined}
                     className="btn-secondary text-sm" style={{padding:"7px 14px"}}>
                     {generatingProposal?"Regenerating…":"Regenerate proposal draft"}
                   </button>
                 )}
+                {proposal&&proposal.status==="draft"&&fitCallMeta?.completed&&proposal.fitCallRevision!==fitCallMeta.revision&&
+                  <p role="status" className="text-xs text-amber-700 w-full">Fit-call answers changed since this proposal was drafted. Regenerate and review before approving.</p>}
                 {proposal && proposal.status === "draft" && (
                   <>
                     <a href={`/api/admin/discovery/${selected.id}/proposal.html`} target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
                       Print view
                     </a>
-                    <button type="button" onClick={() => approveProposal()} disabled={approving} className="btn-primary text-sm" style={{ padding: "7px 14px", background: "#16A34A" }}>
+                    <button type="button" onClick={() => approveProposal()} disabled={approving||!fitCallMeta?.completed||proposal.fitCallRevision!==fitCallMeta.revision} title={proposal.fitCallRevision!==fitCallMeta?.revision?"Regenerate the proposal after the latest completed fit call.":undefined} className="btn-primary text-sm" style={{ padding: "7px 14px", background: "#16A34A" }}>
                       {approving ? "…" : "Approve"}
                     </button>
                   </>
@@ -812,7 +815,7 @@ export default function AdminDiscoveryPage() {
               </div>
             )}
 
-            <FitCallPanel key={selected.id} intakeId={selected.id} onCompleted={()=>setGenerationNotice("Fit call completed. You can now generate a proposal using these confirmed facts.")}/>
+            <FitCallPanel key={selected.id} intakeId={selected.id} onRecordChange={setFitCallMeta} onCompleted={()=>setGenerationNotice("Fit call completed. You can now generate a proposal using these confirmed facts.")}/>
             
             {/* Proposal draft panel */}
             {proposal && (
