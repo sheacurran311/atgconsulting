@@ -24,7 +24,8 @@ function dateTime(s:unknown):string|null{
 export function matchProspectMeetings(events:CalendarEvent[],rows:SheetProspect[],start:Date,end:Date):MeetingOverview{
   const emails=new Map<string,SheetProspect[]>();
   for(const r of rows){
-    if(r.doNotContact||!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(r.contactEmail.trim()))continue;
+    // Include suppressed rows in duplicate detection, but never surface them as meetings.
+    if(!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(r.contactEmail.trim()))continue;
     const key=email(r.contactEmail);
     emails.set(key,[...(emails.get(key)??[]),r]);
   }
@@ -38,7 +39,7 @@ export function matchProspectMeetings(events:CalendarEvent[],rows:SheetProspect[
       if(typeof attendee.email!=="string")continue;
       const key=email(attendee.email);
       const prospects=emails.get(key)??[];
-      if(prospects.length!==1)continue;
+      if(prospects.length!==1||prospects[0]?.doNotContact)continue;
       const p=prospects[0]!;
       const link=typeof event.htmlLink==="string"&&/^https:\/\/calendar\.google\.com\//.test(event.htmlLink)?event.htmlLink:"";
       matches.push({rowNumber:p.rowNumber,businessName:p.businessName,contactEmail:key,
