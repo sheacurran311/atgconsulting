@@ -899,8 +899,8 @@ router.put("/admin/discovery/:id/fit-call", withUser, requireAdmin, async(req,re
   if((existing?.revision??0)!==parsed.data.expectedRevision){
     res.status(409).json({error:"Fit call was changed. Reload before saving."});return;
   }
-  if(existing?.status==="completed"){
-    res.status(409).json({error:"Completed fit-call facts are locked. Open a new assessment revision for changes."});return;
+  if(existing?.status==="completed"&&parsed.data.status!=="draft"){
+    res.status(409).json({error:"Reopen the completed fit call as a new draft revision before changing answers."});return;
   }
   const approved=await prisma.discoveryProposal.findUnique({where:{discoveryIntakeId:intake.id},select:{status:true}});
   if(approved&&approved.status!=="draft"){
@@ -955,8 +955,8 @@ router.post("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req,
     res.status(409).json({error:"Approved proposals are immutable. Create a new intake/proposal revision instead."});return;
   }
   const fitCall=await prisma.fitCallOutcome.findUnique({where:{discoveryIntakeId:intake.id}});
-  if(fitCall&&fitCall.status!=="completed"){
-    res.status(409).json({error:"Complete the fit call before generating a proposal from it."});return;
+  if(!fitCall||fitCall.status!=="completed"){
+    res.status(409).json({error:"Complete the structured 20-minute fit call before generating a proposal."});return;
   }
 
   // Also load the existing report draft if available
