@@ -7,7 +7,7 @@
  * Concurrent human edits between that read and write remain possible.
  */
 import { ReplitConnectors } from "@replit/connectors-sdk";
-import { DEFAULT_ATG_PROSPECT_SHEET_ID, SHEET_HEADERS } from "./prospectSheet";
+import { DEFAULT_ATG_PROSPECT_SHEET_ID, SHEET_HEADERS, readProspectPipeline, type Pipeline } from "./prospectSheet";
 
 export type ReviewWrite = {
   rowNumber:number; expectedBusiness:string; expectedDomain:string; expectedEmail:string;
@@ -53,7 +53,7 @@ async function providerJson(client:Writer,path:string):Promise<unknown>{
 }
 export async function approveSheetUpdate(
   payload:ReviewWrite,
-  opts:{client?:Writer;sheetId?:string;allowWrites?:boolean}={}
+  opts:{client?:Writer;sheetId?:string;allowWrites?:boolean;pipelineReader?:()=>Promise<Pipeline>}={}
 ):Promise<{rowNumber:number;stage:string;lastContacted:string;nextFollowUp:string}>{
   if(!(opts.allowWrites??process.env.ATG_ENABLE_SHEET_WRITEBACK==="true"))
     throw new ProspectWriteConflict("Google Sheets write-back is disabled until explicitly enabled.");
@@ -72,6 +72,22 @@ export async function approveSheetUpdate(
   const read=await providerJson(client,`${base}/values/${idRange}?valueRenderOption=FORMATTED_VALUE`) as {values?:unknown};
   const current=Array.isArray(read.values)&&Array.isArray(read.values[0])?read.values[0]:[];
   verifyProposedChange(current,payload);
+  // Check for duplicate identities across the current ledger as well as the target row.
+  // Refuse partial coverage rather than confidently writing an ambiguous prospect.
+  const pipeline=await (opts.pipelineReader??(()=>readProspectPipeline({
+    sheetId,client:client as unknown as Pick<ReplitConnectors,"proxy">,
+  })))();
+  if(pipeline.dataTruncated)throw new ProspectWriteConflict("Prospect Sheet exceeds reconciliation coverage; no update performed.");
+  const target=pipeline.rows.find(p=>p.rowNumber===payload.rowNumber);
+  if(!target||target.businessName!==payload.expectedBusiness||
+      target.domain.toLowerCase()!==payload.expectedDomain.toLowerCase()||
+      target.contactEmail.toLowerCase()!==payload.expectedEmail.toLowerCase()||
+      target.outreachStage!==payload.expectedStage||target.doNotContact)
+    throw new ProspectWriteConflict("Prospect changed or is suppressed. Refresh and review again.");
+  if(pipeline.rows.some(p=>p.rowNumber!==payload.rowNumber&&(
+    p.domain.toLowerCase()===target.domain.toLowerCase()||
+    (!!target.contactEmail&&p.contactEmail.toLowerCase()===target.contactEmail.toLowerCase())
+  )))throw new ProspectWriteConflict("Duplicate domain or contact email: update the source records before approving.");
   // Updating only the three approved cells protects all research and opt-out fields.
   const body={valueInputOption:"RAW",data:[
     {range:`'Prospects'!T${payload.rowNumber}`,values:[[payload.nextStage]]},
