@@ -973,7 +973,7 @@ router.post("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req,
     approverName:      intake.approverName ?? null,
     approverEmail:     intake.approverEmail ?? null,
     approverRole:      intake.approverRole ?? null,
-  }, fitCall?parseFitCallAnswers(fitCall.answersJson):undefined);
+  }, fitCall?parseFitCallAnswers(fitCall.answersJson):undefined, intake.requestedSessions??undefined);
   const { tokensUsed, ...content } = proposalContent;
 
   const proposalData={...content,fitCallRevision:fitCall?.revision??null};
@@ -1223,8 +1223,9 @@ export async function generateProposalDraft(
   contactName: string,
   authority?: AuthorityContext,
   fitCallAnswers?: FitCallAnswersType,
+  requestedSessions?: number,
 ): Promise<ProposalContent> {
-  const fallback = buildFallbackProposal(answers, reportDraft, contactName, authority);
+  const fallback = buildFallbackProposal(answers, reportDraft, contactName, authority, requestedSessions);
   const fitCallContext=fitCallAnswers?fitCallPromptContext(fitCallAnswers):"";
   const confirmedScope=fitCallAnswers?[
     "Confirmed fit-call scope checkpoints:",
@@ -1266,6 +1267,8 @@ ${qaSummary}
 
 ${fitCallContext.trim()? "Structured fit-call facts for scope drafting (do not disclose internal process notes in the final document):\\n"+fitCallContext : "No completed fit-call outcome is recorded. Flag unresolved scope."}
 
+Requested Guided package sessions: ${requestedSessions===5?"5 sessions, public price $1,497":requestedSessions===3?"3 sessions, public price $997":"not specified; do not assume a package size"}. For Done-for-You, public pricing starts at $3,500 and final scope-based pricing must be confirmed manually. Do not invent client-specific prices. Any care plan is optional and requires explicit acceptance.
+
 ${selfAttestationNote}
 
 Return ONLY valid JSON:
@@ -1306,11 +1309,11 @@ Keep it professional, plain English, no invented stats or outcomes.`;
   }
 }
 
-function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<string, unknown>, contactName: string, authority?: AuthorityContext): Omit<ProposalContent, "tokensUsed"> {
+function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<string, unknown>, contactName: string, authority?: AuthorityContext, requestedSessions?:number): Omit<ProposalContent, "tokensUsed"> {
   const company = answers.find((a) => a.id === "company_name")?.answer ?? "your company";
   const problems = answers.find((a) => a.id === "top_problems")?.answer ?? "the challenges discussed";
   const suggestedTier = (reportDraft.suggestedTier as string | undefined) ?? "GUIDED";
-  const tierPrices: Record<string, string> = { SELF_SERVE: "Free Tools", NONE: "Free Tools", GUIDED: "$997", WHITE_GLOVE: "$3,500" };
+  const tierPrices: Record<string, string> = { SELF_SERVE: "Free Tools", NONE: "Free Tools", GUIDED: requestedSessions===5?"$1,497":"$997", WHITE_GLOVE: "From $3,500 (confirm exact scoped price)" };
 
   // Authority-aware scope and acceptance
   const authorityNote = (() => {
