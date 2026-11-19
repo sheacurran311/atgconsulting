@@ -35,7 +35,7 @@ const sections:Array<{name:string;fields:Array<{key:keyof FitCallAnswers;label:s
  ]},
 ];
 const required=new Set<keyof FitCallAnswers>(["priority","workflowExample","decisionMaker","pilot","successMetric","nextStep"]);
-export default function FitCallPanel({intakeId,onCompleted}:{intakeId:string;onCompleted?:()=>void}){
+export default function FitCallPanel({intakeId,onCompleted,onRecordChange}:{intakeId:string;onCompleted?:()=>void;onRecordChange?:(value:{completed:boolean;revision:number})=>void}){
  const [record,setRecord]=useState<FitCall|null>(null);
  const [answers,setAnswers]=useState<FitCallAnswers|null>(null);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
@@ -43,7 +43,7 @@ export default function FitCallPanel({intakeId,onCompleted}:{intakeId:string;onC
  useEffect(()=>{
   let active=true;setRecord(null);setAnswers(null);setLoading(true);setError("");setNotice("");
   void adminJson<FitCall>(`/api/admin/discovery/${intakeId}/fit-call`)
-    .then(r=>{if(active){setRecord(r);setAnswers(r.answers);}})
+    .then(r=>{if(active){setRecord(r);setAnswers(r.answers);onRecordChange?.({completed:r.status==="completed",revision:r.revision});}})
     .catch(e=>{if(active)setError(e instanceof Error?e.message:"Could not read fit call.");})
     .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
@@ -58,6 +58,7 @@ export default function FitCallPanel({intakeId,onCompleted}:{intakeId:string;onC
      body:JSON.stringify({expectedRevision:record.revision,status,answers}),
    });
    setRecord({...record,...updated});setAnswers(updated.answers);
+   onRecordChange?.({completed:updated.status==="completed",revision:updated.revision});
    setNotice(status==="completed"?"Fit call completed and locked. Proposal drafts can now use these facts.":"Draft saved privately.");
    if(status==="completed")onCompleted?.();
   }catch(e){setError(e instanceof Error?e.message:"Could not save the fit call.");}
@@ -91,7 +92,9 @@ export default function FitCallPanel({intakeId,onCompleted}:{intakeId:string;onC
       placeholder={field.hint??""}/>
     </label>)}
    </fieldset>)}
-   <p className="text-xs opacity-70">Fields marked * are required to complete. Leave unknown facts blank rather than estimating. Completion locks these answers; use a new intake revision for subsequent material changes.</p>
+   <p className="text-xs opacity-70">Fields marked * are required to complete. Leave unknown facts blank rather than estimating. Completion records a reviewed revision. You can reopen before proposal approval; approved commercial scope requires a new assessment.</p>
+   {record.status==="completed"&&<button type="button" className="btn-secondary px-3 py-2 text-sm" disabled={busy}
+    onClick={()=>void save("draft")}>{busy?"Saving…":"Reopen draft for correction"}</button>}
    {record.status!=="completed"&&<div className="flex flex-wrap gap-2">
     <button className="btn-secondary px-3 py-2 text-sm" disabled={busy} onClick={()=>void save("draft")}>{busy?"Saving…":"Save private draft"}</button>
     <button className="btn-primary px-3 py-2 text-sm" disabled={busy||[...required].some(k=>!answers[k].trim())}
