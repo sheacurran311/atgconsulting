@@ -49,7 +49,13 @@ interface PlaybookInstallGuides {
   entries: InstallGuideEntry[];
 }
 
+interface ApprovedDeliveryMilestone {sequence:number;title:string;deliverable:string;owner:string;status:string;acceptance:string}
+interface ApprovedDeliveryContract {
+  source:string;firstPilot:string;acceptanceCriterion:string;clientDependencies:string;exclusions:string;
+  scope:string;milestones:ApprovedDeliveryMilestone[];
+}
 interface PlaybookContent {
+  approvedProposalDelivery?:{proposalId:string;acceptedAt:string;contract:ApprovedDeliveryContract};
   operatingGuide?: { audience: string; desiredOutcome: string; boundaries: string; phases: { label: string; deliverable: string }[] };
   clientSummary: string;
   risksAndClarifications: string[];
@@ -100,6 +106,17 @@ function PlaybookView({ content, pb }: { content: PlaybookContent; pb: ClientPla
         <span className="font-mono text-2xs" style={{ color: "var(--canvas-text-3)" }}>v{pb.version} · {pb.status.toUpperCase()} · {new Date(pb.createdAt).toLocaleDateString()}</span>
       </div>
 
+      {content.approvedProposalDelivery&&<Section title="Accepted client proposal | controlling delivery scope" badge="SIGNED SCOPE">
+        <p className="text-xs mb-2">Accepted {new Date(content.approvedProposalDelivery.acceptedAt).toLocaleDateString()}. Approved scope is the reference for implementation. Do not expand it without a new accepted revision.</p>
+        {content.approvedProposalDelivery.contract.firstPilot&&<p className="mb-2"><strong>First pilot:</strong> {content.approvedProposalDelivery.contract.firstPilot}</p>}
+        {content.approvedProposalDelivery.contract.acceptanceCriterion&&<p className="mb-2"><strong>Acceptance:</strong> {content.approvedProposalDelivery.contract.acceptanceCriterion}</p>}
+        {content.approvedProposalDelivery.contract.clientDependencies&&<p className="mb-2"><strong>Client dependencies:</strong> {content.approvedProposalDelivery.contract.clientDependencies}</p>}
+        {content.approvedProposalDelivery.contract.exclusions&&<p className="mb-2"><strong>Exclusions:</strong> {content.approvedProposalDelivery.contract.exclusions}</p>}
+        <div className="space-y-2">{content.approvedProposalDelivery.contract.milestones.map((m,i)=><div key={i} className="rounded-lg border border-canvas-border p-3">
+          <p className="font-semibold">{m.sequence}. {m.title}</p>
+          <p>{m.deliverable}</p><p className="text-xs opacity-70">Not started; acceptance pending review</p>
+        </div>)}</div>
+      </Section>}
       <Section title="Client summary">
         <p className="text-sm leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>{content.clientSummary}</p>
       </Section>
