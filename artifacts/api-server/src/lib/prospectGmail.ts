@@ -128,6 +128,8 @@ export function eligibleContacts(rows:SheetProspect[]){
 export async function reconcileGmail(opts:{
  client?:ConnectorClient;pipelineReader?:typeof readProspectPipeline;expectedAccount?:string;offset?:number;
 }={}):Promise<GmailReconciliation>{
+  const offset=opts.offset??0;
+  if(!Number.isSafeInteger(offset)||offset<0||offset>500)throw new Error("Invalid Gmail reconciliation offset.");
   const client=opts.client??new ReplitConnectors();
   const profile=await getJson(client,"/gmail/v1/users/me/profile") as GmailProfile;
   const account=normalEmail(typeof profile?.emailAddress==="string"?profile.emailAddress:"");
@@ -136,8 +138,6 @@ export async function reconcileGmail(opts:{
     throw new Error("Connected Gmail account does not match the configured ATG mailbox. Reconciliation stopped.");
   const pipeline=await (opts.pipelineReader??readProspectPipeline)();
   const {eligible,skippedSuppressed,skippedAmbiguous}=eligibleContacts(pipeline.rows);
-  const offset=opts.offset??0;
-  if(!Number.isSafeInteger(offset)||offset<0||offset>500)throw new Error("Invalid Gmail reconciliation offset.");
   const candidates=eligible.slice(offset,offset+MAX_CONTACTS);
   const matches:GmailMatch[]=[];
   // Sequential calls keep rate limits and mailbox exposure bounded.
