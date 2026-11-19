@@ -8,6 +8,8 @@ import { audit } from "../lib/audit";
 import { generateProspectDraft } from "../lib/prospectDraft";
 import { readProspectPipeline } from "../lib/prospectSheet";
 import { reconcileGmail } from "../lib/prospectGmail";
+import { approveSheetUpdate, ProspectWriteConflict } from "../lib/prospectWriteback";
+import { readUpcomingProspectMeetings } from "../lib/prospectCalendar";
 
 export function createProspectingRouter(resolve: RequestHandler = withUser) {
 const router = Router();
@@ -56,6 +58,44 @@ router.get("/admin/prospecting/gmail-reconciliation", async (req, res) => {
   } catch (err) {
     const detail = err instanceof Error ? err.message : "Unable to reconcile the ATG Gmail account.";
     res.status(502).json({ error: detail });
+  }
+});
+
+// Calendar data is strictly read-only and only exposes attendee-matched prospect events.
+router.get("/admin/prospecting/calendar-meetings", async (_req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  try { res.json(await readUpcomingProspectMeetings()); }
+  catch { res.status(502).json({ error: "Unable to retrieve upcoming prospect consultations." }); }
+});
+
+const SheetStageApproval = z.object({
+  rowNumber:z.number().int().min(2).max(501),
+  expectedBusiness:z.string().min(1).max(500),
+  expectedDomain:z.string().min(1).max(500),
+  expectedEmail:z.string().max(500),
+  expectedStage:z.string().max(150),
+  expectedLastContacted:z.string().max(50),
+  expectedFollowUp:z.string().max(50),
+  nextStage:z.enum(["Contacted","Replied"]),
+  lastContacted:z.string().max(10),
+  nextFollowUp:z.string().max(10),
+  confirmed:z.literal(true),
+}).strict();
+// Human-initiated, reviewed and intentionally narrow Google Sheet write-back.
+router.post("/admin/prospecting/google-sheet/approve", async (req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  const parsed=SheetStageApproval.safeParse(req.body);
+  if(!parsed.success){res.status(422).json({error:"Invalid Sheet update request."});return;}
+  try {
+    const result=await approveSheetUpdate(parsed.data);
+    const actor=(req as AuthedRequest).atgUser!;
+    await audit({actorUserId:actor.id,action:"ATG_SHEET_PROSPECT_STAGE_APPROVED",
+      entity:"GoogleSheetProspect",entityId:String(result.rowNumber),
+      meta:{business:parsed.data.expectedBusiness,from:parsed.data.expectedStage,to:result.stage},ip:req.ip});
+    res.json(result);
+  } catch(err) {
+    if(err instanceof ProspectWriteConflict){res.status(409).json({error:err.message});return;}
+    res.status(502).json({error:"Google Sheets update failed. Inspect the Sheet before retrying."});
   }
 });
 

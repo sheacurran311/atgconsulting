@@ -30,6 +30,14 @@ interface GmailReconciliation {
   skippedSuppressed:number;skippedAmbiguous:number;matches:GmailMatch[];
   summary:{replyDetected:number;outboundFound:number;inboundWithoutOutbound:number;noRecentMatch:number;errors:number};
 }
+interface ProspectMeeting {
+  rowNumber:number;businessName:string;contactEmail:string;startsAt:string;endsAt:string;
+  responseStatus:string;calendarUrl:string;
+}
+interface MeetingOverview {
+  meetingCount:number;rangeStart:string;rangeEnd:string;limited:boolean;eventsConsidered:number;
+  matches:ProspectMeeting[];
+}
 const emptyReview:Review={industryFit:0,sizeFit:0,observableNeed:0,contactConfidence:0,urgency:0,suppressed:false,evidence:[]};
 const transitions: Record<Status, Status[]> = {
   NEW:["RESEARCHED","DISQUALIFIED","SUPPRESSED"],
@@ -46,6 +54,45 @@ const transitions: Record<Status, Status[]> = {
 export default function AdminProspectingPage() {
   const [rows,setRows]=useState<Prospect[]>([]);
   const [sheet,setSheet]=useState<SheetPipeline|null>(null);
+  const [calendar,setCalendar]=useState<MeetingOverview|null>(null);
+  const [calendarBusy,setCalendarBusy]=useState(false);
+  const [calendarError,setCalendarError]=useState("");
+  async function checkCalendar() {
+    if(calendarBusy)return;
+    setCalendarBusy(true);setCalendarError("");
+    try { setCalendar(await adminJson<MeetingOverview>("/api/admin/prospecting/calendar-meetings")); }
+    catch(e){setCalendarError(e instanceof Error?e.message:"Unable to read calendar.");}
+    finally {setCalendarBusy(false);}
+  }
+  const [approvalRow,setApprovalRow]=useState<SheetProspect|null>(null);
+  const [approvalStage,setApprovalStage]=useState<"Contacted"|"Replied">("Contacted");
+  const [approvalDate,setApprovalDate]=useState(new Date().toISOString().slice(0,10));
+  const [approvalFollowUp,setApprovalFollowUp]=useState("");
+  const [approvalConfirmed,setApprovalConfirmed]=useState(false);
+  const [approvalBusy,setApprovalBusy]=useState(false);
+  const [approvalError,setApprovalError]=useState("");
+  const [approvalMessage,setApprovalMessage]=useState("");
+  async function approveSheetStage() {
+    if(!approvalRow||!approvalConfirmed||approvalBusy)return;
+    setApprovalBusy(true);setApprovalError("");setApprovalMessage("");
+    const payload={
+      rowNumber:approvalRow.rowNumber,expectedBusiness:approvalRow.businessName,
+      expectedDomain:approvalRow.domain,expectedEmail:approvalRow.contactEmail,
+      expectedStage:approvalRow.outreachStage,expectedLastContacted:approvalRow.lastContacted,
+      expectedFollowUp:approvalRow.nextFollowUp,nextStage:approvalStage,
+      lastContacted:approvalDate,nextFollowUp:approvalFollowUp,confirmed:true,
+    };
+    try {
+      await adminJson("/api/admin/prospecting/google-sheet/approve",{
+        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),
+      });
+      setApprovalMessage("Google Sheet updated. Recheck the row before making another change.");
+      setApprovalRow(null);setApprovalConfirmed(false);
+      await loadSheet();
+    }catch(e){setApprovalError(e instanceof Error?e.message:"Could not update the Google Sheet.");}
+    finally {setApprovalBusy(false);}
+  }
+
   const [gmail,setGmail]=useState<GmailReconciliation|null>(null);
   const [gmailBusy,setGmailBusy]=useState(false);
   const [gmailError,setGmailError]=useState("");
@@ -127,7 +174,7 @@ export default function AdminProspectingPage() {
   return <AdminShell><div className="max-w-5xl mx-auto space-y-5">
     <div><p className="text-xs font-semibold uppercase tracking-widest" style={{color:"var(--blue)"}}>ATG INTERNAL SALES</p>
       <h1 className="text-2xl font-bold">Prospect Review</h1>
-      <p className="text-sm opacity-70">Private research queue. No outbound emails, OAuth connections, or automated messages.</p></div>
+      <p className="text-sm opacity-70">Private research queue and internal Google integrations. No automated outbound messages.</p></div>
     <section aria-label="Google Sheets prospect pipeline" className="rounded-xl border p-4 space-y-4" style={{borderColor:"var(--canvas-border)"}}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -160,7 +207,7 @@ export default function AdminProspectingPage() {
         <div className="overflow-x-auto max-h-96 overflow-y-auto">
           <table className="w-full text-xs text-left">
             <thead><tr className="border-b" style={{borderColor:"var(--canvas-border)"}}>
-              <th className="p-2">Business</th><th className="p-2">Location</th><th className="p-2">Signal / ATG fit</th><th className="p-2">Contact</th><th className="p-2">Stage</th><th className="p-2">Follow-up</th>
+              <th className="p-2">Business</th><th className="p-2">Location</th><th className="p-2">Signal / ATG fit</th><th className="p-2">Contact</th><th className="p-2">Stage</th><th className="p-2">Follow-up</th><th className="p-2">Review</th>
             </tr></thead>
             <tbody>{sheet.rows.filter(r=>{
               const q=sheetFilter.trim().toLowerCase();return !q||[r.businessName,r.city,r.category,r.suggestedService,r.contactName,r.outreachStage].some(v=>v.toLowerCase().includes(q));
@@ -174,10 +221,68 @@ export default function AdminProspectingPage() {
               <td className="p-2"><div>{r.contactName}</div><div>{r.contactEmail}</div><div className="opacity-70">{r.emailStatus}</div></td>
               <td className="p-2">{r.outreachStage}{r.doNotContact&&<div className="text-red-600 font-semibold">Do not contact</div>}</td>
               <td className="p-2">{r.nextFollowUp||"Not scheduled"}</td>
+              <td className="p-2"><button type="button" className="text-xs underline" disabled={r.doNotContact||!["Ready","Contacted","Replied"].includes(r.outreachStage)} onClick={()=>{
+                setApprovalRow(r);setApprovalStage(r.outreachStage==="Ready"?"Contacted":"Replied");
+                setApprovalDate(new Date().toISOString().slice(0,10));setApprovalFollowUp(r.nextFollowUp);
+                setApprovalConfirmed(false);setApprovalError("");setApprovalMessage("");
+              }}>Review update</button></td>
             </tr>)}</tbody>
           </table>
         </div>
         {sheet.prospectCount===0&&<p className="text-sm opacity-70">No researched prospects yet. The agent can populate the Sheet without changes here.</p>}
+      </>}
+    </section>
+    <section aria-label="Approved Google Sheet updates" className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--canvas-border)"}}>
+      <h2 className="font-semibold text-lg">Reviewed Sheet Updates</h2>
+      <p className="text-xs opacity-70">Select Review update on an eligible prospect above. Each change is explicitly approved, and the backend rechecks the live Sheet before modifying only the outreach stage and follow-up dates. Write-back must be enabled by the ATG administrator.</p>
+      {approvalMessage&&<p role="status" className="text-sm text-green-700">{approvalMessage}</p>}
+      {approvalError&&<p role="alert" className="text-sm text-red-600">{approvalError}</p>}
+      {approvalRow&&<div className="rounded-lg border p-3 space-y-3" style={{borderColor:"var(--canvas-border)"}}>
+        <div className="font-semibold">{approvalRow.businessName} ({approvalRow.domain})</div>
+        <p className="text-xs">Current Sheet stage: {approvalRow.outreachStage}. Contact: {approvalRow.contactEmail||"Not provided"}.</p>
+        <div className="grid md:grid-cols-3 gap-3">
+          <label className="text-sm">New stage
+            <select className="field-input mt-1 w-full" value={approvalStage} onChange={e=>{setApprovalStage(e.target.value as "Contacted"|"Replied");setApprovalConfirmed(false);}}>
+              {approvalRow.outreachStage==="Ready"?<option value="Contacted">Contacted</option>:<><option value="Contacted" disabled={approvalRow.outreachStage==="Replied"}>Contacted</option><option value="Replied">Replied</option></>}
+            </select>
+          </label>
+          <label className="text-sm">Last contacted (YYYY-MM-DD)
+            <input type="date" className="field-input mt-1 w-full" value={approvalDate} onChange={e=>{setApprovalDate(e.target.value);setApprovalConfirmed(false);}}/>
+          </label>
+          <label className="text-sm">Next follow-up (optional)
+            <input type="date" className="field-input mt-1 w-full" value={approvalFollowUp} onChange={e=>{setApprovalFollowUp(e.target.value);setApprovalConfirmed(false);}}/>
+          </label>
+        </div>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" checked={approvalConfirmed} onChange={e=>setApprovalConfirmed(e.target.checked)}/>
+          I reviewed the actual prospect and verified that this stage and date change are accurate.
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-primary px-3 py-2" disabled={!approvalConfirmed||approvalBusy} onClick={()=>void approveSheetStage()}>{approvalBusy?"Saving…":"Approve & update Google Sheet"}</button>
+          <button type="button" className="btn-secondary px-3 py-2" disabled={approvalBusy} onClick={()=>setApprovalRow(null)}>Cancel</button>
+        </div>
+        <p className="text-xs opacity-70">No Gmail sends. Suppressed contacts cannot be updated. Concurrent Sheet edits after the server's final read cannot be atomically prevented.</p>
+      </div>}
+      {!approvalRow&&<p className="text-sm opacity-70">No prospect selected for review.</p>}
+    </section>
+    <section aria-label="Prospect Calendar" className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--canvas-border)"}}>
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <div><h2 className="font-semibold text-lg">Upcoming Prospect Calendar Events</h2>
+          <p className="text-xs opacity-70">Read-only: matches Google Calendar attendees with unique, non-suppressed prospect emails over the next 60 days.</p></div>
+        <button type="button" className="btn-secondary px-3 py-2 text-sm" disabled={calendarBusy||sheetLoading||!sheet} onClick={()=>void checkCalendar()}>{calendarBusy?"Checking…":"Check Calendar"}</button>
+      </div>
+      {calendarError&&<p role="alert" className="text-sm text-red-600">{calendarError}</p>}
+      {calendar&&<>
+        <p className="text-sm font-medium">{calendar.meetingCount} matching consultation(s)</p>
+        {calendar.limited&&<p className="text-xs text-amber-700">Only the first 100 upcoming Calendar events were examined, or Sheet coverage is incomplete. Not an exhaustive count.</p>}
+        {calendar.matches.length===0&&<p className="text-sm opacity-70">No upcoming Calendar events matched eligible prospect contacts.</p>}
+        <div className="space-y-2">{calendar.matches.map((meeting,i)=><div key={meeting.rowNumber+"-"+meeting.startsAt+"-"+i} className="rounded border p-3 text-sm" style={{borderColor:"var(--canvas-border)"}}>
+          <div className="font-semibold">{meeting.businessName}</div>
+          <div>{new Date(meeting.startsAt).toLocaleString()} | {meeting.responseStatus}</div>
+          <div className="text-xs opacity-70">{meeting.contactEmail}</div>
+          {meeting.calendarUrl&&<a className="underline text-xs" href={meeting.calendarUrl} target="_blank" rel="noopener noreferrer">View in Google Calendar</a>}
+        </div>)}</div>
+        <p className="text-xs opacity-70">Calendar visibility does not automatically mark a prospect as booked, change the Sheet or create new events.</p>
       </>}
     </section>
     <section aria-label="Gmail outreach reconciliation" className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--canvas-border)"}}>
