@@ -7,15 +7,32 @@
 
 **This section supersedes every historical fixed-package pricing instruction elsewhere in this file or in the November 15 audit.** ATG Consulting is a **product-enabled technology consultancy**, not primarily a fixed-price SaaS subscription. The business-owner decision is approved for implementation planning, **not yet deployed as code**.
 
-**Promise:** *Your Business. Modernized.* ATG helps small businesses and individuals improve their online presence, eliminate repetitive work, and implement practical AI with an experienced technical and commercial partner. The differentiation is not getting AI answers, but designing, configuring, testing, teaching, and supporting repeatable **customer-controlled workflows**. Safe, approved low-risk processes may run automatically; consequential actions require consent and appropriate review. Client-owned platforms execute client email, calendar, CRM and recurring automations, never ATG servers acting on their behalf.
+**Promise:** *Your Business. Modernized.* ATG helps small businesses and individuals improve business performance and their digital presence through go-to-market and sales strategy, website/application development, operational systems and practical AI implementation. Lead with meaningful outcomes and accountable execution, not cheap development or inexpensive AI tools. The differentiation is not getting AI answers, but designing, configuring, testing, teaching, and supporting repeatable **customer-controlled workflows**. Safe, approved low-risk processes may run automatically; consequential actions require consent and appropriate review. Client-owned platforms execute client email, calendar, CRM and recurring automations, never ATG servers acting on their behalf.
 
 **Customer positioning:** Local-first in Castle Rock, Douglas County, Denver and neighboring communities, serving businesses and individuals throughout the U.S. Trades, ranch/equestrian businesses, service providers, contractors, retailers and professionals are examples of relevant audiences, not stereotypes about technical literacy. Keep a separate personal/household service path. Never limit site lead capture to Colorado or imply local-only delivery.
+
+### 0.0 Strategic differentiation, founder-led credibility, and pricing posture
+
+**ATG's principal advantage is business-to-technology execution.** The founder combines more than a decade in sales, partnerships, GTM and business development with end-to-end hands-on website, web/mobile application and AI-enabled product building. This enables ATG to diagnose the commercial problem, decide whether it calls for improved GTM, a modern website, a streamlined process, a software integration or custom development, then scope and execute it. Avoid overclaiming that one person is an expert in every specialty or that all projects can be delivered solo without collaborators.
+
+**Approved market-facing service pillars (revised):**
+1. **Business Growth & Strategy:** GTM planning, sales process and pipeline improvement, customer acquisition, partnerships, business operations and digital strategy.
+2. **Technology Development & Modernization:** website design/redesign/migration, technical SEO continuity, web applications, mobile app consulting/development when appropriately scoped, and integrations.
+3. **AI & Workflow Automation:** AI advisory, customer-owned AI tools, agent/workflow configuration, operational efficiencies, human-controlled execution and training.
+
+**Commercial delivery modes, not separate fixed-priced SKUs:** collaborative implementation/teaching, a fully scoped hands-on build, or an ongoing fractional technical partnership. **Complete Business Modernization** is the flagship bespoke engagement combining strategy, website/application work and AI-enabled operational improvements. Free resources and an assessment remain an acquisition/education channel.
+
+**Premium value pricing principle:** do not position ATG as a cut-rate AI website shop or discount fees because AI reduces implementation hours. Price for professional judgment, scoping, project responsibility, delivery risk, quality, time saved and credible business value, subject to an internal profitable delivery floor and the client's ability to justify the investment. Publish no arbitrary fixed price floor or universal ROI promise. Sales and negotiation are differentiators, not reasons to hide commercial terms: each accepted engagement receives an explicit, comprehensible written quote.
+
+**Founder credential guidance:** use *Founder & Principal Consultant | Business Strategy, Technology & AI* as the default public professional title. State documented expertise as roughly 12 years in sales/business development, nearly a decade building and improving websites/digital operations, and three years hands-on AI-powered development. Fandomly, TruDeF.AI and AgentSEO.guru are founder-built technology portfolio examples, **not client testimonials**. Verify that each product is accurately described before publication. Lead with the unusual combination of commercial judgment and technical execution, not a claim that any developer or competitor is less capable.
+
+**Buyer proposition:** businesses pay to avoid uncertain diagnosis, learning curves, coordination across suppliers and implementation/maintenance risk, even where software and information are freely accessible. ATG sells a well-defined outcome and transfer of capability, not access to an AI chatbot. Client-controlled automations may run after configured, authorized triggers and review gates; ATG does not execute customer messages or scheduled workflows on its own servers.
 
 ### 0.1 Services offered and how they are sold
 
 | Core service | Client outcome | Pricing and delivery |
 | --- | --- | --- |
-| **Website Design, Development & Modernization** | Appropriate site redesign/rebuild, migrations where justified, responsive UX, lead capture, SEO continuity, analytics, testing, hosting/ownership handoff | Standalone custom-scope proposal, not a universal price per page |
+| **Business Growth & Strategy** | GTM consulting, sales process, customer acquisition, partnership strategy, workflow and operations diagnosis | Independent advisory or part of a bespoke modernization project; custom proposal |\n| **Technology Development & Modernization** | Websites, hosting/migrations, web/mobile application development when scoped, responsive UX, lead capture, SEO continuity, analytics, launch and handoff | Scoped project, not a universal rate card |\n| **Website Design, Development & Modernization** | Appropriate site redesign/rebuild, migrations where justified, responsive UX, lead capture, SEO continuity, analytics, testing, hosting/ownership handoff | Standalone custom-scope proposal, not a universal price per page |
 | **AI Consulting & Business Automation** | Identify, configure, document and test AI and integration workflows in client-controlled systems, with approval boundaries and training | Scoped diagnostic, guided/co-built or done-for-you implementation, priced in a tailored proposal |
 | **Fractional Technical Partner** | Defined technical guidance, website improvement, maintenance, troubleshooting, software coordination, workflow iteration | Optional separately accepted engagement with explicit capacity, response expectations, exclusions and change control |
 | **Complete Business Modernization** | Combined website, lead flow, AI automation, business process redesign, training and handoff | Multi-workstream implementation with explicit scope, milestones, acceptance and custom quote |
@@ -23,7 +40,7 @@
 
 **The old Self-serve / Guided / WHITE_GLOVE labels are currently technical tier/entitlement identifiers, not final public service categories or compulsory 3/5-session packages.** Preserve schema and historical entitlements while migrating. Existing $997/$1,497 Guided and from-$3,500 DFY prices are *historical implementation*, not the new public price policy. Do not create alternative fixed-price price cards.
 
-**Position founder experience accurately:** approximately twelve years of sales and business development, nearly a decade building/managing websites and digital workflows at varying levels, and roughly three years hands-on AI-assisted technology development. Showcase founder-built projects Fandomly.AI, TruDeF.AI and AgentSEO.guru as capability examples, **not invented paid-client results or proven customer ROI**. Verify production claims before publication.
+**Founder positioning:** use the verified, integrated narrative in section 0.0. Demonstrate breadth in GTM, sales, partnerships, web/mobile products and AI through accurate project examples; never invent paid client success stories, ROI or certifications.
 
 **Technology selection:** Don't default to migrating every WordPress/WYSIWYG site. Diagnose the actual editing workflow, CMS requirements, performance, SEO history, accessibility, cost, ownership and security. Provide redirects, URL/metadata preservation, staging QA, backup/rollback, analytics validation and client-controlled domains/hosting when migration is justified. Define third-party software/hosting/API charges separately. ATG's app remains a planning and tracking layer, not an unauthorized execution system for customer data.
 
@@ -41,14 +58,39 @@
 ### 0.3 Website, marketing and checkout migration requirements
 
 **Replace public pricing blocks, fixed-dollar CTAs, and "buy a 3/5-session package" positioning** with:
-- Service-focused homepage: *Your Business. Modernized.* Websites, AI automation, and hands-on technology consulting, locally rooted and nationally available.
-- Three service pillars plus a clearly presented complete business modernization package and a distinct **For Individuals** path.
+- Service-focused homepage: *Your Business. Modernized.* Business strategy, modern websites/applications, AI automation and hands-on technical consulting, locally rooted and nationally available. Show concrete owner-operated business examples and carefully distinguish self-built products from client work.
+- Three market-facing service pillars (**Business Growth & Strategy; Technology Development; AI & Automation**) plus a clear complete modernization offering, optional fractional support and a distinct **For Individuals** path.
 - `How We Work` section: assessment → discovery → tailored proposal → implementation/handoff.
 - A prominent **"How much does this cost?" FAQ**: no single price fits every client; the initial assessment and short consultation are free; a tailored quote follows discovery; more extensive diagnostics can be separately quoted; software/hosting charges and optional support are disclosed.
 - Primary CTAs: **Start Free Assessment**, **Schedule a Consultation**, **Request a Proposal**. Reserve **Apply** for genuinely capacity-limited projects. Provide direct website project inquiry as an alternative to completing a long AI assessment.
 - Accessible copy and local trust signals without geographic limitations; accurate founder portfolio rather than invented testimonials.
 
 **Stripe does not disappear.** Remove fixed-price checkout as the **new sales path** only with a tested replacement for custom invoices, deposits, milestone payments and separately authorized support. Keep the old Stripe products and historical data available for reconciliation. Do not simply delete billing code or change existing entitlements. Search and update every stale fixed-dollar reference in `Tiers.tsx`, landing-page components, proposal-generation fallbacks, `stripe.ts`, billing routes, intake defaults, legal/refunds, portal purchase prompts, SEO metadata and emails. A customer-accepted versioned quote and valid payment evidence are prerequisites to granting any scoped entitlements.
+
+### 0.3a Implementation sequencing: homepage first, billing safeguards alongside it
+
+**Workstream W1 | Homepage and messaging (first):**
+- Audit current `Hero.tsx`, `Services.tsx`, `Tiers.tsx`, `FAQ.tsx`, `HowItWorks.tsx`, `SheaOperator.tsx`, `CTA.tsx`, `home.tsx` and global navigation, metadata and legal links.
+- Lead with business outcomes, credible founder-built proof, three service pillars, a bespoke full-service option, local and nationwide availability, individual support, and a consultative CTA.
+- Replace public tier/price cards rather than simply hiding numeric amounts. Keep the free assessment and a reachable consultation/inquiry route. Do not promise an available booking system unless the link is confirmed live.
+- Explain the comparison accurately: ChatGPT can answer questions and connect apps, while ATG diagnoses and helps configure maintained systems in the client's environment. Do not imply ATG operates customers' email/calendar/CRM or that every workflow needs constant manual approval.
+- Update `How much does this cost?` FAQ, old “buy/upgrade/tier” copy, founder profile, and SEO/social metadata. Do not add invented customer logos, third-party endorsements, measurable results or testimonials.
+- **W1 acceptance:** desktop/mobile screen review, working inquiry links, one clear buyer journey for local and remote prospects, no public paid package prices or contradictory existing pricing statements.
+
+**Workstream W2 | Safe fixed-price checkout retirement (parallel safety cutover, before homepage release):**
+- Inventory frontend checkout triggers, deep links, backend `POST /api/billing/checkout`, Stripe webhook fulfillment, DFY optional subscription behavior, pricing environment variables, client billing pages and refund/legal references.
+- Add a fail-closed **new-client checkout mode** or equivalent server-side guard that prevents initiating generic GUIDED/WHITE_GLOVE fixed-price checkout even if a visitor uses an old deep link. Return a clear consultation/proposal next step. Do **not** indiscriminately set `BILLING_ENABLED=false`, as that may also disable existing customer portal and webhook handling.
+- Maintain verified webhook signature/idempotency and the ability to reconcile historic paid sessions, refunds and existing subscriptions; do not delete historical Stripe products or silently cancel an agreement.
+- Avoid automatically creating new $750/month care, defaulting proposal prices from session counts, or auto-granting tiers on an unaccepted quote.
+- **W2 acceptance:** direct API calls to old checkout fail safely; customer portal and existing webhook handling remain intact; no unexpected charge; no client balance/grant regression.
+
+**Workstream W3 | Custom quoted commerce (next, after W1/W2):**
+- Exact accepted proposal version and negotiable workstreams, USD fee, deposit and payment milestones; client-visible consent and approval record.
+- Stripe invoice/deposit/milestone payment links from the accepted quote, correct amounts and webhook metadata, with idempotent invoice/payment processing and contract-aware entitlements.
+- Test payment mismatch, partial payment, refunds, duplicate/delayed/out-of-order events and post-acceptance scope changes before enabling real billing.
+- **W3 acceptance:** a test client accepts one custom quote, pays the intended staged amount, and receives only the specified service entitlements; no silent recurring contract.
+
+**Delivery dependency:** do not remove public prices and leave the visitor with a broken purchase or consultation experience. Publish W1 and W2 as one coherent safe sales-flow release. W3 may ship later because quoting and invoice collection can be handled deliberately while automated billing is under construction; never imply in-app payment is available until tested.
 
 ### 0.4 Engineering boundaries and phased acceptance
 
@@ -225,8 +267,8 @@ Do not implement without a separate business/technical decision:
 ## 8. Updated implementation order
 
 1. **Phase 5 acceptance:** verify the intended database schema was actually applied and run a synthetic assessment → fit call → approved proposal → accepted entitlement/playbook scenario. Keep Docs and Sheet writes gated.
-2. **P0-0: Brand/website conversion and sales-flow migration.** Replace public fixed-price cards with services/How We Work/FAQ, add website and personal inquiries, preserve historic Stripe payments and avoid new charges before replacement.
-3. **P0-A: Custom proposal commerce.** Scoped workstreams, precise USD quotes, approved revisions and acceptance, deposits/invoices/milestones, Stripe test-mode reconciliation and explicit optional support.
+2. **W1 + W2 highest-priority coordinated release: homepage and safe fixed-price checkout retirement.** Lead with GTM/business strategy, technology development and AI implementation; replace price cards with services, How We Work and FAQs while server-side old checkout is blocked. Preserve historical Stripe events, client balances and customer portal access.
+3. **W3 / P0-A: Custom proposal commerce.** Scoped workstreams, precise USD quotes, approved revisions and acceptance, deposits/invoices/milestones, Stripe test-mode reconciliation and explicit optional support. Do not misrepresent W1/W2 as a finished quote-to-cash system.
 4. **P0-B: Service delivery.** Unify consultation, web projects and automation implementation with reviewed tasks, milestone evidence and handoff, preserving consent and purchased entitlements.
 5. **P1/P2:** secure document storage, website launch/handoff playbooks, assessment optimization and separately contracted fractional support.
 6. **P3:** only after active leads/customers justify it, revisit Calendar, prospecting enrichment or additional connectors.
