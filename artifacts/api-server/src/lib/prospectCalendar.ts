@@ -57,6 +57,14 @@ export async function readUpcomingProspectMeetings(opts:{
   const now=opts.now??new Date();
   const end=new Date(now.valueOf()+60*24*60*60*1000);
   const client=opts.client??new ReplitConnectors();
+  // Confirm this is the intended ATG Calendar before inspecting any events.
+  const identity=await client.proxy("google-calendar","/calendar/v3/calendars/primary?fields=id");
+  if(!identity.ok)throw new Error(`Calendar identity check failed (HTTP ${identity.status}).`);
+  const calendar:unknown=await identity.json();
+  const id=calendar&&typeof calendar==="object"&&"id" in calendar?(calendar as {id?:unknown}).id:null;
+  const expected=(process.env.ATG_CALENDAR_ACCOUNT??"shea@atgconsulting.io").trim().toLowerCase();
+  if(typeof id!=="string"||id.toLowerCase()!==expected)
+    throw new Error("Connected primary Calendar does not match the configured ATG account.");
   const params=new URLSearchParams({timeMin:now.toISOString(),timeMax:end.toISOString(),
     maxResults:"100",singleEvents:"true",orderBy:"startTime",fields:"items(id,status,start(dateTime),end(dateTime),attendees(email,responseStatus),htmlLink),nextPageToken"});
   const response=await client.proxy("google-calendar",`/calendar/v3/calendars/primary/events?${params}`);
