@@ -1050,7 +1050,8 @@ router.post("/admin/discovery/:id/proposal/approve", withUser, requireAdmin, asy
       if(!value||typeof value!=="object"||Array.isArray(value))return false;
       const row=value as {tier?:unknown;price?:unknown};
       return typeof row.tier==="string"&&!!row.tier.trim()&&
-        typeof row.price==="string"&&!!row.price.trim();
+        typeof row.price==="string"&&!!row.price.trim()&&
+        !/\b(from|starting at|confirm|estimate|tbd|to be determined)\b/i.test(row.price);
     }catch{return false;}
   })();
   if(!proposal.scope.trim()||deliveryPlan.milestones.length===0||
@@ -1083,6 +1084,10 @@ router.get("/admin/discovery/:id/delivery-contract", withUser, requireAdmin, asy
   }
   try {
     const contract:unknown=JSON.parse(proposal.deliveryPlanJson);
+    if(!contract||typeof contract!=="object"||Array.isArray(contract)||
+      !("milestones" in contract)||!Array.isArray((contract as {milestones:unknown}).milestones)){
+      res.status(404).json({error:"This legacy approved proposal has no delivery snapshot. Its approval was preserved."});return;
+    }
     res.json({contract,acceptedAt:proposal.acceptedAt?.toISOString()??null,
       fitCallRevision:proposal.fitCallRevision,approvedProposalUpdatedAt:proposal.updatedAt.toISOString()});
   } catch {res.status(500).json({error:"Approved delivery snapshot is unavailable."});}
