@@ -7,6 +7,7 @@ import { assessProspect, mayAdvanceProspect, normalizeProspectDomain, type Prosp
 import { audit } from "../lib/audit";
 import { generateProspectDraft } from "../lib/prospectDraft";
 import { readProspectPipeline } from "../lib/prospectSheet";
+import { reconcileGmail } from "../lib/prospectGmail";
 
 export function createProspectingRouter(resolve: RequestHandler = withUser) {
 const router = Router();
@@ -45,6 +46,17 @@ const Patch = z.object({
 
 // Internal Sheets-ledger view, isolated from the existing manually reviewed DB prospects.
 // Authenticated admin only. Never mutates the Sheet or creates duplicate Prisma records.
+// Explicitly requested, read-only Gmail metadata reconciliation. Never writes stages.
+router.get("/admin/prospecting/gmail-reconciliation", async (_req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  try {
+    res.json(await reconcileGmail());
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "Unable to reconcile the ATG Gmail account.";
+    res.status(502).json({ error: detail });
+  }
+});
+
 router.get("/admin/prospecting/google-sheet", async (_req, res) => {
   try {
     const pipeline = await readProspectPipeline();
