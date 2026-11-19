@@ -43,6 +43,8 @@ import { sanitiseText, sanitiseShortText } from "../lib/sanitize";
 import { QUESTION_BANK, QUESTION_MAP, FALLBACK_ORDER } from "../lib/questionBank";
 import { getPainChips } from "../lib/catalogAI";
 import { isAiEnabled } from "../lib/grokClient";
+import { FitCallSave, parseFitCallAnswers, fitCallMissing, fitCallAgenda, fitCallPromptContext, proposalDeliveryPlan, type FitCallAnswersType } from "../lib/fitCall";
+import { createATGProposalDoc } from "../lib/proposalDocs";
 import { assessmentQuestions, assessmentOrder, assessmentStep, applicableAnswers, ALL_ASSESSMENT_QUESTIONS, ALL_ASSESSMENT_MAP } from "../lib/assessmentProfile";
 
 const router = Router();
@@ -861,6 +863,73 @@ router.delete("/admin/discovery/invites/:id", withUser, requireAdmin, async (req
   res.json({ ok: true });
 });
 
+// Admin-only fit-call record, linked to the already submitted intake.
+// Saving drafts never publishes content or changes a prospect's tier.
+router.get("/admin/discovery/:id/fit-call", withUser, requireAdmin, async (req, res) => {
+  res.setHeader("Cache-Control","private, no-store");
+  const intake=await prisma.discoveryIntake.findUnique({
+    where:{id:req.params.id as string},select:{id:true,answers:true,consentGiven:true},
+  });
+  if(!intake){res.status(404).json({error:"Intake not found."});return;}
+  const record=await prisma.fitCallOutcome.findUnique({where:{discoveryIntakeId:intake.id}});
+  res.json({
+    intakeId:intake.id,
+    status:record?.status??"draft",
+    revision:record?.revision??0,
+    answers:parseFitCallAnswers(record?.answersJson),
+    completedAt:record?.completedAt?.toISOString()??null,
+    agenda:fitCallAgenda(intake.answers),
+  });
+});
+
+router.put("/admin/discovery/:id/fit-call", withUser, requireAdmin, async(req,res)=>{
+  res.setHeader("Cache-Control","private, no-store");
+  const parsed=FitCallSave.safeParse(req.body);
+  if(!parsed.success){res.status(422).json({error:"Invalid fit-call answers."});return;}
+  const intake=await prisma.discoveryIntake.findUnique({
+    where:{id:req.params.id as string},select:{id:true,consentGiven:true},
+  });
+  if(!intake){res.status(404).json({error:"Intake not found."});return;}
+  if(!intake.consentGiven){res.status(409).json({error:"Fit-call notes require a consented assessment."});return;}
+  const missing=fitCallMissing(parsed.data.answers);
+  if(parsed.data.status==="completed"&&missing.length){
+    res.status(422).json({error:"Complete the required fit-call fields.",missing});return;
+  }
+  const existing=await prisma.fitCallOutcome.findUnique({where:{discoveryIntakeId:intake.id}});
+  if((existing?.revision??0)!==parsed.data.expectedRevision){
+    res.status(409).json({error:"Fit call was changed. Reload before saving."});return;
+  }
+  if(existing?.status==="completed"&&parsed.data.status!=="draft"){
+    res.status(409).json({error:"Reopen the completed fit call as a new draft revision before changing answers."});return;
+  }
+  const approved=await prisma.discoveryProposal.findUnique({where:{discoveryIntakeId:intake.id},select:{status:true}});
+  if(approved&&approved.status!=="draft"){
+    res.status(409).json({error:"Proposal is already approved. Do not change its source record."});return;
+  }
+  const data={answersJson:JSON.stringify(parsed.data.answers),status:parsed.data.status,
+    completedAt:parsed.data.status==="completed"?new Date():null};
+  let updated;
+  if(existing){
+    const result=await prisma.fitCallOutcome.updateMany({
+      where:{id:existing.id,revision:existing.revision},
+      data:{...data,revision:{increment:1}},
+    });
+    if(result.count!==1){res.status(409).json({error:"Fit call changed. Reload."});return;}
+    updated=await prisma.fitCallOutcome.findUniqueOrThrow({where:{id:existing.id}});
+  }else{
+    if(parsed.data.expectedRevision!==0){res.status(409).json({error:"Fit call revision mismatch."});return;}
+    try {updated=await prisma.fitCallOutcome.create({
+      data:{discoveryIntakeId:intake.id,...data,revision:1},
+    });}catch{res.status(409).json({error:"Fit call was created concurrently. Reload."});return;}
+  }
+  const actor=(req as AuthedRequest).atgUser!;
+  await audit({actorUserId:actor.id,action:updated.status==="completed"?"FIT_CALL_COMPLETED":"FIT_CALL_DRAFT_SAVED",
+    entity:"DiscoveryIntake",entityId:intake.id,meta:{revision:updated.revision},ip:req.ip});
+  res.json({status:updated.status,revision:updated.revision,
+    answers:parseFitCallAnswers(updated.answersJson),
+    completedAt:updated.completedAt?.toISOString()??null});
+});
+
 // ── Proposal ──────────────────────────────────────────────────────────────────
 
 const ProposalPatch = z.object({
@@ -872,13 +941,23 @@ const ProposalPatch = z.object({
   milestones:      z.string().max(10000).optional(),
   investment:      z.string().max(5000).optional(),
   acceptanceClause:z.string().max(5000).optional(),
-});
+  expectedUpdatedAt:z.string().datetime(),
+}).strict();
 
 // Admin: generate proposal draft using Grok
 router.post("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
   const intake = await prisma.discoveryIntake.findUnique({ where: { id: req.params.id as string } });
   if (!intake) { res.status(404).json({ error: "Intake not found." }); return; }
+  if(!intake.consentGiven){res.status(409).json({error:"Proposal requires a consented intake."});return;}
+  const oldProposal=await prisma.discoveryProposal.findUnique({where:{discoveryIntakeId:intake.id}});
+  if(oldProposal&&oldProposal.status!=="draft"){
+    res.status(409).json({error:"Approved proposals are immutable. Create a new intake/proposal revision instead."});return;
+  }
+  const fitCall=await prisma.fitCallOutcome.findUnique({where:{discoveryIntakeId:intake.id}});
+  if(!fitCall||fitCall.status!=="completed"){
+    res.status(409).json({error:"Complete the structured 20-minute fit call before generating a proposal."});return;
+  }
 
   // Also load the existing report draft if available
   const answers: AnsweredQuestion[] = (() => {
@@ -894,14 +973,22 @@ router.post("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req,
     approverName:      intake.approverName ?? null,
     approverEmail:     intake.approverEmail ?? null,
     approverRole:      intake.approverRole ?? null,
-  });
+  }, fitCall?parseFitCallAnswers(fitCall.answersJson):undefined, intake.requestedSessions??undefined);
   const { tokensUsed, ...content } = proposalContent;
 
-  const proposal = await prisma.discoveryProposal.upsert({
-    where: { discoveryIntakeId: intake.id },
-    create: { discoveryIntakeId: intake.id, ...content },
-    update: content,
-  });
+  const proposalData={...content,fitCallRevision:fitCall?.revision??null};
+  let proposal;
+  if(oldProposal){
+    const updated=await prisma.discoveryProposal.updateMany({
+      where:{id:oldProposal.id,status:"draft",updatedAt:oldProposal.updatedAt},
+      data:proposalData,
+    });
+    if(updated.count!==1){res.status(409).json({error:"Proposal changed while generating. Reload before retrying."});return;}
+    proposal=await prisma.discoveryProposal.findUniqueOrThrow({where:{id:oldProposal.id}});
+  }else{
+    try{proposal=await prisma.discoveryProposal.create({data:{discoveryIntakeId:intake.id,...proposalData}});}
+    catch{res.status(409).json({error:"Another proposal was created. Reload before editing."});return;}
+  }
 
   await prisma.discoveryIntake.update({
     where: { id: intake.id },
@@ -925,11 +1012,17 @@ router.patch("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req
   if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
   const proposal = await prisma.discoveryProposal.findUnique({ where: { discoveryIntakeId: req.params.id as string } });
   if (!proposal) { res.status(404).json({ error: "No proposal draft. Generate one first." }); return; }
-  const updated = await prisma.discoveryProposal.update({
-    where: { id: proposal.id },
-    data: parsed.data,
+  if(proposal.status!=="draft"){res.status(409).json({error:"Approved proposals cannot be edited."});return;}
+  if(proposal.updatedAt.toISOString()!==parsed.data.expectedUpdatedAt){
+    res.status(409).json({error:"Proposal changed since you opened it. Reload before editing."});return;
+  }
+  const {expectedUpdatedAt,...changes}=parsed.data;
+  const update=await prisma.discoveryProposal.updateMany({
+    where:{id:proposal.id,status:"draft",updatedAt:proposal.updatedAt},
+    data:changes,
   });
-  res.json(updated);
+  if(update.count!==1){res.status(409).json({error:"Proposal was changed concurrently. Reload."});return;}
+  res.json(await prisma.discoveryProposal.findUniqueOrThrow({where:{id:proposal.id}}));
 });
 
 // Admin: get proposal
@@ -944,18 +1037,131 @@ router.post("/admin/discovery/:id/proposal/approve", withUser, requireAdmin, asy
   const actor = (req as AuthedRequest).atgUser!;
   const proposal = await prisma.discoveryProposal.findUnique({ where: { discoveryIntakeId: req.params.id as string } });
   if (!proposal) { res.status(404).json({ error: "No proposal to approve." }); return; }
-  const updated = await prisma.discoveryProposal.update({
-    where: { id: proposal.id },
-    data: {
-      status: "approved",
-      approvedAt: new Date(),
-    },
+  if(proposal.status!=="draft"){res.status(409).json({error:"Proposal already approved."});return;}
+  const fitCall=await prisma.fitCallOutcome.findUnique({where:{discoveryIntakeId:proposal.discoveryIntakeId}});
+  if(!fitCall||fitCall.status!=="completed"||fitCall.revision!==proposal.fitCallRevision){
+    res.status(409).json({error:"Complete the fit call and regenerate the proposal before approval."});return;
+  }
+  const deliveryPlan=proposalDeliveryPlan(proposal.milestones,proposal.scope,
+    parseFitCallAnswers(fitCall?.answersJson));
+  const reviewedInvestment=(()=>{
+    try{
+      const value:unknown=JSON.parse(proposal.investment);
+      if(!value||typeof value!=="object"||Array.isArray(value))return false;
+      const row=value as {tier?:unknown;price?:unknown};
+      return typeof row.tier==="string"&&!!row.tier.trim()&&
+        typeof row.price==="string"&&!!row.price.trim()&&
+        !/\b(from|starting at|confirm|estimate|tbd|to be determined)\b/i.test(row.price);
+    }catch{return false;}
+  })();
+  if(!proposal.scope.trim()||deliveryPlan.milestones.length===0||
+    !reviewedInvestment||!proposal.acceptanceClause.trim()||
+    !/authoriz/i.test(proposal.acceptanceClause)){
+    res.status(422).json({error:"Review scope, milestones, tier, price and authorized acceptance language before approving."});return;
+  }
+  const result=await prisma.discoveryProposal.updateMany({
+    where:{id:proposal.id,status:"draft",updatedAt:proposal.updatedAt},
+    data:{status:"approved",approvedAt:new Date(),deliveryPlanJson:JSON.stringify(deliveryPlan)},
   });
+  if(result.count!==1){res.status(409).json({error:"Proposal changed before approval. Reload."});return;}
+  const updated=await prisma.discoveryProposal.findUniqueOrThrow({where:{id:proposal.id}});
   await audit({
     actorUserId: actor.id, action: "PROPOSAL_APPROVED", entity: "DiscoveryIntake",
     entityId: req.params.id as string, meta: { clientVisible: true },
   });
   res.json({ ok: true, proposal: updated });
+});
+
+// Internal delivery contract is created only from an approved proposal snapshot.
+router.get("/admin/discovery/:id/delivery-contract", withUser, requireAdmin, async(req,res)=>{
+  res.setHeader("Cache-Control","private, no-store");
+  const proposal=await prisma.discoveryProposal.findUnique({
+    where:{discoveryIntakeId:req.params.id as string},
+    select:{status:true,approvedAt:true,deliveryPlanJson:true,acceptedAt:true,fitCallRevision:true,updatedAt:true},
+  });
+  if(!proposal||!proposal.approvedAt||proposal.status==="draft"){
+    res.status(404).json({error:"An approved proposal is required before delivery planning."});return;
+  }
+  try {
+    const contract:unknown=JSON.parse(proposal.deliveryPlanJson);
+    if(!contract||typeof contract!=="object"||Array.isArray(contract)||
+      !("milestones" in contract)||!Array.isArray((contract as {milestones:unknown}).milestones)){
+      res.status(404).json({error:"This legacy approved proposal has no delivery snapshot. Its approval was preserved."});return;
+    }
+    res.json({contract,acceptedAt:proposal.acceptedAt?.toISOString()??null,
+      fitCallRevision:proposal.fitCallRevision,approvedProposalUpdatedAt:proposal.updatedAt.toISOString()});
+  } catch {res.status(500).json({error:"Approved delivery snapshot is unavailable."});}
+});
+
+// Google Docs export is never automatic, never customer-shared and disabled by default.
+router.get("/admin/discovery/:id/proposal/google-doc",withUser,requireAdmin,async(req,res)=>{
+  res.setHeader("Cache-Control","private, no-store");
+  const proposal=await prisma.discoveryProposal.findUnique({
+    where:{discoveryIntakeId:req.params.id as string},
+    select:{approvedAt:true,status:true,googleDocId:true,googleDocExportState:true,googleDocExportedAt:true},
+  });
+  if(!proposal){res.status(404).json({error:"Proposal not found."});return;}
+  const docId=proposal.googleDocId;
+  res.json({enabled:process.env.ATG_ENABLE_PROPOSAL_DOCS_EXPORT==="true",
+    eligible:!!proposal.approvedAt&&proposal.status!=="draft",
+    state:proposal.googleDocExportState,
+    docUrl:docId&&proposal.googleDocExportState==="ready"?
+      `https://docs.google.com/document/d/${encodeURIComponent(docId)}/edit`:null,
+    exportedAt:proposal.googleDocExportedAt?.toISOString()??null});
+});
+
+router.post("/admin/discovery/:id/proposal/google-doc",withUser,requireAdmin,async(req,res)=>{
+  res.setHeader("Cache-Control","private, no-store");
+  if(process.env.ATG_ENABLE_PROPOSAL_DOCS_EXPORT!=="true"){
+    res.status(409).json({error:"ATG Google Docs exports are disabled until approved connector write testing."});return;
+  }
+  const proposal=await prisma.discoveryProposal.findUnique({
+    where:{discoveryIntakeId:req.params.id as string},
+  });
+  if(!proposal||!proposal.approvedAt||proposal.status==="draft"){
+    res.status(409).json({error:"An approved proposal is required for Google Docs export."});return;
+  }
+  if(proposal.googleDocExportState!=="none"){
+    res.status(409).json({error:"Proposal document export already exists or needs operator reconciliation."});return;
+  }
+  const intake=await prisma.discoveryIntake.findUnique({
+    where:{id:proposal.discoveryIntakeId},select:{answers:true,contactName:true},
+  });
+  if(!intake){res.status(404).json({error:"Assessment not found."});return;}
+  const answers:AnsweredQuestion[]=(()=>{
+    try{const parsed:unknown=JSON.parse(intake.answers);return Array.isArray(parsed)?parsed as AnsweredQuestion[]:[];}
+    catch{return [];}
+  })();
+  const company=answers.find(a=>a.id==="company_name")?.answer||intake.contactName||"Client";
+  const claimed=await prisma.discoveryProposal.updateMany({
+    where:{id:proposal.id,googleDocExportState:"none",updatedAt:proposal.updatedAt},
+    data:{googleDocExportState:"creating"},
+  });
+  if(claimed.count!==1){res.status(409).json({error:"Document export is already running. Refresh status."});return;}
+  try{
+    const doc=await createATGProposalDoc({
+      proposal,company,
+      folderId:process.env.ATG_PROPOSALS_DRIVE_FOLDER_ID,
+      onCreated:async id=>{
+        await prisma.discoveryProposal.update({
+          where:{id:proposal.id},data:{googleDocId:id},
+        });
+      },
+    });
+    const updated=await prisma.discoveryProposal.update({
+      where:{id:proposal.id},
+      data:{googleDocExportState:"ready",googleDocExportedAt:new Date()},
+    });
+    await audit({actorUserId:(req as AuthedRequest).atgUser!.id,
+      action:"PROPOSAL_DOC_EXPORTED",entity:"DiscoveryProposal",entityId:proposal.id,
+      meta:{status:updated.googleDocExportState},ip:req.ip});
+    res.json({ok:true,state:"ready",url:doc.url});
+  }catch{
+    await prisma.discoveryProposal.update({
+      where:{id:proposal.id},data:{googleDocExportState:"error"},
+    }).catch(()=>null);
+    res.status(502).json({error:"Google Docs export could not be completed. Inspect the export state before retrying; an unshared document may already exist."});
+  }
 });
 
 // Admin: export proposal as branded print-ready HTML
@@ -1021,9 +1227,23 @@ export async function generateProposalDraft(
   reportDraft: Record<string, unknown>,
   contactName: string,
   authority?: AuthorityContext,
+  fitCallAnswers?: FitCallAnswersType,
+  requestedSessions?: number,
 ): Promise<ProposalContent> {
-  const fallback = buildFallbackProposal(answers, reportDraft, contactName, authority);
-
+  const fallback = buildFallbackProposal(answers, reportDraft, contactName, authority, requestedSessions);
+  const fitCallContext=fitCallAnswers?fitCallPromptContext(fitCallAnswers):"";
+  const confirmedScope=fitCallAnswers?[
+    "Confirmed fit-call scope checkpoints:",
+    "- First pilot: "+fitCallAnswers.pilot,
+    "- Acceptance criterion: "+fitCallAnswers.successMetric,
+    fitCallAnswers.clientDependencies?"- Client responsibilities: "+fitCallAnswers.clientDependencies:"",
+    fitCallAnswers.exclusions?"- Explicit exclusions: "+fitCallAnswers.exclusions:"",
+  ].filter(Boolean).join("\n"):"";
+  if(confirmedScope){
+    fallback.reviewSummary+="\nFit-call scope checkpoints included. Review dependencies and commercial terms.";
+    fallback.scope+="\n\n"+confirmedScope;
+  }
+  if(!isAiEnabled())return {...fallback,tokensUsed:0};
   const { getGrokClient: grokClient, GROK_MODEL: grokModel, logFallback: logFall } = await import("../lib/grokClient");
   const llm = grokClient();
   if (!llm) { logFall("proposal", "no_api_key"); return { ...fallback, tokensUsed: 0 }; }
@@ -1049,6 +1269,10 @@ export async function generateProposalDraft(
 
 Intake answers:
 ${qaSummary}
+
+${fitCallContext.trim()? "Structured fit-call facts for scope drafting (do not disclose internal process notes in the final document):\\n"+fitCallContext : "No completed fit-call outcome is recorded. Flag unresolved scope."}
+
+Requested Guided package sessions: ${requestedSessions===5?"5 sessions, public price $1,497":requestedSessions===3?"3 sessions, public price $997":"not specified; do not assume a package size"}. For Done-for-You, public pricing starts at $3,500 and final scope-based pricing must be confirmed manually. Do not invent client-specific prices. Any care plan is optional and requires explicit acceptance.
 
 ${selfAttestationNote}
 
@@ -1078,7 +1302,7 @@ Keep it professional, plain English, no invented stats or outcomes.`;
       reviewSummary:   raw.reviewSummary   ?? fallback.reviewSummary,
       execSummary:     raw.execSummary     ?? fallback.execSummary,
       understanding:   raw.understanding   ?? fallback.understanding,
-      scope:           raw.scope           ?? fallback.scope,
+      scope:           typeof raw.scope==="string"&&raw.scope.trim() ? raw.scope+(confirmedScope?"\n\n"+confirmedScope:"") : fallback.scope,
       howWeConnect:    raw.howWeConnect    ?? fallback.howWeConnect,
       milestones:      typeof raw.milestones === "string" ? raw.milestones : JSON.stringify(raw.milestones ?? []),
       investment:      typeof raw.investment === "string" ? raw.investment : JSON.stringify(raw.investment ?? {}),
@@ -1090,11 +1314,11 @@ Keep it professional, plain English, no invented stats or outcomes.`;
   }
 }
 
-function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<string, unknown>, contactName: string, authority?: AuthorityContext): Omit<ProposalContent, "tokensUsed"> {
+function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<string, unknown>, contactName: string, authority?: AuthorityContext, requestedSessions?:number): Omit<ProposalContent, "tokensUsed"> {
   const company = answers.find((a) => a.id === "company_name")?.answer ?? "your company";
   const problems = answers.find((a) => a.id === "top_problems")?.answer ?? "the challenges discussed";
   const suggestedTier = (reportDraft.suggestedTier as string | undefined) ?? "GUIDED";
-  const tierPrices: Record<string, string> = { SELF_SERVE: "Free Tools", NONE: "Free Tools", GUIDED: "$997", WHITE_GLOVE: "$3,500" };
+  const tierPrices: Record<string, string> = { SELF_SERVE: "Free Tools", NONE: "Free Tools", GUIDED: requestedSessions===5?"$1,497":"$997", WHITE_GLOVE: "From $3,500 (confirm exact scoped price)" };
 
   // Authority-aware scope and acceptance
   const authorityNote = (() => {

@@ -105,13 +105,35 @@ async function buildPlaybookInput(clientId: string, intakeId?: string): Promise<
   };
 }
 
+/**
+ * Append the exact accepted commercial delivery scope to the private operator playbook.
+ * This preserves the already-purchased tier and doesn't convert payment into delivery.
+ */
+async function attachAcceptedProposalScope<T extends {source:string}>(intakeId:string,content:T):Promise<T & {approvedProposalDelivery?:{proposalId:string;acceptedAt:string;contract:unknown}}> {
+  const approved=await prisma.discoveryProposal.findUnique({
+    where:{discoveryIntakeId:intakeId},
+    select:{id:true,status:true,acceptedAt:true,deliveryPlanJson:true},
+  });
+  if(!approved||approved.status==="draft"||!approved.acceptedAt)return content;
+  try {
+    const raw:unknown=JSON.parse(approved.deliveryPlanJson);
+    if(!raw||typeof raw!=="object"||Array.isArray(raw))return content;
+    const contract=raw as {milestones?:unknown;source?:unknown};
+    if(contract.source!=="approved_proposal"||!Array.isArray(contract.milestones))return content;
+    return {...content,approvedProposalDelivery:{
+      proposalId:approved.id,acceptedAt:approved.acceptedAt.toISOString(),contract:raw,
+    }};
+  }catch{return content;}
+}
+
 /** Draft a playbook the first time a report is approved. Shea still marks it final. */
 export async function draftPlaybookIfMissing(clientId: string, intakeId?: string): Promise<boolean> {
   const existing = await prisma.clientPlaybook.findFirst({ where: { clientId }, select: { id: true } });
   if (existing) return false;
   const input = await buildPlaybookInput(clientId, intakeId);
   if (!input) return false;
-  const content = await generateClientPlaybook(input);
+  const generated = await generateClientPlaybook(input);
+  const content = await attachAcceptedProposalScope(input.intakeId,generated);
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM "Client" WHERE id = ${clientId} FOR UPDATE`;
     if (await tx.clientPlaybook.findFirst({ where: { clientId }, select: { id: true } })) return false;
@@ -168,7 +190,8 @@ router.post("/admin/clients/:id/playbook", async (req, res) => {
   const input = await buildPlaybookInput(clientId, intakeId);
   if (!input) { res.status(422).json({ error: "Confirm payment, assign the purchased tier and link a submitted assessment before generating the client playbook." }); return; }
 
-  const content = await generateClientPlaybook(input);
+  const generated = await generateClientPlaybook(input);
+  const content = await attachAcceptedProposalScope(input.intakeId,generated);
 
   // Increment version
   const latestVersion = await prisma.clientPlaybook.findFirst({
@@ -200,7 +223,8 @@ router.post("/admin/intakes/:id/playbook", async (req, res) => {
   const input = await buildPlaybookInput(intake.clientId, intake.id);
   if (!input) { res.status(422).json({ error: "Confirm payment, assign the purchased tier and link a submitted assessment before generating the client playbook." }); return; }
 
-  const content = await generateClientPlaybook(input);
+  const generated = await generateClientPlaybook(input);
+  const content = await attachAcceptedProposalScope(input.intakeId,generated);
   const latestVersion = await prisma.clientPlaybook.findFirst({
     where: { clientId: intake.clientId },
     orderBy: { version: "desc" },
