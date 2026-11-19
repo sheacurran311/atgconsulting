@@ -607,7 +607,7 @@ export default function AdminDiscoveryPage() {
                     {generatingProposal?"Regenerating…":"Regenerate proposal draft"}
                   </button>
                 )}
-                {proposal&&proposal.status==="draft"&&fitCallMeta?.completed&&proposal.fitCallRevision!==fitCallMeta.revision&&
+                {proposal&&proposal.status==="draft"&&fitCallMeta?.completed&&proposal.fitCallRevision!==fitCallMeta?.revision&&
                   <p role="status" className="text-xs text-amber-700 w-full">Fit-call answers changed since this proposal was drafted. Regenerate and review before approving.</p>}
                 {proposal && proposal.status === "draft" && (
                   <>
