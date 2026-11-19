@@ -6,7 +6,7 @@
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { readProspectPipeline, type SheetProspect } from "./prospectSheet";
 
-const MAX_CONTACTS=12;
+export const MAX_CONTACTS=12;
 const MAX_THREADS_PER_CONTACT=3;
 const EMAIL=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 const VALID_ID=/^[A-Za-z0-9_-]{1,160}$/;
@@ -20,9 +20,10 @@ export type GmailMatch = {
   rowNumber:number;businessName:string;contactEmail:string;
   status:"reply_detected"|"outbound_found"|"inbound_without_outbound"|"no_recent_match"|"error";
   lastOutboundAt:string|null;lastInboundAt:string|null;threadCount:number;
+  suggestedAction:"review_reply"|"verify_outreach"|"inspect_inbound"|"none";
 };
 export type GmailReconciliation={
-  account:string;checked:number;eligibleCount:number;limited:boolean;skippedSuppressed:number;
+  account:string;checked:number;eligibleCount:number;limited:boolean;offset:number;nextOffset:number|null;skippedSuppressed:number;
   skippedAmbiguous:number;matches:GmailMatch[];
   summary:{replyDetected:number;outboundFound:number;inboundWithoutOutbound:number;noRecentMatch:number;errors:number};
 };
@@ -103,10 +104,14 @@ async function reviewContact(client:ConnectorClient,row:SheetProspect,account:st
       const result=await getJson(client,`/gmail/v1/users/me/threads/${encodeURIComponent(id)}?format=metadata&metadataHeaders=From&metadataHeaders=To`);
       if(result&&typeof result==="object")threads.push(result as GmailThread);
     }
-    return {...base,...classifyThreads(threads,email,account)};
+    const result=classifyThreads(threads,email,account);
+    const suggestedAction:GmailMatch["suggestedAction"]=result.status==="reply_detected"?"review_reply"
+      :result.status==="outbound_found"?"verify_outreach"
+      :result.status==="inbound_without_outbound"?"inspect_inbound":"none";
+    return {...base,...result,suggestedAction};
   }catch{
     // No provider error payloads or email content exposed.
-    return {...base,status:"error",lastOutboundAt:null,lastInboundAt:null,threadCount:0};
+    return {...base,status:"error",lastOutboundAt:null,lastInboundAt:null,threadCount:0,suggestedAction:"none"};
   }
 }
 export function eligibleContacts(rows:SheetProspect[]){
@@ -121,7 +126,7 @@ export function eligibleContacts(rows:SheetProspect[]){
   return {eligible,skippedSuppressed,skippedAmbiguous};
 }
 export async function reconcileGmail(opts:{
- client?:ConnectorClient;pipelineReader?:typeof readProspectPipeline;expectedAccount?:string;
+ client?:ConnectorClient;pipelineReader?:typeof readProspectPipeline;expectedAccount?:string;offset?:number;
 }={}):Promise<GmailReconciliation>{
   const client=opts.client??new ReplitConnectors();
   const profile=await getJson(client,"/gmail/v1/users/me/profile") as GmailProfile;
@@ -131,13 +136,16 @@ export async function reconcileGmail(opts:{
     throw new Error("Connected Gmail account does not match the configured ATG mailbox. Reconciliation stopped.");
   const pipeline=await (opts.pipelineReader??readProspectPipeline)();
   const {eligible,skippedSuppressed,skippedAmbiguous}=eligibleContacts(pipeline.rows);
-  const candidates=eligible.slice(0,MAX_CONTACTS);
+  const offset=opts.offset??0;
+  if(!Number.isSafeInteger(offset)||offset<0||offset>500)throw new Error("Invalid Gmail reconciliation offset.");
+  const candidates=eligible.slice(offset,offset+MAX_CONTACTS);
   const matches:GmailMatch[]=[];
   // Sequential calls keep rate limits and mailbox exposure bounded.
   for(const row of candidates)matches.push(await reviewContact(client,row,account));
   return {
-    account,checked:matches.length,eligibleCount:eligible.length,
-    limited:eligible.length>MAX_CONTACTS||pipeline.dataTruncated,skippedSuppressed,skippedAmbiguous,
+    account,checked:matches.length,eligibleCount:eligible.length,offset,
+    nextOffset:offset+matches.length<eligible.length?offset+matches.length:null,
+    limited:offset+MAX_CONTACTS<eligible.length||pipeline.dataTruncated,skippedSuppressed,skippedAmbiguous,
     matches,summary:{
       replyDetected:matches.filter(m=>m.status==="reply_detected").length,
       outboundFound:matches.filter(m=>m.status==="outbound_found").length,
