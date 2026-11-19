@@ -47,10 +47,12 @@ const Patch = z.object({
 // Internal Sheets-ledger view, isolated from the existing manually reviewed DB prospects.
 // Authenticated admin only. Never mutates the Sheet or creates duplicate Prisma records.
 // Explicitly requested, read-only Gmail metadata reconciliation. Never writes stages.
-router.get("/admin/prospecting/gmail-reconciliation", async (_req, res) => {
+router.get("/admin/prospecting/gmail-reconciliation", async (req, res) => {
   res.setHeader("Cache-Control", "private, no-store");
+  const parsed = z.coerce.number().int().min(0).max(500).safeParse(req.query.offset ?? 0);
+  if (!parsed.success) { res.status(422).json({ error: "Invalid Gmail review page." }); return; }
   try {
-    res.json(await reconcileGmail());
+    res.json(await reconcileGmail({ offset: parsed.data }));
   } catch (err) {
     const detail = err instanceof Error ? err.message : "Unable to reconcile the ATG Gmail account.";
     res.status(502).json({ error: detail });
