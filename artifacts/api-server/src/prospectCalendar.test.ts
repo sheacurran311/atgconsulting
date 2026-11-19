@@ -34,7 +34,8 @@ test("calendar integration requests read-only bounded events and filters after S
  const calls:string[]=[];
  const client={proxy:async (name:string,path:string)=>{
   assert.equal(name,"google-calendar");calls.push(path);
-  return new Response(JSON.stringify({items:[meet],nextPageToken:"next"}),{status:200});
+  return new Response(JSON.stringify(path.includes("?fields=id")
+    ?{id:"shea@atgconsulting.io"}:{items:[meet],nextPageToken:"next"}),{status:200});
  }};
  const result=await readUpcomingProspectMeetings({client,now,
   pipelineReader:async()=>({spreadsheetId:"x",url:"",prospectCount:1,rows:[prospect()],
@@ -42,8 +43,24 @@ test("calendar integration requests read-only bounded events and filters after S
  });
  assert.equal(result.meetingCount,1);
  assert.equal(result.limited,true);
- assert.equal(calls.length,1);
- assert.match(calls[0]!,/singleEvents=true/);
- assert.match(calls[0]!,/maxResults=100/);
+ assert.equal(calls.length,2);
+ assert.match(calls[1]!,/singleEvents=true/);
+ assert.match(calls[1]!,/maxResults=100/);
  assert.doesNotMatch(calls[0]!,/send|insert|update/);
+});
+
+test("rejects a different Calendar account without searching calendar events",async()=>{
+ const calls:string[]=[];
+ const client={proxy:async (_name:string,path:string)=>{
+   calls.push(path);
+   return new Response(JSON.stringify({id:"other@example.com"}),{status:200});
+ }};
+ await assert.rejects(()=>readUpcomingProspectMeetings({client,now}),/does not match/);
+ assert.equal(calls.length,1);
+});
+test("suppressed copy also makes an email an ambiguous Calendar match",()=>{
+ const found=matchProspectMeetings([meet],[
+  prospect(),prospect({rowNumber:3,doNotContact:true}),
+ ],now,end);
+ assert.equal(found.meetingCount,0);
 });
