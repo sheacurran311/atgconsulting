@@ -39,7 +39,7 @@ function headerValues(m:Message,name:string):string[]{
 }
 function hasAddress(value:string,email:string):boolean {
   // Strict token-boundary match, not substring match (foo@ vs notfoo@).
-  const tokens=value.toLowerCase().match(/[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/g)??[];
+  const tokens: string[] = value.toLowerCase().match(/[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/g)??[];
   return tokens.includes(email);
 }
 function messageTime(m:Message):number|null {
