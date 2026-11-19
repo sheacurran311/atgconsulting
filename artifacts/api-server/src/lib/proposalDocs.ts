@@ -48,6 +48,7 @@ export async function createATGProposalDoc(opts:{
   const client=opts.client??(new ReplitConnectors() as unknown as Client);
   const expected=email(opts.account??process.env.ATG_DOCS_OWNER_EMAIL??"shea@atgconsulting.io");
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(expected))throw new Error("Invalid configured ATG Docs account.");
+  if(opts.folderId&&!GOOGLE_ID.test(opts.folderId))throw new Error("Invalid ATG proposal folder ID.");
   const about=await request(client,"google-drive","/drive/v3/about?fields=user(emailAddress)") as {user?:{emailAddress?:unknown}};
   if(email(typeof about?.user?.emailAddress==="string"?about.user.emailAddress:"")!==expected)
     throw new Error("Connected Google Drive account does not match the approved ATG Docs owner.");
@@ -60,13 +61,21 @@ export async function createATGProposalDoc(opts:{
   const docId=created.documentId;
   // Persist immediately so a later failure cannot result in a duplicate document on retry.
   await opts.onCreated(docId);
+  // Replit can bind Docs and Drive to distinct accounts. Check the created file's
+  // actual Google owner before inserting any customer-specific proposal content.
+  const ownership=await request(client,"google-drive",
+    `/drive/v3/files/${encodeURIComponent(docId)}?fields=id,owners(emailAddress)`) as {
+      owners?:Array<{emailAddress?:unknown}>;
+    };
+  if(!Array.isArray(ownership.owners)||
+    !ownership.owners.some(owner=>email(typeof owner.emailAddress==="string"?owner.emailAddress:"")===expected))
+    throw new Error("New document owner does not match the ATG Docs account. Export halted.");
   const content=approvedProposalDocText(opts.proposal,opts.company);
   await request(client,"google-docs",`/v1/documents/${encodeURIComponent(docId)}:batchUpdate`,{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({requests:[{insertText:{location:{index:1},text:content}}]}),
   });
   if(opts.folderId){
-    if(!GOOGLE_ID.test(opts.folderId))throw new Error("Invalid ATG proposal folder ID.");
     const file=await request(client,"google-drive",
       `/drive/v3/files/${encodeURIComponent(docId)}?fields=id,parents`) as {parents?:unknown};
     const parents=Array.isArray(file?.parents)?file.parents.filter((p):p is string=>typeof p==="string"&&GOOGLE_ID.test(p)):[];
