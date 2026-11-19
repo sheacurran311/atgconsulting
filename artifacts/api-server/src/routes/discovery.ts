@@ -43,7 +43,7 @@ import { sanitiseText, sanitiseShortText } from "../lib/sanitize";
 import { QUESTION_BANK, QUESTION_MAP, FALLBACK_ORDER } from "../lib/questionBank";
 import { getPainChips } from "../lib/catalogAI";
 import { isAiEnabled } from "../lib/grokClient";
-import { FitCallSave, parseFitCallAnswers, fitCallMissing, fitCallAgenda, fitCallPromptContext, proposalDeliveryPlan } from "../lib/fitCall";
+import { FitCallSave, parseFitCallAnswers, fitCallMissing, fitCallAgenda, fitCallPromptContext, proposalDeliveryPlan, type FitCallAnswersType } from "../lib/fitCall";
 import { createATGProposalDoc } from "../lib/proposalDocs";
 import { assessmentQuestions, assessmentOrder, assessmentStep, applicableAnswers, ALL_ASSESSMENT_QUESTIONS, ALL_ASSESSMENT_MAP } from "../lib/assessmentProfile";
 
@@ -973,7 +973,7 @@ router.post("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req,
     approverName:      intake.approverName ?? null,
     approverEmail:     intake.approverEmail ?? null,
     approverRole:      intake.approverRole ?? null,
-  }, fitCall?fitCallPromptContext(parseFitCallAnswers(fitCall.answersJson)):undefined);
+  }, fitCall?parseFitCallAnswers(fitCall.answersJson):undefined);
   const { tokensUsed, ...content } = proposalContent;
 
   const proposalData={...content,fitCallRevision:fitCall?.revision??null};
@@ -1039,13 +1039,24 @@ router.post("/admin/discovery/:id/proposal/approve", withUser, requireAdmin, asy
   if (!proposal) { res.status(404).json({ error: "No proposal to approve." }); return; }
   if(proposal.status!=="draft"){res.status(409).json({error:"Proposal already approved."});return;}
   const fitCall=await prisma.fitCallOutcome.findUnique({where:{discoveryIntakeId:proposal.discoveryIntakeId}});
-  if(fitCall&&(fitCall.status!=="completed"||fitCall.revision!==proposal.fitCallRevision)){
-    res.status(409).json({error:"Fit-call source changed. Regenerate and review the proposal."});return;
+  if(!fitCall||fitCall.status!=="completed"||fitCall.revision!==proposal.fitCallRevision){
+    res.status(409).json({error:"Complete the fit call and regenerate the proposal before approval."});return;
   }
   const deliveryPlan=proposalDeliveryPlan(proposal.milestones,proposal.scope,
     parseFitCallAnswers(fitCall?.answersJson));
-  if(!proposal.scope.trim()||deliveryPlan.milestones.length===0){
-    res.status(422).json({error:"Proposal requires reviewed scope and at least one valid milestone."});return;
+  const reviewedInvestment=(()=>{
+    try{
+      const value:unknown=JSON.parse(proposal.investment);
+      if(!value||typeof value!=="object"||Array.isArray(value))return false;
+      const row=value as {tier?:unknown;price?:unknown};
+      return typeof row.tier==="string"&&!!row.tier.trim()&&
+        typeof row.price==="string"&&!!row.price.trim();
+    }catch{return false;}
+  })();
+  if(!proposal.scope.trim()||deliveryPlan.milestones.length===0||
+    !reviewedInvestment||!proposal.acceptanceClause.trim()||
+    !/authoriz/i.test(proposal.acceptanceClause)){
+    res.status(422).json({error:"Review scope, milestones, tier, price and authorized acceptance language before approving."});return;
   }
   const result=await prisma.discoveryProposal.updateMany({
     where:{id:proposal.id,status:"draft",updatedAt:proposal.updatedAt},
@@ -1211,14 +1222,22 @@ export async function generateProposalDraft(
   reportDraft: Record<string, unknown>,
   contactName: string,
   authority?: AuthorityContext,
-  fitCallContext?: string,
+  fitCallAnswers?: FitCallAnswersType,
 ): Promise<ProposalContent> {
   const fallback = buildFallbackProposal(answers, reportDraft, contactName, authority);
-  if(fitCallContext?.trim()){
-    fallback.reviewSummary+="\nFit-call outcome recorded. Verify the drafted scope, exclusions, dependencies and price against the call before approving.";
-    fallback.understanding+="\nConfirmed fit-call facts:\n"+fitCallContext;
+  const fitCallContext=fitCallAnswers?fitCallPromptContext(fitCallAnswers):"";
+  if(fitCallAnswers){
+    const call=fitCallAnswers;
+    fallback.reviewSummary+="\nConfirmed fit-call details were used for the scope checkpoints. Review dependencies and commercial terms.";
+    fallback.scope+=[
+      "\n\nConfirmed fit-call scope checkpoints:",
+      call.pilot?"- First pilot: "+call.pilot:"",
+      call.successMetric?"- Acceptance criterion: "+call.successMetric:"",
+      call.clientDependencies?"- Client responsibilities: "+call.clientDependencies:"",
+      call.exclusions?"- Explicit exclusions: "+call.exclusions:"",
+    ].filter(Boolean).join("\n");
   }
-
+  if(!isAiEnabled())return {...fallback,tokensUsed:0};
   const { getGrokClient: grokClient, GROK_MODEL: grokModel, logFallback: logFall } = await import("../lib/grokClient");
   const llm = grokClient();
   if (!llm) { logFall("proposal", "no_api_key"); return { ...fallback, tokensUsed: 0 }; }
@@ -1245,7 +1264,7 @@ export async function generateProposalDraft(
 Intake answers:
 ${qaSummary}
 
-${fitCallContext?.trim()? "Structured 20-minute fit-call outcome (confirmed consultant notes, do not invent missing facts):\\n"+fitCallContext : "No completed fit-call outcome is recorded. Flag unresolved scope in the draft."}
+${fitCallContext.trim()? "Structured fit-call facts for scope drafting (do not disclose internal process notes in the final document):\\n"+fitCallContext : "No completed fit-call outcome is recorded. Flag unresolved scope."}
 
 ${selfAttestationNote}
 
