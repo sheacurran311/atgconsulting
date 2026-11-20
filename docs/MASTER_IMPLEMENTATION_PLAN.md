@@ -15,6 +15,18 @@
 
 **Interim inquiry path:** The existing `/intake` workflow is still oriented around AI assessment/tier fields. A direct contact method for website/branding leads is required until the approved service-intent branching is completed. Avoid silently encoding `tier=guided` or `sessions=3` for new consultations.
 
+## Approved experience direction: animated proof of business value (November 19, 2026)
+
+**Owner decision:** Move beyond a static marketing landing page. Show a compelling, high-quality, scroll-controlled example of a business-growth workflow that makes the value of ATG legible within seconds. Do **not** create a full technical implementation manual on the homepage.
+
+**Featured concept: "Find your next customer. Help them find you."** The left journey demonstrates outbound AI-assisted prospect research → qualification → consultant-designed approved follow-up. The right journey demonstrates inbound modern website → search discoverability through technical SEO and AEO-friendly structured, answer-ready content → lead capture/conversion. The dual paths converge in a customer-owned lead workflow. Both sides are *illustrative*, never real traffic, guaranteed rankings, or actual active AI research/sending.
+
+**Visual direction:** Dark cinematic, vibrant blue/purple lighting, responsive paired tracks, animated connectors and active stage cards, a persistent scroll-progress indicator, clear CTA and concise concise explanations. Prefer accessible Framer Motion scroll progress and transitions over prerecorded videos or expensive animation packages. The interactive example should supplement, not overwhelm, the service page and consultation funnel.
+
+**Mandatory experience requirements:** Desktop and mobile legibility; no horizontal overflow; semantic headings and meaningful text without animation; reduced-motion mode with no pinned multi-screen scroll trap; avoid all inaccessible flashing or attention-hijacking scroll locks; preserve usable click/tap CTAs; lazy or lightweight animation with no extra vendor dependency; test on touch/mobile and slow devices. The component must not imply ATG owns or executes a prospect's actual CRM/email or that SEO/AEO guarantees new customers.
+
+**Code status:** `artifacts/atg-consulting/src/components/sections/GrowthWorkflowScroll.tsx` has been authored on the PR #73 development branch and integrated into `home.tsx`. Source code does not establish passing typecheck/build, browser performance, or production deployment. Verify in the controlled Replit validation pass and iterate visual behavior before merging.
+
 ## Approved web targets and bundled automation scoping (November 19, 2026)
 
 **Owner-approved initial internal website bands:** 1–3-page fast-track $500–$900, standard five-page $900–$1,500, five-page with simple logo refresh $1,200–$1,900, complex redesign/migration/integrations $1,800–$3,500+. These are target quote ranges, not fixed public price cards; detailed scope and profitable delivery remain mandatory.
