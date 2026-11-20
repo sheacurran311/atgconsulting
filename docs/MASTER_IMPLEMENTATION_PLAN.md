@@ -15,6 +15,18 @@
 
 **Interim inquiry path:** The existing `/intake` workflow is still oriented around AI assessment/tier fields. A direct contact method for website/branding leads is required until the approved service-intent branching is completed. Avoid silently encoding `tier=guided` or `sessions=3` for new consultations.
 
+## Internal workflow catalog and revised competitive pricing assumptions (November 19, 2026)
+
+**Authoritative internal estimating reference:** [ATG Internal Workflow Catalog and Pricing Model](ATG_INTERNAL_WORKFLOW_CATALOG_AND_PRICING.md). It contains **50 candidate workflows** graded S/M/L/XL with baseline implementation-hour estimates, support risk, integration/QA dependencies, pricing calculation guidance and the five approved common consulting engagement types.
+
+**Refined owner preference:** compete aggressively on efficient design/development delivery, particularly straightforward websites, without racing to the bottom or artificially anchoring premium technical projects to large-agency fees. A five-page site may be generated in about two hours with low inference cost, but actual project pricing must include the specific requirements, revisions, testing, client communications, hosting transition and commercial margin. Do not treat generation time as whole-project labor. Initial **internal-only** website targets: simple 1–3 pages $500–$900, straightforward five pages $900–$1,500, five pages plus simple logo refresh $1,200–$1,900, and complex rebuild/migration $1,800–$3,500+. No universal per-page charge.
+
+**Five common proposal templates:** (1) website/logo redesign only; (2) website/logo redesign plus guided workflows; (3) guided workflows only; (4) DFY website/branding plus fully implemented workflows and separately scoped monthly retainer; (5) DFY workflows only and separately scoped monthly retainer. All remain negotiable, scoped quotes. Retainers require explicit consent and defined monitoring, maintenance and response limits; they never start automatically.
+
+**Implementation requirements:** build an internal, versioned workflow catalog with validated estimates and associated quote line items **after** code-based assessment and proposal workflow changes are reviewed. The future quote engine must not auto-approve prices from these hypotheses. Capture actual delivery hours and third-party expenses to calibrate early engagements. Avoid offering unlimited workflows, revisions or monthly support.
+
+**Tech-stack proposition:** ATG prefers complete source-code control and client-owned deployments, with Replit and Railway among preferred implementation platforms when suitable. Present the tradeoffs of closed page builders accurately and fairly; not every existing WordPress/Squarespace site warrants migration. Verify client editability, search preservation, costs, security, DNS/domain ownership, integrations, hosting and rollback in each proposal.
+
 ## 0. Approved commercial direction | November 19, 2026
 
 **This section supersedes every historical fixed-package pricing instruction elsewhere in this file or in the November 15 audit.** ATG Consulting is a **product-enabled technology consultancy**, not primarily a fixed-price SaaS subscription. The business-owner decision is approved for implementation planning, **not yet deployed as code**.
