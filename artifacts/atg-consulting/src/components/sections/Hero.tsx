@@ -31,7 +31,7 @@ export default function Hero() {
             </p>
             <div className="flex flex-wrap gap-3">
               <Link to="/intake" className="btn-primary" style={{ fontSize: "15px", padding: "12px 22px" }}>Start a free assessment →</Link>
-              <Link to="/intake" className="btn-secondary-white" style={{ fontSize: "15px", padding: "12px 22px" }}>Discuss your project</Link>
+              <a href="mailto:shea@atgconsulting.io?subject=ATG%20Project%20Inquiry" className="btn-secondary-white" style={{ fontSize: "15px", padding: "12px 22px" }}>Discuss your project</a>
             </div>
             <p className="text-xs mt-5" style={{ color: "var(--ink-text-3)" }}>
               Free initial consultation · Tailored proposals · No predetermined packages
