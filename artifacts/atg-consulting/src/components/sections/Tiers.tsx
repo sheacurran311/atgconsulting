@@ -22,7 +22,7 @@ export default function Tiers() {
               <h3 className="font-extrabold text-xl mb-3" style={{ color: "var(--canvas-text)" }}>{item.name}</h3>
               <p className="text-sm mb-5" style={{ color: "var(--canvas-text-2)" }}>{item.copy}</p>
               <ul className="space-y-2 flex-1 mb-6">{item.points.map((point) => <li key={point} className="text-xs flex gap-2" style={{ color: "var(--canvas-text-2)" }}><span style={{ color: "var(--blue)" }}>✓</span>{point}</li>)}</ul>
-              <Link to="/intake" className="btn-primary w-full justify-center text-sm">{item.cta} →</Link>
+              {item.eyebrow === "FREE FIRST STEP" ? <Link to="/intake" className="btn-primary w-full justify-center text-sm">{item.cta} →</Link> : <a href="mailto:shea@atgconsulting.io?subject=ATG%20Consulting%20Inquiry" className="btn-primary w-full justify-center text-sm">{item.cta} →</a>}
             </div>
           ))}
         </div>
