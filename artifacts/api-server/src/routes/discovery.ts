@@ -1312,7 +1312,6 @@ Keep it professional, plain English, no invented stats or outcomes.`;
 function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<string, unknown>, contactName: string, authority?: AuthorityContext): Omit<ProposalContent, "tokensUsed"> {
   const company = answers.find((a) => a.id === "company_name")?.answer ?? "your company";
   const problems = answers.find((a) => a.id === "top_problems")?.answer ?? "the challenges discussed";
-  const suggestedTier = (reportDraft.suggestedTier as string | undefined) ?? "GUIDED";
 
   // Authority-aware scope and acceptance
   const authorityNote = (() => {
@@ -1340,12 +1339,12 @@ function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<
     reviewSummary: reviewNote,
     execSummary: `ATG Consulting is pleased to present this proposal for ${company}. Based on our discovery conversation, we understand that ${problems}. This proposal outlines how we'll address these challenges with a structured, approval-first AI workflow approach.`,
     understanding: `${company} is looking to reduce the time and effort spent on ${problems}. Your team currently handles these manually, and there is a clear opportunity to bring structure, consistency, and efficiency through well-designed AI workflows installed in your own AI platform.`,
-    scope: `- Initial assessment and tool plan\n- Setup guides for your chosen AI platform (Grok Bot, Claude, or ChatGPT)\n- ${suggestedTier === "WHITE_GLOVE" ? "White-glove implementation of up to 20 agreed workflows and automations, delivered in prioritized phases with configuration, testing, training, and an operating guide. Select exact native plugins/bots in the client implementation list; agree complexity, acceptance criteria and the delivery schedule in writing. Optional ongoing care is separate" : suggestedTier === "GUIDED" ? "1:1 build sessions with Shea to set up your workflows" : "Ready-made workflows and step-by-step setup guides"}${authorityNote}`,
+    scope: `- ${typeof reportDraft.proposalScope === "string" && reportDraft.proposalScope.trim() ? reportDraft.proposalScope : "Confirm the deliverables and exclusions from the fit call."}${authorityNote}`,
     howWeConnect: `All workflows run inside your own AI platform and connect to the tools you already use — email, calendar, CRM. ATG never accesses your accounts directly; you grant access through your own admin console when needed, and you can revoke it at any time.`,
     milestones: JSON.stringify([
-      { label: "Week 1", description: "Discovery complete, tool plan delivered" },
-      { label: "Week 2–3", description: "First workflow installed and tested" },
-      { label: "Pilot review and next phases", description: suggestedTier === "WHITE_GLOVE" ? "Accept the tested pilot and agree delivery dates for the remaining named workflows, up to 20 in scope" : "Review, refine, and plan next steps" },
+      { label: "Scope confirmation", description: "Confirm agreed deliverables, dependencies, ownership and timing" },
+      { label: "Delivery review", description: "Review agreed deliverables against the written acceptance criteria" },
+      { label: "Handoff", description: "Document the approved handoff and any separately scoped follow-up" },
     ]),
     investment: JSON.stringify({ tier: "Custom engagement", price: "", care: "", notes: "" }),
     acceptanceClause: `By engaging ATG Consulting, you agree to the Terms of Service and Refund Policy at atgconsulting.io/terms and /refunds. ${selfAttestation}`,
