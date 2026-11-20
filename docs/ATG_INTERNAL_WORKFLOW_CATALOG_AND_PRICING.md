@@ -13,6 +13,48 @@
 - **Difficulty:** S = straightforward single-source template/setup; M = standard multiple-step or provider integration; L = complex logic, writes, document/PII risk or multiple systems; XL = uncertain engineering, custom APIs or high-risk multi-system work. Complexity can increase after discovery. Escalate a scope to at least L where it changes customer records, requires sensitive data or consequential external actions.
 - **Support:** Low = likely stable, monthly review generally optional; Medium = external service or rules can drift; High = requires separate release/change management, error monitoring or risk review. These are *potential* support burdens, not promises of ongoing monitoring.
 
+## Approved initial website targets and proposed bundled consulting economics
+
+The founder **approved these initial internal website targets for quotation**, subject to project scope and delivery validation: 1–3 pages **$500–$900**; straightforward five-page website **$900–$1,500**; five-page website plus simple logo refresh **$1,200–$1,900**; complex redesign/migration/integrations **$1,800–$3,500+**. These are **internal target ranges**, not fixed customer prices or a public rate card.
+
+For automation, **sell business capabilities, not a count of prompts or automation credits**. A good bundle includes related workflows sharing access, data models, CRM/contact structure, quality assurance and training. Use a single agreed business result (e.g. new inquiry → qualification → follow-up task) and price the complete production-ready system. Distinguish *guided* (client participates and owns setup steps) from *done-for-you* (ATG configures/tests the scoped implementation inside client-controlled platforms). Never imply ATG hosts, executes or monitors client data from its servers.
+
+### Five common proposal archetypes: initial internal quoting hypotheses
+
+| Engagement | Initial project fee band (USD) | Typical baseline scope (subject to discovery) | Retainer framing |
+| --- | ---: | --- | --- |
+| **1. Website + simple logo refresh** | **$1,200–$1,900** | 5 brochure pages, simple brand refresh, 2 consolidated design revision rounds, accessible/responsive build, basic SEO setup, contact form, agreed deployment and training | No compulsory retainer. Separate hosting and maintenance offer if desired |
+| **2. Website + Guided workflows** | **$1,700–$3,800** | Above web scope + 1–2 S/M workflow implementations coached with customer; shared lead forms/integration count once | Optional maintenance/training |
+| **3. Guided workflows only** | **$600–$1,800** | 1–3 S/M workflows with shared sources, client-owned tools and sessions; high-risk or novel integrations quoted separately | Optional periodic review |
+| **4. DFY website + implemented workflows** | **$3,000–$7,500+** | Web and branding scope + 2–4 related S/M business workflows, ATG-configured and tested with permissions, documentation and handoff; L/XL quoted above band | **Separately contracted** $200–$750+/mo where ongoing maintenance, checks, small changes and responsibility are specified |
+| **5. DFY workflows only** | **$1,800–$5,000+** | 2–4 related S/M workflows or a narrower L implementation, tested in client-controlled platforms and documented | **Separately contracted** $150–$600+/mo depending on maintenance scope |
+
+**These automation and retainer ranges are proposed starting points, not yet validated market rates or user-approved fees.** Packages can exceed the range for custom APIs, regulated data, complex web work, additional locations, integration approvals or extensive content migration. Do not automatically promise four medium workflows for the bottom of a range: quote from the 50-workflow ID and actual hours worksheet.
+
+**Support economics:** price a named monthly deliverable and capacity limit, not a vague commitment to "keep every workflow running." Example $250/mo might cover one scheduled check/review, issue triage and up to one hour of agreed improvements, if it is commercially viable; higher support requires greater capacity. Customer owns monitoring/execution provider; ATG may review client-supplied logs or be given time-limited authorized access under a separately accepted agreement. No unapproved access, indefinite on-call work or automatic subscriptions. Consider a 90-day initial support term **only if explicitly agreed and documented**, not as an assumed default.
+
+### Productized outcome clusters that can be bundled efficiently
+
+| Bundle theme | Candidate workflow IDs | Demonstrable customer outcome | Scoping efficiencies |
+| --- | --- | --- | --- |
+| **Lead Capture & Follow-Up** | 01, 02, 03, 07, 11, 12, 37, 38 | New inquiries are recorded, qualified, assigned and converted to reviewed follow-ups | Reuse contact schema, intake form and client-owned CRM connection |
+| **Local Visibility & Reputation** | 13, 14, 15, 16, 17, 18, 41 | Repeatable social and reputation activity with a single approval process | Reuse brand instructions, editorial calendar and reporting definitions |
+| **Front Office & Scheduling** | 19, 20, 21, 25, 26, 39, 40 | Requests, booking preparation and client onboarding become less manual | Reuse scheduling rules, approved templates, source permissions |
+| **Back-Office Efficiency** | 22, 23, 24, 27, 28, 29 | Faster draft estimates, organized information and reconciled reporting | Reuse customer knowledge and data export structure |
+| **Personal Productivity** | 31–36 | Predictable household planning and reminders | Shared calendar/task setup within owned accounts |
+| **Advanced Systems** | 30, 42–50 | Multi-system automation and monitoring requiring stronger governance | Paid discovery or proof-of-concept first; no flat starter quote |
+
+A bundle theme is **not** a promise to include every referenced workflow. Select the smallest coherent 1–4 workflow pilot based on need and technical difficulty. Several items in a cluster may be mutually exclusive approaches. The estimate must explicitly remove duplicate setup hours and include integration-risk and data-safety checks. For sensitive data or external writes, no automation goes live without appropriately authorized owner approval and tested exceptions.
+
+### Bundled fee calculation (operator workflow)
+
+1. Establish the business goal and a measurable but non-guaranteed baseline. Select catalogue IDs and scope each deliverable, approval gate, input/output and exclusion.
+2. Sum the **unique** implementation effort; remove duplicated CRM, form, AI-platform and identity setup; add QA, discovery, revisions, training, risk and third-party costs.
+3. Apply the same internal realization floor to the combined job; **do not discount below the complete delivery cost** simply to appear competitive.
+4. Present one project fee with line-item workstreams and, where appropriate, an alternate smaller pilot. Bundle savings come from shared implementation work, not an arbitrary 30% markdown.
+5. Price monthly support separately from implementation and describe exact routine checks, update allowance, response window, issue escalation and cancellation terms.
+6. Review the first three paid customer projects against actual hours, exception rates, quote acceptance and maintenance load before treating these range hypotheses as stable.
+
 ## A. Fifty candidate workflows
 
 | # | Area | Workflow deliverable | Difficulty | Baseline implementation hours | Potential support | Primary complexity / QA trigger |
