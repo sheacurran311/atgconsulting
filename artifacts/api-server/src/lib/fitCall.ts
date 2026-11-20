@@ -60,22 +60,28 @@ export function fitCallAgenda(rawIntakeAnswers:string):{
   const brief=buildConsultationBrief(rawIntakeAnswers);
   return {stages:brief.fitCall,missingInformation:brief.missingInformation};
 }
+const milestoneText = z.string().refine(value => value.trim().length > 0);
+const reviewedMilestones = z.array(z.object({
+  label: milestoneText,
+  description: milestoneText,
+}));
+
 /** Delivery preview is internal, derived from exact proposal milestones, not arbitrary AI tasks. */
 export function proposalDeliveryPlan(milestonesRaw:string,scope:string,fitCall:FitCallAnswersType){
-  let milestones:Array<{label:string;description:string}>=[];
-  try{
-    const parsed:unknown=JSON.parse(milestonesRaw);
-    if(Array.isArray(parsed))milestones=parsed.filter((item):item is {label:string;description:string}=>
-      !!item&&typeof item==="object"&&typeof item.label==="string"&&typeof item.description==="string")
-      .slice(0,20).map(item=>({label:item.label.slice(0,160),description:item.description.slice(0,2000)}));
-  }catch{/* malformed draft needs operator review */}
+  let milestones: z.infer<typeof reviewedMilestones> = [];
+  try {
+    const result = reviewedMilestones.safeParse(JSON.parse(milestonesRaw));
+    if (result.success) milestones = result.data;
+  } catch {
+    // Approval requires at least one milestone. Invalid JSON stays editable as a draft.
+  }
   return {
     source:"approved_proposal",
     firstPilot:fitCall.pilot,
     acceptanceCriterion:fitCall.successMetric,
     clientDependencies:fitCall.clientDependencies,
     exclusions:fitCall.exclusions,
-    scope:scope.slice(0,10000),
+    scope,
     milestones:milestones.map((item,index)=>({
       sequence:index+1,title:item.label,deliverable:item.description,
       owner:"ATG + client",status:"not_started" as const,acceptance:"Pending consultant confirmation",
