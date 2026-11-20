@@ -3,6 +3,14 @@
 **Canonical status document:** November 19, 2026  
 **Previous baseline:** [November 15 implementation plan](audits/2026-11-15/ATG-implementation-plan-2026-11-15.md) and [product audit](audits/2026-11-15/ATG-product-audit-2026-11-15.md). Both remain historical evidence, not the current backlog.
 
+## November 20 implementation checkpoint: W3 custom proposals and test payments
+
+The W3 branch adds itemized workstream fees, negotiated USD installments, an approved-version check at client acceptance, and optional Stripe test Checkout with a post-payment invoice per stage. Acceptance and test receipts do not activate a legacy package or change a real client's access. The Phase 5 Replit acceptance window remains pending independently.
+
+For a controlled test, generate Prisma Client and review/apply the additive `QuoteInstallment` table in the designated development database. Keep `BILLING_ENABLED` off. To exercise payments, set `ATG_TEST_QUOTE_PAYMENTS=true`, `ATG_QUOTE_STRIPE_TEST_KEY` to a sandbox secret key, `APP_URL` to the test app, and `ATG_QUOTE_STRIPE_TEST_WEBHOOK_SECRET` to the test endpoint signing secret. Register `/api/stripe/quote-test-webhook` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, and `charge.refunded`. Leave these settings disabled in production.
+
+Review a website + automation quote, approve a balanced payment schedule, accept the displayed revision as the synthetic client, and pay one stage. Check that only that stage is marked paid, repeat the webhook, then refund the test charge and verify its refund status after reloading. Review the generated test invoice in Stripe. Pending follow-up includes operator-issued invoices payable later, post-acceptance change orders, contract-specific delivery access, full Replit build and signed-in sandbox acceptance.
+
 ## Current service scope and implementation checkpoint (November 19, 2026)
 
 **Owner-approved refined offer:** Website and logo design/redesign; AI-powered sales and marketing workflows (prospect research, outreach drafting, follow-up, content planning, qualified lead handling), business process automation, personal AI/productivity workflows, custom websites/web applications/integrations and appropriately scoped mobile work, training and optional fractional technical support. Combined **Complete Business Modernization** is the bespoke offer.
