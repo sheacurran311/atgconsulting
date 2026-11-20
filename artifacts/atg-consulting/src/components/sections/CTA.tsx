@@ -13,7 +13,7 @@ export default function CTA() {
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link to="/intake" className="btn-primary" style={{ fontSize: "15px", padding: "12px 24px" }}>Start your free assessment →</Link>
-          <Link to="/intake" className="btn-secondary-white" style={{ fontSize: "15px", padding: "12px 24px" }}>Discuss a project</Link>
+          <a href="mailto:shea@atgconsulting.io?subject=ATG%20Project%20Inquiry" className="btn-secondary-white" style={{ fontSize: "15px", padding: "12px 24px" }}>Discuss a project</a>
         </div>
         <p className="mt-4 text-xs" style={{ color: "var(--ink-text-3)" }}>Initial assessment and short consultation are free. Paid engagements begin only after you review and accept a tailored proposal.</p>
       </div>
