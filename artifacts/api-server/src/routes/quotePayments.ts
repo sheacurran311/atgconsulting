@@ -48,7 +48,7 @@ router.post("/portal/proposal/:id/installments/:stage/test-checkout", withUser, 
   }
   const metadata = {kind:"atg_test_quote", entryId:entry.id, proposalId:id, attempt:String(entry.attempt)};
   const session = await stripe.checkout.sessions.create({
-    mode:"payment", payment_method_types:["card"], client_reference_id:user.clientId, metadata,
+    mode:"payment", allowed_payment_method_types:["card"], client_reference_id:user.clientId, metadata,
     line_items:[{quantity:1, price_data:{currency:"usd", unit_amount:amountCents, product_data:{name:item.label}}}],
     invoice_creation:{enabled:true, invoice_data:{metadata}}, payment_intent_data:{metadata},
     success_url:APP_URL + "/app/proposal", cancel_url:APP_URL + "/app/proposal",
