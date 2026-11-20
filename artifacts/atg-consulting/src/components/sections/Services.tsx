@@ -1,4 +1,3 @@
-import { Link } from "wouter";
 
 const SERVICES = [
   {
@@ -61,7 +60,7 @@ export default function Services() {
                   <li key={offering} className="text-xs flex gap-2" style={{ color: "var(--canvas-text-2)" }}><span style={{ color: "var(--blue)" }}>✓</span>{offering}</li>
                 ))}
               </ul>
-              <Link to="/intake" className="text-sm font-semibold" style={{ color: "var(--blue)" }}>Discuss this service →</Link>
+              <a href={`mailto:shea@atgconsulting.io?subject=${encodeURIComponent(`ATG Inquiry: ${service.title}`)}`} className="text-sm font-semibold" style={{ color: "var(--blue)" }}>Discuss this service →</a>
             </article>
           ))}
         </div>
@@ -71,7 +70,7 @@ export default function Services() {
             <h3 className="font-extrabold text-xl mb-2" style={{ color: "var(--ink-text)" }}>Complete Business Modernization</h3>
             <p className="text-sm" style={{ color: "var(--ink-text-2)" }}>A new website and brand, smarter sales and marketing workflows, practical AI automation, and a technical partner to bring it together. Every project is tailored to your goals and budget.</p>
           </div>
-          <Link to="/intake" className="btn-primary">Request a proposal →</Link>
+          <a href="mailto:shea@atgconsulting.io?subject=Complete%20Business%20Modernization%20Inquiry" className="btn-primary">Discuss a full-service project →</a>
         </div>
         <p className="text-xs mt-5" style={{ color: "var(--canvas-text-3)" }}>ATG does not manage advertising placements or operate your customer communications on ATG servers. Your systems remain yours, with appropriate review and approval controls.</p>
       </div>
