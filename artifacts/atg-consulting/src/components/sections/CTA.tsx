@@ -1,81 +1,21 @@
 import { Link } from "wouter";
-
 export default function CTA() {
-
-
   return (
-    <section
-      id="cta"
-      className="relative overflow-hidden py-20 sm:py-32"
-      style={{ background: "var(--ink)" }}
-      aria-labelledby="cta-heading"
-    >
-      {/* Subtle grid backdrop */}
+    <section id="cta" className="relative overflow-hidden py-20 sm:py-32" style={{ background: "var(--ink)" }} aria-labelledby="cta-heading">
       <div className="absolute inset-0 bg-dot-dark pointer-events-none" aria-hidden="true" />
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse 60% 80% at 50% 100%, rgba(59,107,255,0.08) 0%, transparent 60%)" }}
-        aria-hidden="true"
-      />
-
       <div className="relative max-w-wide mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <p
-          className="font-mono text-xs font-medium mb-5"
-          style={{ color: "var(--blue)", letterSpacing: "0.1em", textTransform: "uppercase" }}
-        >
-          Ready when you are
-        </p>
-
-        <h2
-          id="cta-heading"
-          className="display-lg"
-          style={{ color: "var(--ink-text)" }}
-        >
-          Spend your time selling,{" "}
-          <span style={{ color: "var(--blue)" }}>not chasing.</span>
+        <p className="font-mono text-xs font-medium mb-5 uppercase" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>Start with a conversation</p>
+        <h2 id="cta-heading" className="display-lg" style={{ color: "var(--ink-text)" }}>
+          Let's make your next project <span style={{ color: "var(--blue)" }}>work better.</span>
         </h2>
-
         <p className="mt-5 text-md max-w-xl mx-auto leading-relaxed" style={{ color: "var(--ink-text-2)" }}>
-          Complete the assessment first. On a free 20-minute fit call, Shea helps you decide whether a
-          Guided or Done-for-you pilot makes sense for your business or household.
+          A website or logo refresh. AI-powered sales and marketing workflows. Something entirely custom. Tell us what you want to accomplish and we'll determine whether ATG is the right partner.
         </p>
-
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <a
-            href="/intake"
-            rel="noopener noreferrer"
-            className="btn-primary"
-            style={{ fontSize: "15px", padding: "12px 24px" }}
-          >
-            Request a fit call
-          </a>
-          <Link to="/intake">
-            <span
-              className="btn-secondary-white"
-              style={{ fontSize: "15px", padding: "12px 24px" }}
-            >
-              Start your free assessment
-            </span>
-          </Link>
+          <Link to="/intake" className="btn-primary" style={{ fontSize: "15px", padding: "12px 24px" }}>Start your free assessment →</Link>
+          <Link to="/intake" className="btn-secondary-white" style={{ fontSize: "15px", padding: "12px 24px" }}>Discuss a project</Link>
         </div>
-        <p className="mt-3 text-xs" style={{ color: "var(--ink-text-3)" }}>
-          Complete the assessment to arrange your fit call.
-        </p>
-
-        <p className="mt-8 text-sm" style={{ color: "var(--ink-text-3)" }}>
-          Prefer to read first?{" "}
-          <a
-            href="/brand/ATG_Consulting_OnePager.pdf"
-            download
-            className="underline transition-colors"
-            style={{ color: "var(--ink-text-2)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "var(--ink-text)")}
-            onMouseLeave={e => (e.currentTarget.style.color = "var(--ink-text-2)")}
-            aria-label="Download the ATG Consulting one-pager PDF"
-          >
-            Download the one-pager
-          </a>
-        </p>
+        <p className="mt-4 text-xs" style={{ color: "var(--ink-text-3)" }}>Initial assessment and short consultation are free. Paid engagements begin only after you review and accept a tailored proposal.</p>
       </div>
     </section>
   );
