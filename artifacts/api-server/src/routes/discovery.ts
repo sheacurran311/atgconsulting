@@ -1,3 +1,5 @@
+import { parseInvestment } from "../lib/clientProposal";
+import { quoteSchema, reviewedInvestment, savedQuote } from "../lib/customQuote";
 /**
  * Discovery intake routes — adaptive, pre-auth intake form.
  *
@@ -939,7 +941,7 @@ const ProposalPatch = z.object({
   scope:           z.string().max(10000).optional(),
   howWeConnect:    z.string().max(10000).optional(),
   milestones:      z.string().max(10000).optional(),
-  investment:      z.string().max(5000).optional(),
+  quote:           quoteSchema.optional(),
   acceptanceClause:z.string().max(5000).optional(),
   expectedUpdatedAt:z.string().datetime(),
 }).strict();
@@ -973,10 +975,11 @@ router.post("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req,
     approverName:      intake.approverName ?? null,
     approverEmail:     intake.approverEmail ?? null,
     approverRole:      intake.approverRole ?? null,
-  }, fitCall?parseFitCallAnswers(fitCall.answersJson):undefined, intake.requestedSessions??undefined);
+  }, fitCall?parseFitCallAnswers(fitCall.answersJson):undefined);
   const { tokensUsed, ...content } = proposalContent;
 
-  const proposalData={...content,fitCallRevision:fitCall?.revision??null};
+  const proposalData = {...content, fitCallRevision: fitCall.revision};
+  if (oldProposal && savedQuote(oldProposal.investment)) proposalData.investment = oldProposal.investment;
   let proposal;
   if(oldProposal){
     const updated=await prisma.discoveryProposal.updateMany({
@@ -1016,7 +1019,8 @@ router.patch("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req
   if(proposal.updatedAt.toISOString()!==parsed.data.expectedUpdatedAt){
     res.status(409).json({error:"Proposal changed since you opened it. Reload before editing."});return;
   }
-  const {expectedUpdatedAt,...changes}=parsed.data;
+  const {expectedUpdatedAt,quote,...draftFields}=parsed.data;
+  const changes = quote ? {...draftFields, investment: JSON.stringify(reviewedInvestment(quote))} : draftFields;
   const update=await prisma.discoveryProposal.updateMany({
     where:{id:proposal.id,status:"draft",updatedAt:proposal.updatedAt},
     data:changes,
@@ -1044,20 +1048,14 @@ router.post("/admin/discovery/:id/proposal/approve", withUser, requireAdmin, asy
   }
   const deliveryPlan=proposalDeliveryPlan(proposal.milestones,proposal.scope,
     parseFitCallAnswers(fitCall?.answersJson));
-  const reviewedInvestment=(()=>{
-    try{
-      const value:unknown=JSON.parse(proposal.investment);
-      if(!value||typeof value!=="object"||Array.isArray(value))return false;
-      const row=value as {tier?:unknown;price?:unknown};
-      return typeof row.tier==="string"&&!!row.tier.trim()&&
-        typeof row.price==="string"&&!!row.price.trim()&&
-        !/\b(from|starting at|confirm|estimate|tbd|to be determined)\b/i.test(row.price);
-    }catch{return false;}
-  })();
+  if (req.body?.expectedUpdatedAt !== proposal.updatedAt.toISOString()) {
+    res.status(409).json({error:"The draft has changed. Reload it and review before approval."}); return;
+  }
+  const hasReviewedQuote = !!savedQuote(proposal.investment);
   if(!proposal.scope.trim()||deliveryPlan.milestones.length===0||
-    !reviewedInvestment||!proposal.acceptanceClause.trim()||
+    !hasReviewedQuote||!proposal.acceptanceClause.trim()||
     !/authoriz/i.test(proposal.acceptanceClause)){
-    res.status(422).json({error:"Review scope, milestones, tier, price and authorized acceptance language before approving."});return;
+    res.status(422).json({error:"Review scope, milestones, balanced USD quote and authorized acceptance language before approving."});return;
   }
   const result=await prisma.discoveryProposal.updateMany({
     where:{id:proposal.id,status:"draft",updatedAt:proposal.updatedAt},
@@ -1176,9 +1174,7 @@ router.get("/admin/discovery/:id/proposal.html", withUser, requireAdmin, async (
   const milestones: { label: string; description: string }[] = (() => {
     try { return JSON.parse(proposal.milestones) as { label: string; description: string }[]; } catch { return []; }
   })();
-  const investment: Record<string, string> = (() => {
-    try { return JSON.parse(proposal.investment) as Record<string, string>; } catch { return {}; }
-  })();
+  const investment = parseInvestment(proposal.investment);
 
   const companyName = answers.find((a) => a.id === "company_name")?.answer ?? intake.contactName ?? "Your Company";
   const html = renderProposalHTML({
@@ -1228,9 +1224,8 @@ export async function generateProposalDraft(
   contactName: string,
   authority?: AuthorityContext,
   fitCallAnswers?: FitCallAnswersType,
-  requestedSessions?: number,
 ): Promise<ProposalContent> {
-  const fallback = buildFallbackProposal(answers, reportDraft, contactName, authority, requestedSessions);
+  const fallback = buildFallbackProposal(answers, reportDraft, contactName, authority);
   const fitCallContext=fitCallAnswers?fitCallPromptContext(fitCallAnswers):"";
   const confirmedScope=fitCallAnswers?[
     "Confirmed fit-call scope checkpoints:",
@@ -1272,7 +1267,7 @@ ${qaSummary}
 
 ${fitCallContext.trim()? "Structured fit-call facts for scope drafting (do not disclose internal process notes in the final document):\\n"+fitCallContext : "No completed fit-call outcome is recorded. Flag unresolved scope."}
 
-Requested Guided package sessions: ${requestedSessions===5?"5 sessions, public price $1,497":requestedSessions===3?"3 sessions, public price $997":"not specified; do not assume a package size"}. For Done-for-You, public pricing starts at $3,500 and final scope-based pricing must be confirmed manually. Do not invent client-specific prices. Any care plan is optional and requires explicit acceptance.
+Pricing and payment schedules are entered by the consultant. Omit all prices, session packages and recurring offers.
 
 ${selfAttestationNote}
 
@@ -1284,7 +1279,7 @@ Return ONLY valid JSON:
   "scope": "Bullet-list description of what ATG will build and deliver. If authority is partial or none, include a note: 'Items marked ⚠ require sign-off from [approver name/role] before access can be granted.'",
   "howWeConnect": "Brief description of how the workflows connect to the client's existing tools",
   "milestones": "[{\\"label\\": \\"Week 1\\", \\"description\\": \\"...\\"}]",
-  "investment": "{\\"tier\\": \\"GUIDED\\", \\"price\\": \\"$997\\", \\"care\\": \\"\\", \\"notes\\": \\"\\"}",
+
   "acceptanceClause": "Acceptance clause ending with the required self-attestation."
 }
 Keep it professional, plain English, no invented stats or outcomes.`;
@@ -1305,7 +1300,7 @@ Keep it professional, plain English, no invented stats or outcomes.`;
       scope:           typeof raw.scope==="string"&&raw.scope.trim() ? raw.scope+(confirmedScope?"\n\n"+confirmedScope:"") : fallback.scope,
       howWeConnect:    raw.howWeConnect    ?? fallback.howWeConnect,
       milestones:      typeof raw.milestones === "string" ? raw.milestones : JSON.stringify(raw.milestones ?? []),
-      investment:      typeof raw.investment === "string" ? raw.investment : JSON.stringify(raw.investment ?? {}),
+      investment:      fallback.investment,
       acceptanceClause:raw.acceptanceClause ?? fallback.acceptanceClause,
       tokensUsed:      completion.usage?.total_tokens ?? 0,
     };
@@ -1314,11 +1309,10 @@ Keep it professional, plain English, no invented stats or outcomes.`;
   }
 }
 
-function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<string, unknown>, contactName: string, authority?: AuthorityContext, requestedSessions?:number): Omit<ProposalContent, "tokensUsed"> {
+function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<string, unknown>, contactName: string, authority?: AuthorityContext): Omit<ProposalContent, "tokensUsed"> {
   const company = answers.find((a) => a.id === "company_name")?.answer ?? "your company";
   const problems = answers.find((a) => a.id === "top_problems")?.answer ?? "the challenges discussed";
   const suggestedTier = (reportDraft.suggestedTier as string | undefined) ?? "GUIDED";
-  const tierPrices: Record<string, string> = { SELF_SERVE: "Free Tools", NONE: "Free Tools", GUIDED: requestedSessions===5?"$1,497":"$997", WHITE_GLOVE: "From $3,500 (confirm exact scoped price)" };
 
   // Authority-aware scope and acceptance
   const authorityNote = (() => {
@@ -1353,7 +1347,7 @@ function buildFallbackProposal(answers: AnsweredQuestion[], reportDraft: Record<
       { label: "Week 2–3", description: "First workflow installed and tested" },
       { label: "Pilot review and next phases", description: suggestedTier === "WHITE_GLOVE" ? "Accept the tested pilot and agree delivery dates for the remaining named workflows, up to 20 in scope" : "Review, refine, and plan next steps" },
     ]),
-    investment: JSON.stringify({ tier: suggestedTier, price: tierPrices[suggestedTier] ?? "$997", care: suggestedTier === "WHITE_GLOVE" ? "$750/mo optional care plan" : "", notes: "All prices in USD." }),
+    investment: JSON.stringify({ tier: "Custom engagement", price: "", care: "", notes: "" }),
     acceptanceClause: `By engaging ATG Consulting, you agree to the Terms of Service and Refund Policy at atgconsulting.io/terms and /refunds. ${selfAttestation}`,
   };
 }
@@ -1441,7 +1435,7 @@ export function renderProposalHTML(params: {
   .investment-tier { font-family: var(--mono); font-size: 11px; color: var(--blue); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
   .investment-price { font-size: 36px; font-weight: 800; letter-spacing: -0.04em; color: var(--ink); }
   .investment-care { font-size: 13px; color: var(--gray); margin-top: 6px; }
-  .investment-notes { font-size: 12px; color: var(--gray); margin-top: 12px; font-family: var(--mono); }
+  .investment-notes { white-space: pre-line; font-size: 12px; color: var(--gray); margin-top: 12px; font-family: var(--mono); }
 
   /* Acceptance */
   .acceptance { margin-top: 64px; border-top: 1px solid var(--border); padding-top: 32px; }
@@ -1534,8 +1528,8 @@ ${milestones.length > 0 ? `
   <div class="section-label">06 — Investment</div>
   <div class="section-title">What it costs</div>
   <div class="investment-box">
-    <div class="investment-tier">${investment.tier ?? "GUIDED"}</div>
-    <div class="investment-price">${investment.price ?? "$997"}</div>
+    <div class="investment-tier">${investment.tier || "Custom engagement"}</div>
+    <div class="investment-price">${investment.price || "Awaiting reviewed quote"}</div>
     ${investment.care ? `<div class="investment-care">${investment.care}</div>` : ""}
     ${investment.notes ? `<div class="investment-notes">${investment.notes}</div>` : ""}
   </div>
