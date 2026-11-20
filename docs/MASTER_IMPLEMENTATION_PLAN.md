@@ -189,6 +189,10 @@ A phase can be merged and build verified while live acceptance remains pending.
 
 ## 4. Immediate acceptance gate: finish Phase 5 proof without expanding scope
 
+**November 20 Phase 5 checkpoint.** The delivery snapshot now preserves every valid milestone and its full label and deliverable. Approval rejects a list containing an incomplete milestone. Both regression cases failed before the fix. All 14 focused fit-call, consultation-brief and client-proposal tests passed locally after the fix. Replit schema, authenticated UI and paid-test-client acceptance are still pending.
+
+In the designated development database, the read-only preflight in [phase5-schema-check.sql](verification/phase5-schema-check.sql) checks that PostgreSQL can resolve the columns used by the Phase 5 routes. Run it with the project database connection and `psql -X -v ON_ERROR_STOP=1 -f docs/verification/phase5-schema-check.sql`. Confirm the reported database and schema match the intended development target. A pass establishes column availability only. Record migration history and backup confirmation separately.
+
 This is an acceptance gate, not a new connector development phase. When a controlled Replit testing window is available:
 
 1. Verify deployment `main` and the correct target Postgres database. Confirm a backup. Apply the reviewed additive migration through the established process only if not already applied; record schema post-state.
