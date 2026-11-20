@@ -8,6 +8,7 @@ const navLinks = [
   { label: "Services", href: "/#services" },
   { label: "How it works", href: "/#how-it-works" },
   { label: "About", href: "/#about" },
+  { label: "Pricing FAQ", href: "/#faq" },
 ];
 
 interface Props { onPalette: () => void }
@@ -73,7 +74,7 @@ export default function Nav({ onPalette }: Props) {
               <a href={`${basePath}/sign-in`} className="px-3 py-1.5 rounded-md text-sm font-medium" style={{ color: "var(--ink-text-2)" }}>Sign in</a>
             )}
             <Link to="/intake">
-              <span className="btn-primary text-sm" style={{ padding: "8px 16px" }}>Map my workflow</span>
+              <span className="btn-primary text-sm" style={{ padding: "8px 16px" }}>Start free assessment</span>
             </Link>
           </div>
 
