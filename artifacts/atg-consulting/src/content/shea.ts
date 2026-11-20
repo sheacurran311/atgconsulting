@@ -1,32 +1,22 @@
-/**
- * Shea content file — edit this to update the founder section across the site.
- * All text here appears on marketing pages and in the client Workbench.
- * Do not include fabricated credentials, testimonials, or statistics.
- */
-
+/** Founder content shared by the marketing site and Workbench. No invented client results. */
 export const SHEA = {
   name: "Shea Curran",
-  title: "Founder, ATG Consulting",
-  location: "Colorado, USA",
-  photo: "/brand/shea.jpg",       // Replace with real photo before launch
-  initials: "SC",                 // Monogram fallback if photo is missing
-  // Short first-person note shown on the marketing page:
-  note: `I started ATG because I kept watching people I care about spend their best hours on work that shouldn't require a person at all. Returning calls, chasing quotes, reposting the same content, typing the same email — these tasks are real, they take real time, and AI can handle them if the setup matches how you work.
+  title: "Founder & Principal Consultant | Technology & AI",
+  location: "Castle Rock, Colorado · Serving clients nationwide",
+  photo: "/brand/shea.jpg",
+  initials: "SC",
+  note: `I've spent more than 12 years working in sales, business development and partnerships. Over the years, I've also built and improved websites, worked across go-to-market strategy, and developed increasingly sophisticated software and AI-powered systems.
 
-On Self-serve you get a reviewed plan and run the workflows yourself. On Guided we set them up together. On Done-for-you I run them, and you approve what goes out.`,
+My own technology projects include Fandomly.AI, TruDeF.AI and AgentSEO.guru. Building them reinforced something important: technology only creates value when it solves a real problem and people know how to use it.
 
-  // What changes by tier. Shown on the marketing page, so it must not describe Done-for-you as every plan.
+ATG combines that commercial perspective with hands-on website design, AI workflow implementation and custom development. I help you decide what actually needs fixing, build or configure the right solution, test it, and explain how to manage it after handoff.`,
   whatSheaDoesMarketing: [
-    { step: "Reviews your intake", detail: "On every plan, Shea reads the intake before a diagnosis or report reaches you." },
-    { step: "Self-serve", detail: "You follow the setup guides in your own tools. Shea does not connect your accounts." },
-    { step: "Guided", detail: "Shea joins you on live calls and walks through setup with you." },
-    { step: "Done-for-you", detail: "She designs the workflow, connects the tools you approve, and keeps it running. You approve what goes out." },
-    { step: "Stays available", detail: "Email support on Self-serve. A message thread on Guided. Monthly tuning on Done-for-you." },
+    { step: "Understand the problem", detail: "We talk about your business or personal goals, current tools, bottlenecks, and what a useful outcome looks like." },
+    { step: "Recommend the right approach", detail: "Sometimes it's a website or logo redesign. Sometimes it's an AI-powered process, a custom tool, or training." },
+    { step: "Provide a clear proposal", detail: "You receive a scoped fee, deliverables, timeline, dependencies and acceptance criteria before authorizing paid work." },
+    { step: "Build and test", detail: "ATG designs, configures or develops the agreed solution, with appropriate reviews and permission boundaries." },
+    { step: "Teach and hand off", detail: "You keep control of your accounts and know how to use, adjust or pause your systems. Ongoing support is optional." },
   ],
-
-  // Short line used in the Workbench operator panel:
-  workbenchTagline: "You approve what goes out. Shea's role follows the plan on your account.",
-
-  // Shown in the chat thread / message CTA:
-  messagePlaceholder: "Ask Shea about your workflows, request a change, or flag something that doesn't look right…",
+  workbenchTagline: "Your tools, your approvals. ATG helps you plan and implement.",
+  messagePlaceholder: "Ask about your project, request a change, or flag something that needs attention…",
 };

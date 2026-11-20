@@ -4,14 +4,14 @@
  */
 export default function ChatVsATG() {
   const rows = [
-    { label: "How it works",   chat: "You ask → it answers",           atg: "It runs → you approve" },
-    { label: "Starting point", chat: "Blank page, you prompt",          atg: "Designed workflow, runs on a schedule" },
-    { label: "Your tools",     chat: "Copy-paste between apps",         atg: "Works inside your existing tools" },
-    { label: "Frequency",      chat: "On-demand only",                  atg: "Scheduled, consistent, measurable" },
-    { label: "Setup",          chat: "You figure out the prompts",      atg: "Shea designs and sets it up for you" },
-    { label: "Portability",    chat: "Tied to one chat interface",       atg: "Export any workflow as a SKILL.md, run in Grok Bot or Claude" },
-    { label: "Support",        chat: "Community forums or self-help",   atg: "Email (self-serve) or direct with Shea (guided/DFY)" },
-    { label: "A person",       chat: "No one to call",                  atg: "Shea — who knows your work or household" },
+    { label: "Core value", chat: "Flexible AI tools that answer and can execute tasks", atg: "A consultant diagnoses, designs, tests and documents the right solution" },
+    { label: "Starting point", chat: "Your own prompts or connected apps", atg: "Your goals, systems and acceptance criteria" },
+    { label: "Your tools", chat: "You choose and authorize integrations", atg: "Setup and guidance in customer-owned systems" },
+    { label: "Automation", chat: "You configure tools, triggers and permissions", atg: "ATG helps configure and test your automations" },
+    { label: "Implementation", chat: "Self-directed or app-assisted", atg: "Hands-on configuration, development and QA" },
+    { label: "Portability", chat: "Depends on the tool and integration", atg: "Client-owned accounts, documented handoff and portable skills where supported" },
+    { label: "Support", chat: "Varies by platform and subscription", atg: "Scoped consultant training or ongoing support" },
+    { label: "Commercial experience", chat: "General-purpose technology", atg: "Sales, partnerships and hands-on product-building experience" },
   ];
 
   return (
@@ -25,14 +25,14 @@ export default function ChatVsATG() {
         <div className="max-w-2xl mb-10">
           <p className="eyebrow mb-3">Why not just use ChatGPT?</p>
           <h2 id="compare-heading" className="section-heading mb-4" style={{ color: "var(--canvas-text)" }}>
-            A chat waits for you.{" "}
-            <span style={{ color: "var(--blue)" }}>A workflow runs for you.</span>
+            AI gives you powerful tools.{" "}
+            <span style={{ color: "var(--blue)" }}>ATG helps put them to work.</span>
           </h2>
           <p className="text-base leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>
-            ChatGPT, Claude, and Grok are excellent tools — and they can connect to apps, write emails,
-            and do a lot. The difference is that ATG builds a <em>designed workflow</em> around your
-            work or household, runs it on a schedule, and hands you finished work to approve. You
-            don&apos;t have to prompt it, manage it, or think about it.
+            ChatGPT, Claude, and Grok can already help with research, writing and connected actions.
+            ATG adds business diagnosis, website and software development, workflow configuration,
+            testing and hands-on training. Your AI automations run within platforms you authorize,
+            not through ATG operating your accounts.
           </p>
         </div>
 
@@ -46,8 +46,8 @@ export default function ChatVsATG() {
                   <p className="font-semibold text-sm mt-0.5" style={{ color: "var(--canvas-text)", letterSpacing: "-0.01em" }}>ChatGPT, Claude, Grok…</p>
                 </th>
                 <th className="px-5 py-4 text-left" style={{ background: "rgba(59,107,255,0.04)" }}>
-                  <span className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>ATG WORKBENCH</span>
-                  <p className="font-semibold text-sm mt-0.5" style={{ color: "var(--canvas-text)", letterSpacing: "-0.01em" }}>Designed by Shea, runs for you</p>
+                  <span className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>ATG CONSULTING</span>
+                  <p className="font-semibold text-sm mt-0.5" style={{ color: "var(--canvas-text)", letterSpacing: "-0.01em" }}>Designed, tested and taught by a consultant</p>
                 </th>
               </tr>
             </thead>
@@ -75,7 +75,7 @@ export default function ChatVsATG() {
         </div>
 
         <p className="mt-5 text-xs" style={{ color: "var(--canvas-text-3)" }}>
-          ATG uses AI tools internally to power your workflows — we just design them, set them up, and run them so you don&apos;t have to.
+          ATG is a consulting and implementation service, not a separate execution platform for your emails or calendar. We configure workflows in systems you control and agree on appropriate approvals before they run.
         </p>
       </div>
     </section>

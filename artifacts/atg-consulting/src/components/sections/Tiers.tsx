@@ -1,213 +1,32 @@
 import { Link } from "wouter";
 
-const BOOKING_URL = typeof window !== "undefined"
-  ? (import.meta.env.VITE_BOOKING_URL as string ?? "/intake")
-  : "/intake";
-
-const TIERS = [
-  {
-    id: "self",
-    mono: "FREE TOOLS",
-    name: "Free Tools",
-    tagline: "Practical AI and workflow tools for small business owners, at no cost.",
-    sheaRole: "Self-guided tools. Hands-on consulting is optional.",
-    sheaDetail: "Complete the free assessment, explore introductory diagnostics, and use self-guided workflow resources in your own accounts. When you want a tailored roadmap or implementation help, upgrade to Guided or Done-for-You consulting.",
-    price: "Free",
-    cta: "Explore free tools",
-    ctaHref: "/intake",
-    external: false,
-    includes: [
-      "Free AI readiness and workflow opportunity assessment",
-      "Introductory business and website diagnostics when available",
-      "A clear path to Guided consulting and Do-It-For-You services",
-    ],
-    notIncluded: ["Private consulting or implementation", "Managed SEO monitoring or recurring operations"],
-  },
-  {
-    id: "guided",
-    mono: "GUIDED",
-    name: "Guided",
-    tagline: "A package of live 1:1 sessions with Shea.",
-    sheaRole: "Shea builds with you, directly.",
-    sheaDetail: "A consultant-reviewed assessment, plus Shea joins you on live calls to guide the full install of your tools and workflows — screen-share, walk-through, and hands-on configuration. Sessions recorded with your consent so you get a recap. Ongoing check-ins and updated reports as your business changes.",
-    price: "$997",
-    priceNote: "3 × 90-min sessions",
-    priceAlt: "$1,497 for 5 sessions",
-    cta: "Book a session",
-    ctaHref: "/intake?tier=guided&sessions=3",
-    external: false,
-    featured: true,
-    includes: [
-      "Free tools plus a consultant-reviewed implementation plan",
-      "3 × 90-min 1:1 sessions with Shea (or 5 × for $1,497)",
-      "Screen-share setup: your tools, your AI platform, your workflows",
-      "Session recordings (with your consent) — recap available after each call",
-      "Direct message thread with Shea between sessions",
-      "Updated/regenerated reports as your situation changes",
-    ],
-    notIncluded: ["Shea runs or monitors workflows for you after setup"],
-  },
-  {
-    id: "dfy",
-    mono: "DONE-FOR-YOU",
-    name: "Done-for-you",
-    tagline: "A tested setup in your accounts, with a human behind it.",
-    sheaRole: "Shea is your operator.",
-    sheaDetail: "Up to 20 agreed workflows and automations configured and tested in your own platforms. White-glove discovery, prioritized deployment in phases, an operating guide, acceptance tests, training, and handoff. Agree the named workflows, complexity, and delivery schedule in writing. By application — limited spots. Optional $750/mo care is scoped separately for checks, recovery, and tuning; it is not automatic monitoring by the ATG app.",
-    price: "From $3,500",
-    priceNote: "By application only",
-    cta: "Apply",
-    ctaHref: "/intake?tier=done_for_you",
-    external: false,
-    badge: "Limited spots",
-    includes: [
-      "Up to 20 workflows and automations for work, personal logistics, or both",
-      "White-glove discovery, phased installation, testing, and training",
-      "A client-specific implementation list and portable operating guide",
-      "You approve every output before it's used",
-      "Thirty-day pilot review; ongoing service levels agreed separately",
-      "Optional $750/mo care plan",
-    ],
-  },
-];
+const ENGAGEMENTS = [
+  { name: "Start with a Conversation", eyebrow: "FREE FIRST STEP", copy: "Tell us what you want to improve, whether it's a website, logo, lead-generation workflow, business process or personal project. We identify the right next step together.", points: ["Free initial assessment", "Short discovery conversation", "Clear next-step recommendation"], cta: "Start a free assessment" },
+  { name: "A Project Built for You", eyebrow: "CUSTOM PROPOSAL", copy: "We scope the work around what you actually need. You receive a reviewed proposal explaining deliverables, costs, timeline, dependencies and what successful completion means.", points: ["Website, branding, AI or combined scope", "Transparent, negotiated project quote", "Agreed milestones, testing and handoff"], cta: "Discuss a project" },
+  { name: "A Technical Partner", eyebrow: "ONGOING WHEN NEEDED", copy: "If you want help after the launch, we can separately scope website maintenance, workflow improvements, training or ongoing technical guidance. No automatic care subscription.", points: ["Optional support arrangement", "Defined responsibilities and availability", "Your accounts and tools stay in your control"], cta: "Ask about support" },
+] as const;
 
 export default function Tiers() {
   return (
-    <section
-      id="tiers"
-      className="py-16 sm:py-24"
-      style={{ background: "var(--canvas-2)", borderTop: "1px solid var(--canvas-border)" }}
-      aria-labelledby="tiers-heading"
-    >
+    <section id="tiers" className="py-16 sm:py-24" style={{ background: "var(--canvas-2)", borderTop: "1px solid var(--canvas-border)" }} aria-labelledby="tiers-heading">
       <div className="max-w-wide mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-12">
-          <p className="eyebrow mb-3">Three ways to work with Shea</p>
-          <h2 id="tiers-heading" className="section-heading mb-3" style={{ color: "var(--canvas-text)" }}>
-            Your plan, your level of involvement.
-          </h2>
-          <p className="text-base" style={{ color: "var(--canvas-text-2)" }}>
-            Start with free tools, or choose a paid consulting package. Guided refund terms apply to unused sessions.{" "}
-            <Link to="/refunds"><span className="underline" style={{ color: "var(--blue-btn)" }}>See refund policy →</span></Link>
-          </p>
-        </div>
-
+        <p className="eyebrow mb-3">How to work with ATG</p>
+        <h2 id="tiers-heading" className="section-heading mb-4" style={{ color: "var(--canvas-text)" }}>The right solution. <span style={{ color: "var(--blue)" }}>A clear proposal.</span></h2>
+        <p className="text-base max-w-3xl mb-9" style={{ color: "var(--canvas-text-2)" }}>
+          Every project is different. We don't ask you to purchase a preset number of sessions or automations before understanding your needs. We'll provide an agreed scope and quote before any paid work begins.
+        </p>
         <div className="grid md:grid-cols-3 gap-5">
-          {TIERS.map((t) => (
-            <div
-              key={t.id}
-              className="relative flex flex-col rounded-xl overflow-hidden"
-              style={t.featured
-                ? { background: "var(--ink)", border: "1px solid var(--ink-border)", boxShadow: "0 0 0 1px rgba(59,107,255,0.15), 0 24px 48px rgba(0,0,0,0.3)" }
-                : { background: "var(--canvas-1)", border: "1px solid var(--canvas-border)" }}
-            >
-              {t.badge && (
-                <div className="absolute top-4 right-4">
-                  <span
-                    className="font-mono text-2xs font-bold px-2 py-1 rounded"
-                    style={t.featured
-                      ? { background: "rgba(59,107,255,0.15)", color: "var(--blue)", letterSpacing: "0.08em" }
-                      : { background: "var(--canvas-2)", color: "var(--canvas-text-3)", letterSpacing: "0.08em" }}
-                  >
-                    {t.badge.toUpperCase()}
-                  </span>
-                </div>
-              )}
-              <div className="flex flex-col flex-1 p-6">
-                <span className="font-mono text-2xs font-bold mb-3" style={{ color: t.featured ? "var(--blue)" : "var(--canvas-text-3)", letterSpacing: "0.1em" }}>{t.mono}</span>
-                <h3 className="font-extrabold text-xl mb-1" style={{ color: t.featured ? "var(--ink-text)" : "var(--canvas-text)", letterSpacing: "-0.025em" }}>{t.name}</h3>
-                <p className="text-sm mb-4" style={{ color: t.featured ? "var(--ink-text-2)" : "var(--canvas-text-2)" }}>{t.tagline}</p>
-
-                {/* Shea's involvement */}
-                <div className="rounded-lg p-3 mb-4" style={{ background: t.featured ? "rgba(59,107,255,0.12)" : "var(--canvas-2)", border: `1px solid ${t.featured ? "rgba(59,107,255,0.25)" : "var(--canvas-border)"}` }}>
-                  <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>SHEA&apos;S ROLE</p>
-                  <p className="font-semibold text-xs mb-1" style={{ color: t.featured ? "var(--ink-text)" : "var(--canvas-text)" }}>{t.sheaRole}</p>
-                  <p className="text-xs leading-relaxed" style={{ color: t.featured ? "var(--ink-text-2)" : "var(--canvas-text-2)" }}>{t.sheaDetail}</p>
-                </div>
-
-                {/* Price block */}
-                <div className="mb-5">
-                  <div className="flex items-baseline gap-2 flex-wrap">
-                    <p className="font-extrabold text-2xl" style={{ color: t.featured ? "var(--blue)" : "var(--canvas-text)", letterSpacing: "-0.025em" }}>
-                      {t.price}
-                    </p>
-                    {"priceStrike" in t && (
-                      <p className="text-sm line-through" style={{ color: t.featured ? "rgba(255,255,255,0.4)" : "var(--canvas-text-3)" }}>
-                        {(t as { priceStrike: string }).priceStrike}
-                      </p>
-                    )}
-                    {"priceNote" in t && (
-                      <span className="font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: t.featured ? "rgba(255,255,255,0.1)" : "var(--canvas-2)", color: t.featured ? "rgba(255,255,255,0.7)" : "var(--canvas-text-3)", letterSpacing: "0.05em" }}>
-                        {(t as { priceNote: string }).priceNote}
-                      </span>
-                    )}
-                  </div>
-                  {"priceAlt" in t && (
-                    <p className="text-xs mt-1" style={{ color: t.featured ? "rgba(255,255,255,0.6)" : "var(--canvas-text-3)" }}>
-                      or {(t as { priceAlt: string }).priceAlt}
-                    </p>
-                  )}
-                </div>
-
-                <ul className="space-y-2 flex-1 mb-6">
-                  {t.includes.map((f) => (
-                    <li key={f} className="flex gap-2.5 text-xs">
-                      <svg className="flex-shrink-0 w-4 h-4 mt-0.5" style={{ color: "var(--blue)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span style={{ color: t.featured ? "var(--ink-text-2)" : "var(--canvas-text-2)" }}>{f}</span>
-                    </li>
-                  ))}
-                  {t.notIncluded?.map((f) => (
-                    <li key={f} className="flex gap-2.5 text-xs">
-                      <span className="flex-shrink-0 w-4 h-4 mt-0.5 flex items-center justify-center text-xs" style={{ color: "var(--canvas-text-3)" }} aria-hidden="true">—</span>
-                      <span style={{ color: "var(--canvas-text-3)" }}>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {t.external ? (
-                  <div>
-                    <a
-                      href={t.ctaHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-primary w-full justify-center text-sm"
-                    >
-                      {t.cta}
-                    </a>
-                    <p className="text-xs mt-2 text-center" style={{ color: t.featured ? "rgba(255,255,255,0.6)" : "var(--canvas-text-3)" }}>
-                      Opens Shea's booking page outside this site.
-                    </p>
-                    <Link to="/intake?tier=guided&sessions=3">
-                      <span className="block text-center text-xs mt-2 underline" style={{ color: "var(--blue)" }}>
-                        Or start a Guided intake (3 sessions)
-                      </span>
-                    </Link>
-                    <Link to="/intake?tier=guided&sessions=5">
-                      <span className="block text-center text-xs mt-1 underline" style={{ color: "var(--blue)" }}>
-                        Start a Guided intake (5 sessions)
-                      </span>
-                    </Link>
-                  </div>
-                ) : (
-                  <Link to={t.ctaHref}>
-                    <span className="btn-primary w-full justify-center text-sm" style={!t.featured ? { background: "var(--canvas-text)", color: "var(--canvas-1)" } : {}}>
-                      {t.cta}
-                    </span>
-                  </Link>
-                )}
-              </div>
+          {ENGAGEMENTS.map((item) => (
+            <div key={item.name} className="flex flex-col rounded-xl p-6" style={{ background: "var(--canvas-1)", border: "1px solid var(--canvas-border)" }}>
+              <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)" }}>{item.eyebrow}</p>
+              <h3 className="font-extrabold text-xl mb-3" style={{ color: "var(--canvas-text)" }}>{item.name}</h3>
+              <p className="text-sm mb-5" style={{ color: "var(--canvas-text-2)" }}>{item.copy}</p>
+              <ul className="space-y-2 flex-1 mb-6">{item.points.map((point) => <li key={point} className="text-xs flex gap-2" style={{ color: "var(--canvas-text-2)" }}><span style={{ color: "var(--blue)" }}>✓</span>{point}</li>)}</ul>
+              {item.eyebrow === "FREE FIRST STEP" ? <Link to="/intake" className="btn-primary w-full justify-center text-sm">{item.cta} →</Link> : <a href="mailto:shea@atgconsulting.io?subject=ATG%20Consulting%20Inquiry" className="btn-primary w-full justify-center text-sm">{item.cta} →</a>}
             </div>
           ))}
         </div>
-
-        <p className="mt-8 text-xs text-center" style={{ color: "var(--canvas-text-3)" }}>
-          Done-for-you is by application only. Limited spots — a waitlist opens when capacity is full.
-          Optional $750/mo care plan available after setup.
-          All prices are USD.{" "}
-          <Link to="/refunds"><span className="underline">30-day refund policy</span></Link>{" · "}
-          <Link to="/terms"><span className="underline">Terms</span></Link>
-        </p>
+        <p className="text-xs text-center mt-6" style={{ color: "var(--canvas-text-3)" }}>Costs depend on scope, complexity and deliverables. Third-party hosting, software and usage fees are identified in your proposal.</p>
       </div>
     </section>
   );

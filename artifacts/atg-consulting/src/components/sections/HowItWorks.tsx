@@ -5,36 +5,11 @@
 import { useEffect, useRef, useState } from "react";
 
 const STEPS = [
-  {
-    n: "01",
-    cmd: "intake",
-    desc: "Choose the work or household tasks that cost you time. Each choice opens relevant follow-ups. No tech background required.",
-    note: "→ async · no call needed yet",
-  },
-  {
-    n: "02",
-    cmd: "snapshot",
-    desc: "Shea reviews your intake and prepares a preliminary picture of your situation — where you are, and where AI can save the most time.",
-    note: "→ human-reviewed · not generated and forgotten",
-  },
-  {
-    n: "03",
-    cmd: "design session",
-    desc: "You and Shea map the exact workflow on a 1:1 call. He explains what he will build, which tools, and what each step does.",
-    note: "→ you stay in control of every decision",
-  },
-  {
-    n: "04",
-    cmd: "install, test & hand off",
-    desc: "For an installation engagement, Shea configures the pilot in your accounts, tests it with approved examples, and hands over an operating guide.",
-    note: "→ confirm acceptance and agree the care scope",
-  },
-  {
-    n: "05",
-    cmd: "you review output",
-    desc: "Every message is a draft you approve. Every workflow surfaces work for your 5-minute review. You keep full control.",
-    note: "→ nothing sends without your sign-off by default",
-  },
+  { n: "01", cmd: "tell us your goals", desc: "Share what you want to improve: a website, logo, business process, sales and marketing workflow, custom application or personal routine.", note: "→ free initial assessment" },
+  { n: "02", cmd: "discovery", desc: "We discuss your current systems, priorities, constraints and what an achievable first result should look like.", note: "→ short introductory consultation" },
+  { n: "03", cmd: "proposal", desc: "ATG prepares a tailored scope, deliverables, timeline and quoted fee. You decide whether to proceed before any paid work begins.", note: "→ explicit agreement and authorization" },
+  { n: "04", cmd: "build and verify", desc: "We implement the agreed website, integration or AI workflow, testing important behavior and keeping you involved in approvals.", note: "→ milestones and acceptance checks" },
+  { n: "05", cmd: "train and hand off", desc: "You receive the agreed documentation and guidance to use what was built. Optional ongoing help is quoted separately.", note: "→ ownership and control stay with you" },
 ];
 
 function Step({ step, index }: { step: typeof STEPS[0]; index: number }) {
@@ -109,17 +84,15 @@ export default function HowItWorks() {
               <span style={{ color: "var(--blue)" }}>start to finish.</span>
             </h2>
             <p className="text-base leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>
-              Shea designs the workflow with you, then builds and runs it. You don&apos;t
-              need to learn a tool, manage a vendor, or figure out a prompt. You
-              review what comes out.
+              ATG starts with your goals, then recommends, builds and tests what makes sense. You get a clearly defined engagement, practical guidance, and ownership of your systems.
             </p>
 
             {/* Principles */}
             <div className="mt-8 space-y-3">
               {[
-                ["You stay in control", "Every output is a draft you review before it goes anywhere."],
-                ["We use what fits you", "Tools chosen for your stack, budget, and comfort level."],
-                ["We tune it until it works", "30-day adjustment period. Not a handoff and goodbye."],
+                ["You stay in control", "We establish appropriate permissions, review points and ownership before implementation."],
+                ["We use what fits you", "The right website platform, application or AI tool depends on your needs, budget and existing systems."],
+                ["We define what done means", "Testing, revisions, acceptance and any ongoing support are agreed in the project scope."],
               ].map(([title, body]) => (
                 <div key={title} className="flex gap-3">
                   <span className="font-mono text-xs mt-0.5 flex-shrink-0" style={{ color: "var(--blue)" }}>›</span>

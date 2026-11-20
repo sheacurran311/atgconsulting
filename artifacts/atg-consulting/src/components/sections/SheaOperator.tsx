@@ -72,8 +72,8 @@ export default function SheaOperator() {
 
             {/* Positioning line */}
             <p className="font-semibold text-lg mb-5" style={{ color: "var(--ink-text)", letterSpacing: "-0.02em", lineHeight: "1.4" }}>
-              Software that runs your workflows,{" "}
-              <span style={{ color: "var(--blue)" }}>plus a person who designs them with you.</span>
+              Commercial experience meets hands-on development.{" "}
+              <span style={{ color: "var(--blue)" }}>From websites and branding to AI that works for you.</span>
             </p>
 
             {/* First-person note */}
@@ -93,23 +93,23 @@ export default function SheaOperator() {
                 className="btn-primary"
                 style={{ fontSize: "15px", padding: "12px 22px" }}
               >
-                Request a fit call
+                Discuss your project
               </a>
               <Link to="/intake">
                 <span className="btn-secondary-white" style={{ fontSize: "15px", padding: "12px 22px" }}>
-                  Map my workflow
+                  Start free assessment
                 </span>
               </Link>
             </div>
             <p className="text-xs mt-3" style={{ color: "var(--ink-text-3)" }}>
-              Opens an external booking page.
+              Start with the free assessment to request a conversation.
             </p>
           </div>
 
           {/* Right: what Shea does */}
           <div>
             <p className="font-mono text-2xs mb-6" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>
-              WHAT CHANGES BY PLAN
+              HOW ATG WORKS WITH YOU
             </p>
 
             <div className="space-y-0">
@@ -138,12 +138,12 @@ export default function SheaOperator() {
               className="rounded-xl p-4 mt-2"
               style={{ background: "var(--ink-2)", border: "1px solid var(--ink-border)" }}
             >
-              <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>THE PRODUCT</p>
+              <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>THE APPROACH</p>
               <p className="text-sm font-medium" style={{ color: "var(--ink-text)", letterSpacing: "-0.01em" }}>
-                ATG Workbench = the workflows <span style={{ color: "var(--blue)" }}>+</span> Shea
+                Your goals <span style={{ color: "var(--blue)" }}>+</span> strategy <span style={{ color: "var(--blue)" }}>+</span> hands-on implementation
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--ink-text-2)" }}>
-                The software drafts the work. You approve it. Shea&apos;s role follows the plan you choose.
+                ATG helps you choose and implement the right tools, then hands over a tested, documented solution.
               </p>
             </div>
           </div>
