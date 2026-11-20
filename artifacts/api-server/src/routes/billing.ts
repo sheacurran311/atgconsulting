@@ -2,16 +2,15 @@
  * Billing routes — Stripe Checkout, Customer Portal, and Webhook.
  * Everything behind BILLING_ENABLED=true guard.
  *
- * POST /api/billing/checkout       — create Checkout session (auth required, client required)
+ * POST /api/billing/checkout       — retired fixed-price route, always 410
  * GET  /api/billing/portal         — customer portal link
  * POST /api/stripe/webhook         — Stripe webhook (raw body, signature verified, idempotent)
  */
 
 import { Router, type Request, type Response } from "express";
-import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, type AuthedRequest } from "../lib/auth";
-import { isBillingEnabled, getStripe, getPriceId, getDfyMonthlyPriceId, priceEnvKey, APP_URL, type CheckoutTier, type GuidedPriceSize } from "../lib/stripe";
+import { isBillingEnabled, getStripe, getDfyMonthlyPriceId, APP_URL, type CheckoutTier } from "../lib/stripe";
 import { guidedPackageSize } from "../lib/guidedPackage";
 import { isDfySubscription, subscriptionClientStatus } from "../lib/subscription";
 import type Stripe from "stripe";
@@ -30,89 +29,16 @@ function billingCheck(res: Response): boolean {
 
 // ── Create Checkout session ───────────────────────────────────────────────────
 
-const CheckoutSchema = z.object({
-  tier: z.enum(["GUIDED", "WHITE_GLOVE"]),
-});
-
-router.post("/billing/checkout", withUser, requireAuth, async (req, res) => {
-  if (!billingCheck(res)) return;
-  const user = (req as AuthedRequest).atgUser!;
-  if (!user.clientId) { res.status(422).json({ error: "Complete the intake and save your plan before purchasing." }); return; }
-
-  const parsed = CheckoutSchema.safeParse(req.body);
-  if (!parsed.success) { res.status(422).json({ error: "tier is required.", issues: parsed.error.flatten() }); return; }
-
-  const { tier } = parsed.data;
-
-  // Done-for-you requires admin approval first
-  if (tier === "WHITE_GLOVE") {
-    const app = await prisma.dfyApplication.findUnique({ where: { clientId: user.clientId } });
-    if (!app || app.status !== "accepted") {
-      res.status(403).json({ error: "Done-for-you requires an approved application. Apply via the intake form." });
-      return;
-    }
-  }
-
-  let guidedSessions: GuidedPriceSize | undefined;
-  if (tier === "GUIDED") {
-    const intake = await prisma.discoveryIntake.findFirst({
-      where: { clientId: user.clientId },
-      orderBy: { createdAt: "desc" },
-      select: { requestedSessions: true },
-    });
-    guidedSessions = guidedPackageSize({ requestedSessions: intake?.requestedSessions ?? null });
-  }
-
-  const priceId = getPriceId(tier as CheckoutTier, guidedSessions);
-  if (!priceId) {
-    const envKey = priceEnvKey(tier as CheckoutTier, guidedSessions);
-    res.status(422).json({ error: `${guidedSessions === 5 ? "5-session " : ""}Price ID not configured for ${tier}. Set ${envKey} in env.` });
-    return;
-  }
-
-  const stripe = getStripe();
-  const client = await prisma.client.findUnique({ where: { id: user.clientId }, include: { user: true } });
-
-  // Get or create Stripe customer
-  let customerId = client?.stripeCustomerId;
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: user.email ?? undefined,
-      name: user.name ?? undefined,
-      metadata: { clientId: user.clientId, userId: user.id },
-    });
-    customerId = customer.id;
-    await prisma.client.update({ where: { id: user.clientId }, data: { stripeCustomerId: customerId } });
-  }
-
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{ price: priceId, quantity: 1 }];
-
-  // DFY also adds a monthly subscription
-  const dfyMonthlyPriceId = tier === "WHITE_GLOVE" ? getDfyMonthlyPriceId() : null;
-  if (dfyMonthlyPriceId) {
-    lineItems.push({ price: dfyMonthlyPriceId, quantity: 1 });
-  }
-
-  const mode: Stripe.Checkout.SessionCreateParams["mode"] = dfyMonthlyPriceId ? "subscription" : "payment";
-
-  const metadata: Record<string, string> = {
-    clientId: user.clientId,
-    tier,
-    priceId,
-    ...(guidedSessions ? { guidedSessions: String(guidedSessions) } : {}),
-  };
-
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    mode,
-    line_items: lineItems,
-    success_url: `${APP_URL}/app/account?checkout=success`,
-    cancel_url: `${APP_URL}/app/account?checkout=cancelled`,
-    metadata,
-    ...(mode === "payment" ? { payment_intent_data: { metadata } } : {}),
+// Fixed-price package checkout is retired for new engagements. Keep the route
+// explicitly closed even if billing is enabled, to protect old deep links and
+// API consumers while proposal-specific invoices are implemented and tested.
+// Preserve signed Stripe webhooks and the existing customer portal below.
+router.post("/billing/checkout", (_req, res) => {
+  res.status(410).json({
+    error: "Fixed-price checkout is no longer available. Start with a consultation and an approved custom proposal.",
+    code: "CONSULTATION_REQUIRED",
+    next: "/intake",
   });
-
-  res.json({ url: session.url });
 });
 
 // ── Customer Portal ───────────────────────────────────────────────────────────
