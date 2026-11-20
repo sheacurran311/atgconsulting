@@ -1,5 +1,6 @@
 import Hero from "@/components/sections/Hero";
 import Services from "@/components/sections/Services";
+import GrowthWorkflowScroll from "@/components/sections/GrowthWorkflowScroll";
 import WhoWeHelp from "@/components/sections/WhoWeHelp";
 import HowItWorks from "@/components/sections/HowItWorks";
 import SheaOperator from "@/components/sections/SheaOperator";
@@ -14,6 +15,7 @@ export default function HomePage() {
     <>
       <Hero />
       <Services />
+      <GrowthWorkflowScroll />
       <WhoWeHelp />
       <HowItWorks />
       <SheaOperator />
