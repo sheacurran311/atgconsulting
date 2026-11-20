@@ -39,6 +39,7 @@ const SERVICES = [
 ] as const;
 
 export default function Services() {
+  const reducedMotion = useReducedMotion();
   return (
     <section id="services" className="section-pad" style={{ background: "var(--canvas-1)" }} aria-labelledby="services-heading">
       <div className="max-w-wide mx-auto px-4 sm:px-6 lg:px-8">
@@ -50,8 +51,8 @@ export default function Services() {
           </p>
         </div>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {SERVICES.map((service) => (
-            <article key={service.title} className="rounded-xl p-6 flex flex-col" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas)" }}>
+          {SERVICES.map((service, index) => (
+            <motion.article key={service.title} initial={reducedMotion ? false : { opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} transition={{ duration: 0.52, delay: reducedMotion ? 0 : (index % 3) * 0.1 }} className="rounded-xl p-6 flex flex-col" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas)" }}>
               <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>{service.marker}</p>
               <h3 className="font-extrabold text-xl mb-3" style={{ color: "var(--canvas-text)" }}>{service.title}</h3>
               <p className="text-sm leading-relaxed mb-5" style={{ color: "var(--canvas-text-2)" }}>{service.description}</p>
@@ -61,7 +62,7 @@ export default function Services() {
                 ))}
               </ul>
               <a href={`mailto:shea@atgconsulting.io?subject=${encodeURIComponent(`ATG Inquiry: ${service.title}`)}`} className="text-sm font-semibold" style={{ color: "var(--blue)" }}>Discuss this service →</a>
-            </article>
+            </motion.article>
           ))}
         </div>
         <div className="rounded-xl mt-6 p-6 sm:p-8 grid md:grid-cols-[1fr_auto] gap-6 items-center" style={{ background: "var(--ink)", border: "1px solid var(--ink-border)" }}>
