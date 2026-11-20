@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { motion, useReducedMotion } from "framer-motion";
 import LogoMark from "@/components/LogoMark";
 
 const EXAMPLES = [
@@ -8,6 +9,7 @@ const EXAMPLES = [
 ] as const;
 
 export default function Hero() {
+  const reducedMotion = useReducedMotion();
   return (
     <section className="relative overflow-hidden" style={{ background: "var(--ink)" }} aria-labelledby="hero-heading">
       <div className="absolute inset-0 bg-dot-dark pointer-events-none" aria-hidden="true" />
@@ -18,7 +20,7 @@ export default function Hero() {
           <span className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>LOCAL ROOTS · NATIONWIDE REACH</span>
         </div>
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          <div>
+          <motion.div initial={reducedMotion ? false : { opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75, ease: "easeOut" }}>
             <p className="font-mono text-xs mb-5 uppercase" style={{ color: "var(--blue)", letterSpacing: "0.12em" }}>Websites · Design · AI · Automation</p>
             <h1 id="hero-heading" className="display-xl mb-6" style={{ color: "var(--ink-text)" }}>
               Your business. <span style={{ color: "var(--blue)" }}>Modernized.</span>
@@ -36,8 +38,8 @@ export default function Hero() {
             <p className="text-xs mt-5" style={{ color: "var(--ink-text-3)" }}>
               Free initial consultation · Tailored proposals · No predetermined packages
             </p>
-          </div>
-          <div className="rounded-xl overflow-hidden" style={{ background: "var(--ink-1)", border: "1px solid var(--ink-border)" }}>
+          </motion.div>
+          <motion.div initial={reducedMotion ? false : { opacity: 0, x: 44, scale: 0.97 }} animate={{ opacity: 1, x: 0, scale: 1 }} transition={{ duration: 0.85, delay: 0.15, ease: "easeOut" }} className="rounded-xl overflow-hidden" style={{ background: "var(--ink-1)", border: "1px solid var(--ink-border)" }}>
             <div className="px-5 py-3 flex items-center justify-between" style={{ background: "var(--ink-2)", borderBottom: "1px solid var(--ink-border)" }}>
               <span className="font-mono text-2xs" style={{ color: "var(--ink-text-3)" }}>WHAT WE CAN BUILD TOGETHER</span>
               <span className="font-mono text-2xs" style={{ color: "var(--blue)" }}>EXAMPLES</span>
@@ -55,7 +57,7 @@ export default function Hero() {
               ))}
               <p className="text-xs" style={{ color: "var(--ink-text-3)" }}>Every engagement is scoped to your needs. Your accounts, permissions, and approvals stay under your control.</p>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
