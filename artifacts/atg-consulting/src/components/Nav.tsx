@@ -6,6 +6,7 @@ import LogoLockup from "./LogoLockup";
 
 const navLinks = [
   { label: "Services", href: "/#services" },
+  { label: "See it in action", href: "/#growth-workflow" },
   { label: "How it works", href: "/#how-it-works" },
   { label: "About", href: "/#about" },
   { label: "Pricing FAQ", href: "/#faq" },
