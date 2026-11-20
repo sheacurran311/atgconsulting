@@ -1,3 +1,4 @@
+import { motion, useReducedMotion } from "framer-motion";
 
 const SERVICES = [
   {
