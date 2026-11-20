@@ -15,6 +15,16 @@
 
 **Interim inquiry path:** The existing `/intake` workflow is still oriented around AI assessment/tier fields. A direct contact method for website/branding leads is required until the approved service-intent branching is completed. Avoid silently encoding `tier=guided` or `sessions=3` for new consultations.
 
+## Approved web targets and bundled automation scoping (November 19, 2026)
+
+**Owner-approved initial internal website bands:** 1–3-page fast-track $500–$900, standard five-page $900–$1,500, five-page with simple logo refresh $1,200–$1,900, complex redesign/migration/integrations $1,800–$3,500+. These are target quote ranges, not fixed public price cards; detailed scope and profitable delivery remain mandatory.
+
+**AI implementation direction:** Package related workflows around a *customer business outcome* and share setup costs. Do not sell the illusion that each prompt is a product. Our 50-workflow difficulty catalog drives internal estimates and keeps individual projects, guided coaching, and DFY ownership distinct. Five proposed combined pricing archetypes and support fee hypotheses are in [the internal catalog](ATG_INTERNAL_WORKFLOW_CATALOG_AND_PRICING.md); **those automation and retainer bands remain pending explicit owner approval and real project calibration.**
+
+**The five engagement options** are website/logo alone; website/logo plus Guided workflows; Guided workflows alone; DFY website/logo plus implemented workflows and separately contracted monthly service; and DFY workflows only with separately contracted service. Each quote must name actual workflow IDs, distinct workstreams, client-owned integrations, approval gates, revisions, training, acceptance tests, support limits and third-party costs. No monthly retainer is automatically created by completing an implementation. Price bundled services from verified shared work, not an across-the-board discount.
+
+**First commercial pilot recommendation:** target a one-outcome system such as local inbound inquiry → qualification → CRM/task queue → approved follow-up for businesses with a website. This demonstrates cross-service synergy but requires explicit customer-owned accounts, data rights, consent and a verified workflow run before claiming ROI.
+
 ## Internal workflow catalog and revised competitive pricing assumptions (November 19, 2026)
 
 **Authoritative internal estimating reference:** [ATG Internal Workflow Catalog and Pricing Model](ATG_INTERNAL_WORKFLOW_CATALOG_AND_PRICING.md). It contains **50 candidate workflows** graded S/M/L/XL with baseline implementation-hour estimates, support risk, integration/QA dependencies, pricing calculation guidance and the five approved common consulting engagement types.
