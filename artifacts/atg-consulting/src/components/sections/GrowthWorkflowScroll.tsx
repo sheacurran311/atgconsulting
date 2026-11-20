@@ -5,7 +5,7 @@
  */
 import { useRef, useState } from "react";
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { ArrowDown, ArrowRight, Check, CircleCheck, Compass, Globe2, MailCheck, MousePointerClick, Radar, Search, Sparkles, Workflow } from "lucide-react";
+import { ArrowDown, ArrowRight, Check, CircleCheck, Compass, Globe2, MailCheck, MousePointerClick, Radar, Search, Sparkles, Workflow, type LucideIcon } from "lucide-react";
 import { Link } from "wouter";
 
 const outbound = [
@@ -22,7 +22,7 @@ const inbound = [
 
 function ExampleLane({ kind, cards, active }: {
   kind: "outbound" | "inbound";
-  cards: typeof outbound | typeof inbound;
+  cards: ReadonlyArray<{ step: string; title: string; detail: string; label: string; Icon: LucideIcon }>;
   active: number;
 }) {
   const accent = kind === "outbound" ? "#6b9bff" : "#a78bfa";
@@ -88,8 +88,8 @@ export default function GrowthWorkflowScroll() {
   const stage = reducedMotion ? 2 : active;
 
   return (
-    <section ref={sectionRef} id="growth-workflow" className="relative" style={{ height: reducedMotion ? "auto" : "245vh", background: "#080d1a" }} aria-labelledby="growth-workflow-heading">
-      <div className="relative lg:sticky lg:top-0 lg:h-screen lg:min-h-[720px] overflow-hidden">
+    <section ref={sectionRef} id="growth-workflow" className={reducedMotion ? "relative" : "relative lg:h-[245vh]"} style={{ background: "#080d1a" }} aria-labelledby="growth-workflow-heading">
+      <div className={reducedMotion ? "relative overflow-hidden" : "relative lg:sticky lg:top-0 lg:h-screen lg:min-h-[720px] overflow-hidden"}>
         <div aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 50% 48%, rgba(40,90,201,0.20), transparent 56%), linear-gradient(120deg, rgba(63,96,212,0.05), rgba(136,67,242,0.08))" }} />
         {!reducedMotion && (
           <motion.div aria-hidden="true" className="absolute pointer-events-none rounded-full" style={{ width: "32rem", height: "32rem", left: "calc(50% - 16rem)", top: "calc(50% - 16rem)", background: "radial-gradient(circle, rgba(70,115,255,0.26), rgba(123,72,240,0.10) 42%, transparent 70%)", scale: glowScale, opacity: glowOpacity, filter: "blur(18px)" }} />
