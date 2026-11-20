@@ -1,152 +1,59 @@
-/**
- * Hero — "We build the AI workflows. You get the hours back."
- * Shows the shipped product: ready-made workflows across business types.
- * Grouped by business need; approval-first; portable as skills.
- * Shea is visibly the operator. No invented stats or testimonials.
- */
-import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import LogoMark from "@/components/LogoMark";
-import { VERTICALS } from "@/content/verticals";
 
-
-// One representative workflow per vertical for the hero demo
-const VERTICAL_DEMOS = VERTICALS.map((v) => ({
-  id: v.id,
-  label: v.label,
-  workflowName: v.workflows[0]?.name ?? "Workflow",
-  what: v.workflows[0]?.what ?? "",
-  area: v.workflows[0]?.area ?? "sales",
-}));
+const EXAMPLES = [
+  { label: "Website & brand", title: "Make a stronger first impression", description: "A modern website and visual identity designed around your customers, content, and business goals.", steps: ["Review the existing site and customer journey", "Define design, content and migration scope", "Build, test and launch with a clear handoff"] },
+  { label: "Sales & marketing", title: "Make your follow-up repeatable", description: "AI-assisted lead research, prospect qualification, outreach drafts and approval-controlled follow-up in your own tools.", steps: ["Map where opportunities come from", "Configure the right workflow and safeguards", "Test with examples before activating it"] },
+  { label: "Personal workflows", title: "Make everyday technology useful", description: "Practical systems for planning, personal organization and repetitive tasks, configured with your permission.", steps: ["Identify the recurring pain points", "Choose tools that fit your routine", "Learn to adjust, pause or improve the setup"] },
+] as const;
 
 export default function Hero() {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const demo = VERTICAL_DEMOS[activeIdx]!;
-
-  useEffect(() => {
-    const id = setInterval(() => setActiveIdx((i) => (i + 1) % VERTICAL_DEMOS.length), 6000);
-    return () => clearInterval(id);
-  }, []);
-
   return (
-    <section
-      className="relative overflow-hidden"
-      style={{ background: "var(--ink)", minHeight: "88vh" }}
-      aria-labelledby="hero-heading"
-    >
+    <section className="relative overflow-hidden" style={{ background: "var(--ink)" }} aria-labelledby="hero-heading">
       <div className="absolute inset-0 bg-dot-dark pointer-events-none" aria-hidden="true" />
-      <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(59,107,255,0.07) 0%, transparent 70%)" }} aria-hidden="true" />
-
-      <div className="relative max-w-wide mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-10 sm:pt-20">
-        {/* Eyebrow */}
-        <div className="flex items-center gap-3 mb-8">
-          <LogoMark variant="dark" size={18} aria-hidden blink />
-          <span className="font-mono text-2xs" style={{ color: "var(--ink-text-3)", letterSpacing: "0.08em" }}>ATG CONSULTING · Colorado, USA</span>
-          <span className="w-px h-3" style={{ background: "var(--ink-border)" }} aria-hidden="true" />
-          <span className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>YOU APPROVE WHAT GOES OUT</span>
+      <div className="relative max-w-wide mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 sm:pt-24 sm:pb-28">
+        <div className="flex flex-wrap items-center gap-3 mb-9">
+          <LogoMark variant="dark" size={19} aria-hidden blink />
+          <span className="font-mono text-2xs" style={{ color: "var(--ink-text-3)", letterSpacing: "0.08em" }}>ATG CONSULTING · CASTLE ROCK, COLORADO</span>
+          <span className="font-mono text-2xs" style={{ color: "var(--blue)", letterSpacing: "0.06em" }}>LOCAL ROOTS · NATIONWIDE REACH</span>
         </div>
-
-        <div className="grid lg:grid-cols-2 gap-12 items-start">
-          {/* Left: headline + CTA */}
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <div>
-            <h1 id="hero-heading" className="display-xl mb-5" style={{ color: "var(--ink-text)" }}>
-              We build the AI workflows.{" "}
-              <span style={{ color: "var(--blue)" }}>You get the hours back.</span>
+            <p className="font-mono text-xs mb-5 uppercase" style={{ color: "var(--blue)", letterSpacing: "0.12em" }}>Websites · Design · AI · Automation</p>
+            <h1 id="hero-heading" className="display-xl mb-6" style={{ color: "var(--ink-text)" }}>
+              Your business. <span style={{ color: "var(--blue)" }}>Modernized.</span>
             </h1>
-
-            <p className="text-md leading-relaxed mb-4" style={{ color: "var(--ink-text-2)", maxWidth: "480px" }}>
-              ATG helps home services, trades, and growing businesses use practical AI for lead follow-ups, estimates, scheduling, marketing, and repetitive administration.
-              Start with Free Tools to find opportunities. Choose Guided consulting to implement workflows alongside ATG,
-              or Done-for-you for an agreed, managed setup in your own accounts. Automation permissions and approvals are defined for each workflow.
+            <p className="text-lg leading-relaxed mb-5" style={{ color: "var(--ink-text-2)", maxWidth: "570px" }}>
+              Better websites, sharper branding, and practical AI-powered workflows. ATG helps businesses and individuals design, build, and use technology that makes everyday work easier.
             </p>
-
-            <div className="space-y-2 mb-7">
-              {[
-                "Approval-first — you decide which actions need review",
-                "Portable — take any workflow as a skill into Grok Bot or Claude",
-                "Three options — start with Free Tools, build together, or delegate implementation",
-              ].map((point) => (
-                <p key={point} className="flex gap-2 text-sm" style={{ color: "var(--ink-text-2)" }}>
-                  <span style={{ color: "var(--blue)" }}>›</span>
-                  {point}
-                </p>
-              ))}
+            <p className="text-sm leading-relaxed mb-8" style={{ color: "var(--ink-text-2)", maxWidth: "550px" }}>
+              Don't just ask AI what to do. Put it to work, with hands-on consulting, carefully configured tools, and a clear path from idea to implementation.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link to="/intake" className="btn-primary" style={{ fontSize: "15px", padding: "12px 22px" }}>Start a free assessment →</Link>
+              <Link to="/intake" className="btn-secondary-white" style={{ fontSize: "15px", padding: "12px 22px" }}>Discuss your project</Link>
             </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link to={`/intake?vertical=${encodeURIComponent(demo.id)}`}>
-                <span className="btn-primary" style={{ fontSize: "15px", padding: "12px 22px" }}>
-                  Start your free assessment →
-                </span>
-              </Link>
-              <a
-                href="/intake"
-                rel="noopener noreferrer"
-                className="btn-secondary-white"
-                style={{ fontSize: "15px", padding: "12px 22px" }}
-              >
-                Request a fit call
-              </a>
-            </div>
-
-            <p className="font-mono text-2xs mt-5" style={{ color: "var(--ink-text-3)" }}>
-              No tech background needed · Works with tools you already use ·{" "}
-              <kbd className="px-1 py-0.5 rounded" style={{ background: "var(--ink-3)", border: "1px solid var(--ink-border)" }}>⌘K</kbd>
-              {" "}to navigate
+            <p className="text-xs mt-5" style={{ color: "var(--ink-text-3)" }}>
+              Free initial consultation · Tailored proposals · No predetermined packages
             </p>
           </div>
-
-          {/* Right: vertical selector + workflow preview */}
-          <div>
-            <p className="font-mono text-2xs mb-2" style={{ color: "var(--ink-text-3)", letterSpacing: "0.08em" }}>
-              PICK YOUR BUSINESS TYPE
-            </p>
-            <div className="flex flex-wrap gap-1.5 mb-4">
-              {VERTICAL_DEMOS.map((v, i) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setActiveIdx(i)}
-                  className="text-xs font-medium px-2.5 py-1.5 rounded-md transition-all"
-                  style={{
-                    background: i === activeIdx ? "rgba(59,107,255,0.15)" : "var(--ink-2)",
-                    border: `1px solid ${i === activeIdx ? "var(--blue)" : "var(--ink-border)"}`,
-                    color: i === activeIdx ? "var(--blue)" : "var(--ink-text-2)",
-                    transitionDuration: "120ms",
-                  }}
-                >
-                  {v.label}
-                </button>
-              ))}
+          <div className="rounded-xl overflow-hidden" style={{ background: "var(--ink-1)", border: "1px solid var(--ink-border)" }}>
+            <div className="px-5 py-3 flex items-center justify-between" style={{ background: "var(--ink-2)", borderBottom: "1px solid var(--ink-border)" }}>
+              <span className="font-mono text-2xs" style={{ color: "var(--ink-text-3)" }}>WHAT WE CAN BUILD TOGETHER</span>
+              <span className="font-mono text-2xs" style={{ color: "var(--blue)" }}>EXAMPLES</span>
             </div>
-
-            {/* Workflow preview card */}
-            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--ink-border)", background: "var(--ink-1)" }}>
-              <div className="flex items-center gap-1.5 px-4 py-2.5" style={{ background: "var(--ink-2)", borderBottom: "1px solid var(--ink-border)" }}>
-                <LogoMark variant="dark" size={14} aria-hidden blink />
-                <span className="font-mono text-2xs ml-1" style={{ color: "var(--ink-text-3)" }}>
-                  {demo.label.toLowerCase().replace(/ /g, "-")}.workflow
-                </span>
-                <span className="ml-auto font-mono text-2xs px-1.5 py-0.5 rounded" style={{ background: "rgba(59,107,255,0.1)", color: "var(--blue)", letterSpacing: "0.06em" }}>EXAMPLE</span>
-              </div>
-              <div className="p-5">
-                <p className="font-mono text-2xs mb-1" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>
-                  {demo.area.replace("_", " ").toUpperCase()} · APPROVAL REQUIRED
-                </p>
-                <p className="font-extrabold text-base mb-2" style={{ color: "var(--ink-text)", letterSpacing: "-0.02em" }}>
-                  {demo.workflowName}
-                </p>
-                <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--ink-text-2)" }}>
-                  {demo.what}
-                </p>
-                <div className="rounded-lg p-3 font-mono text-xs" style={{ background: "var(--ink-3)", border: "1px solid var(--ink-border)" }}>
-                  <p className="mb-1" style={{ color: "var(--blue)", opacity: 0.6, fontSize: "10px", letterSpacing: "0.06em" }}>RUN LOG · EXAMPLE</p>
-                  <p style={{ color: "var(--ink-text-2)" }}>› Workflow triggered on schedule</p>
-                  <p style={{ color: "var(--ink-text-2)" }}>› Output prepared for your review</p>
-                  <p style={{ color: "var(--blue)", fontWeight: 600 }}>✓ Reviewed by Shea</p>
-                  <p style={{ color: "var(--ink-text-2)" }}>› Landed in your inbox · awaiting approval</p>
+            <div className="p-5 sm:p-6 space-y-5">
+              {EXAMPLES.map((example) => (
+                <div key={example.label} className="rounded-lg p-4" style={{ background: "var(--ink-2)", border: "1px solid var(--ink-border)" }}>
+                  <span className="font-mono text-2xs uppercase" style={{ color: "var(--blue)" }}>{example.label}</span>
+                  <h2 className="text-base font-extrabold mt-1 mb-1" style={{ color: "var(--ink-text)" }}>{example.title}</h2>
+                  <p className="text-xs leading-relaxed" style={{ color: "var(--ink-text-2)" }}>{example.description}</p>
+                  <ul className="mt-3 space-y-1">
+                    {example.steps.map((step) => <li key={step} className="text-xs" style={{ color: "var(--ink-text-3)" }}>› {step}</li>)}
+                  </ul>
                 </div>
-              </div>
+              ))}
+              <p className="text-xs" style={{ color: "var(--ink-text-3)" }}>Every engagement is scoped to your needs. Your accounts, permissions, and approvals stay under your control.</p>
             </div>
           </div>
         </div>
