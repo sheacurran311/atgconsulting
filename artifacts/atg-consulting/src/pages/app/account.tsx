@@ -154,7 +154,7 @@ export default function AccountPage() {
               )}
             </div>
             {tier === "NONE" && (
-              <Link to="/#tiers"><span className="btn-secondary text-sm py-2 px-3">View plans</span></Link>
+              <Link to="/#tiers"><span className="btn-secondary text-sm py-2 px-3">Discuss services</span></Link>
             )}
           </div>
           {billingEnabled && (tier === "GUIDED" || tier === "WHITE_GLOVE") && (
@@ -173,7 +173,7 @@ export default function AccountPage() {
           )}
           {!billingEnabled && (
             <p className="text-xs" style={{ color: "var(--canvas-text-3)" }}>
-              Set <code style={{ fontFamily: "var(--font-mono)" }}>BILLING_ENABLED=true</code> in Replit Secrets and configure Stripe to enable billing.
+              Paid consulting is quoted individually after discovery. No checkout is available until you have accepted a tailored proposal.
             </p>
           )}
         </Section>
