@@ -22,6 +22,24 @@
 - Existing site-wide legal/refunds pages and older downloaded PDF collateral still require a review for legacy package terms before soliciting a paid custom engagement. Removed the stale one-pager download from the homepage footer but have **not** deleted the file.
 - No live visual review or production publishing.
 
+## Scroll animation and visual design additions
+
+The current branch adds `GrowthWorkflowScroll.tsx` to the homepage immediately after the services grid. It is an **illustrative, user-controlled scroll animation** of two parallel pathways:
+- **Outbound:** prospect discovery → qualification → reviewed follow-up
+- **Inbound:** website → SEO/AEO-ready content → conversion path
+
+It includes blue/purple stage emphasis, scroll progress, a linked central visual, clear CTA, motion-aware entrance and section reveal animations on the homepage hero and service cards. Uses existing **Framer Motion + Lucide** dependencies, with no new video service or animation package. It never displays invented traffic, rankings, campaign conversions or live customer records.
+
+**Required manual visual tests before merge/deployment:**
+1. On a desktop browser (e.g. 1440×900), scroll slowly through the two-column section and check synchronized active steps, progress fill, sticky behavior, top/bottom exit and no jumps. Also test a short 1366×768 viewport and browser zoom at 125–200%.
+2. On a narrow phone viewport (375×667), confirm the story reads in normal page flow without a 245vh blank zone, horizontal scrolling, clipped CTA or illegible text.
+3. With `prefers-reduced-motion: reduce`, verify all steps remain readable, sticky multi-screen behavior is removed and animations do not loop.
+4. Verify color contrast for dimmed stages, keyboard navigation, screen reader heading order, focus visibility, and that no motion conceals essential content.
+5. Inspect 60fps responsiveness, page jank and CPU usage on low-end mobile; do not release if sticky motion/blur materially slows navigation. Reduce glow/blur complexity if necessary.
+6. Click the new CTA and verify the actual assessment route; confirm SEO/AEO wording does not imply guaranteed ranking or that ATG sends outreach from its own servers.
+
+**Current status:** Changes committed to PR #73 only. Source exists, but UI snapshots, TypeScript checks, and Replit production build are **not confirmed**.
+
 ## One consolidated Replit verification pass
 
 After reviewing/merging PR #73 and pulling GitHub main into Replit, execute from the repository root:
