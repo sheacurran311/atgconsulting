@@ -9,6 +9,7 @@ type Contract={
  clientDependencies:string;exclusions:string;scope:string;milestones:Milestone[];
 };
 type DeliveryResponse={
+ kickoff?:{workstreams:{label:string;amount:string}[];installments:{label:string;amount:string;testStatus:string|null}[]}|null;
  contract:Contract;acceptedAt:string|null;fitCallRevision:number|null;approvedProposalUpdatedAt:string;
 };
 export default function DeliveryContractPanel({intakeId}:{intakeId:string}){
@@ -30,6 +31,13 @@ export default function DeliveryContractPanel({intakeId}:{intakeId:string}){
   {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
   {value&&<>
    <p className="text-xs font-semibold">{value.acceptedAt?"Client acceptance is recorded.":"Proposal approved by ATG. Client acceptance has not been recorded."}</p>
+   {value.kickoff && <section aria-label="Accepted project handoff" className="space-y-3">
+    <h4 className="font-bold">Accepted project handoff</h4>
+    <h5 className="text-sm font-semibold">Workstreams</h5>
+    <ul>{value.kickoff.workstreams.map((row,i)=><li key={i}>{row.label} · USD {row.amount}</li>)}</ul>
+    <h5 className="text-sm font-semibold">Agreed payment schedule</h5>
+    <ul>{value.kickoff.installments.map((row,i)=><li key={i}>{row.label} · USD {row.amount}{row.testStatus && <small> · Stripe test mode: {row.testStatus}</small>}</li>)}</ul>
+   </section>}
    {value.contract.firstPilot&&<p className="text-sm"><strong>First pilot:</strong> {value.contract.firstPilot}</p>}
    {value.contract.acceptanceCriterion&&<p className="text-sm"><strong>Acceptance criterion:</strong> {value.contract.acceptanceCriterion}</p>}
    {value.contract.clientDependencies&&<p className="text-sm"><strong>Client dependencies:</strong> {value.contract.clientDependencies}</p>}
