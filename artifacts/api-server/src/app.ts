@@ -1,3 +1,4 @@
+import { quoteTestWebhook } from "./routes/quotePayments";
 import express, { type Express } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -71,6 +72,7 @@ app.use(cors({
 }));
 // Stripe webhook requires raw body BEFORE express.json() is applied.
 // Must be registered before the main json middleware.
+app.post("/api/stripe/quote-test-webhook", express.raw({ type: "application/json" }), quoteTestWebhook);
 app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), stripeWebhookHandler);
 app.use("/api/admin/clients/:id/playbook/:pbId/deployment", deploymentBodyParser);
 app.use(express.json());

@@ -1287,3 +1287,19 @@ model AtgProspect {
   updatedAt    DateTime @updatedAt
   @@index([status, updatedAt])
 }
+
+/// Test-mode one-time payments, one ledger row per accepted quote installment.
+model QuoteInstallment {
+  id          String   @id @default(cuid())
+  proposalId  String
+  stage       Int
+  clientId    String
+  amountCents Int
+  attempt     Int      @default(1)
+  attemptedAt DateTime @default(now())
+  sessionId   String?  @unique
+  invoiceId   String?
+  refundedCents Int @default(0)
+  paidAt      DateTime?
+  @@unique([proposalId, stage])
+}

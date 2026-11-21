@@ -1,3 +1,4 @@
+import quotePayments from "./quotePayments";
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import clientDeploymentRouter from "./client-deployment";
@@ -60,6 +61,7 @@ router.use(tiersRouter);
 router.use(playbookRouter);
 router.use(sessionsRouter);
 router.use(billingRouter);
+router.use(quotePayments);
 router.use(workflowTemplatesRouter);
 router.use(skillsRouter);
 router.use(skills2Router);

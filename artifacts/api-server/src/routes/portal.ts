@@ -1,3 +1,5 @@
+import { savedQuote } from "../lib/customQuote";
+import { testPaymentsEnabled } from "../lib/quotePayments";
 import { legacyAssessmentFor } from "../lib/assessmentPresence";
 /**
  * Portal onboarding and personalization routes.
@@ -137,9 +139,19 @@ router.get("/portal/proposal", resolve, requireAuth, async (req, res) => {
   }
 
   const intake = intakes.find((i) => i.id === proposal.discoveryIntakeId);
+  const stages = testPaymentsEnabled() ? savedQuote(proposal.investment)?.installments ?? [] : [];
+  const payments = stages.length && proposal.acceptedAt ? await prisma.quoteInstallment.findMany({
+    where:{proposalId:proposal.id, clientId:user.clientId}, select:{stage:true, paidAt:true, refundedCents:true},
+  }) : [];
   res.json({
     state,
-    proposal: toClientProposal(proposal, intake?.contactName ?? null),
+    proposal: {
+      ...toClientProposal(proposal, intake?.contactName ?? null),
+      testInstallments: stages.map((item, stage) => {
+        const payment = payments.find(row => row.stage === stage);
+        return {...item, status:payment?.refundedCents ? 'Refund recorded' : payment?.paidAt ? 'Paid' : 'Unpaid'};
+      }),
+    },
   });
 });
 
@@ -162,15 +174,22 @@ router.post("/portal/proposal/accept", resolve, requireAuth, async (req, res) =>
     orderBy: { approvedAt: "desc" },
   });
   if (!proposal) { res.status(404).json({ error: "No approved proposal to accept." }); return; }
+  const requiresVersion = !!savedQuote(proposal.investment) || req.body?.proposalId !== undefined;
+  if (requiresVersion && (req.body?.proposalId !== proposal.id || req.body?.approvedAt !== proposal.approvedAt?.toISOString())) {
+    res.status(409).json({error:"The approved proposal changed. Reload and review before accepting."});
+    return;
+  }
   if (proposal.acceptedAt) {
     res.json({ ok: true, acceptedAt: proposal.acceptedAt, acceptedByName: proposal.acceptedByName });
     return;
   }
   const name = user.name ?? intakes.find((i) => i.id === proposal.discoveryIntakeId)?.contactName ?? "Client";
-  const updated = await prisma.discoveryProposal.update({
-    where: { id: proposal.id },
+  await prisma.discoveryProposal.updateMany({
+    where: { id: proposal.id, approvedAt: proposal.approvedAt, acceptedAt: null, status: { in: ["approved", "portal_published"] } },
     data: { acceptedAt: new Date(), acceptedByName: name },
   });
+  const updated = await prisma.discoveryProposal.findUniqueOrThrow({ where: {id: proposal.id} });
+  if (!updated.acceptedAt) { res.status(409).json({error:"Reload the current proposal."}); return; }
   res.json({ ok: true, acceptedAt: updated.acceptedAt, acceptedByName: updated.acceptedByName });
 });
 

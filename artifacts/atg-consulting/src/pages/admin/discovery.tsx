@@ -335,7 +335,7 @@ export default function AdminDiscoveryPage() {
     setApproving(true);setGenerationError("");
     try {
       const result=await adminJson<{ok:boolean;proposal:ProposalRow}>(
-        `/api/admin/discovery/${selected.id}/proposal/approve`,{method:"POST"});
+        `/api/admin/discovery/${selected.id}/proposal/approve`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({expectedUpdatedAt:proposal?.updatedAt})});
       if(!result.ok||!result.proposal)throw new Error("Approval was not confirmed by the server.");
       setProposal(result.proposal);
       setGenerationNotice("Proposal approved. The delivery scope snapshot is now locked.");
@@ -841,7 +841,7 @@ export default function AdminDiscoveryPage() {
                   ) : null)}
                   <div>
                     <p className="font-mono text-2xs mb-1" style={{ color: "var(--canvas-text-3)", letterSpacing: "0.06em" }}>INVESTMENT</p>
-                    <p style={{ color: "var(--canvas-text)", fontFamily: "var(--font-mono)", fontSize: "12px" }}>{proposal.investment}</p>
+                    <p style={{ color: "var(--canvas-text)", fontFamily: "var(--font-mono)", fontSize: "12px", whiteSpace:"pre-line" }}>{(() => { try { const value=JSON.parse(proposal.investment); return [value.price,value.notes].filter(Boolean).join("\n") || "Awaiting custom quote"; } catch { return "Awaiting custom quote"; } })()}</p>
                   </div>
                 </div>
               </div>

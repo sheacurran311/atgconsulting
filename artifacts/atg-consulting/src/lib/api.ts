@@ -596,6 +596,7 @@ export interface PortalStatus {
 }
 
 export interface ClientProposal {
+  testInstallments?: {label:string;amount:string;status:string}[];
   id: string;
   status: string;
   approvedAt: string | null;
@@ -627,7 +628,8 @@ export interface AccessLogEntry {
 export const portalApi = {
   status:      () => get<PortalStatus>("/portal/status"),
   proposal:    () => get<PortalProposal>("/portal/proposal"),
-  acceptProposal: () => post<{ ok: boolean; acceptedAt: string | null; acceptedByName: string | null }>("/portal/proposal/accept", {}),
+  acceptProposal: (proposalId:string, approvedAt:string|null) => post<{ ok: boolean; acceptedAt: string | null; acceptedByName: string | null }>("/portal/proposal/accept", {proposalId,approvedAt}),
+  testInstallment: (id:string, stage:number) => post<{paid?:boolean;url?:string}>(`/portal/proposal/${id}/installments/${stage}/test-checkout`, {}),
   personalize: () => post<{ ok: boolean }>("/portal/personalize", {}),
   accessLog:   () => get<AccessLogEntry[]>("/portal/access-log"),
 };

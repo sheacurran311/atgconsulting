@@ -32,6 +32,17 @@ function Section({ label, title, children }: { label: string; title: string; chi
 function ReadyView({ proposal }: { proposal: ClientProposal }) {
   const [acceptedAt, setAcceptedAt] = useState<string | null>(proposal.acceptedAt);
   const [acceptedByName, setAcceptedByName] = useState<string | null>(proposal.acceptedByName);
+  const [paymentNotice,setPaymentNotice] = useState("");
+  const [paying,setPaying] = useState(false);
+  async function openTestPayment(stage:number) {
+    setPaying(true); setPaymentNotice("");
+    try {
+      const result = await portalApi.testInstallment(proposal.id,stage);
+      if(result.url) window.location.assign(result.url);
+      else if(result.paid) setPaymentNotice("This installment has already been paid in test mode.");
+    } catch(error) { setPaymentNotice(error instanceof Error ? error.message : "Could not open the test payment."); }
+    finally {setPaying(false);}
+  }
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const scope = proposal.scope.split("\n").map((line) => line.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
@@ -114,7 +125,7 @@ function ReadyView({ proposal }: { proposal: ClientProposal }) {
               <p className="text-sm mt-2" style={{ color: "var(--canvas-text-2)" }}>{investment.care}</p>
             )}
             {investment.notes && (
-              <p className="font-mono text-2xs mt-3" style={{ color: "var(--canvas-text-3)" }}>{investment.notes}</p>
+              <p className="whitespace-pre-line text-xs mt-3" style={{ color: "var(--canvas-text-3)" }}>{investment.notes}</p>
             )}
           </div>
         </Section>
@@ -124,7 +135,7 @@ function ReadyView({ proposal }: { proposal: ClientProposal }) {
           {proposal.acceptanceClause.trim() ? <Paragraphs text={proposal.acceptanceClause} /> : null}
           {acceptedAt ? (
             <p className="text-sm font-semibold mt-4" style={{ color: "var(--canvas-text)" }}>
-              Accepted {new Date(acceptedAt).toLocaleString()}{acceptedByName ? ` by ${acceptedByName}` : ""}. He still assigns the tier.
+              Accepted {new Date(acceptedAt).toLocaleString()}{acceptedByName ? ` by ${acceptedByName}` : ""}.
             </p>
           ) : (
             <button
@@ -134,7 +145,7 @@ function ReadyView({ proposal }: { proposal: ClientProposal }) {
               onClick={() => {
                 setAccepting(true);
                 setAcceptError(null);
-                portalApi.acceptProposal()
+                portalApi.acceptProposal(proposal.id, proposal.approvedAt)
                   .then((result) => {
                     setAcceptedAt(result.acceptedAt);
                     setAcceptedByName(result.acceptedByName);
@@ -146,6 +157,14 @@ function ReadyView({ proposal }: { proposal: ClientProposal }) {
               {accepting ? "Saving…" : "I accept this proposal"}
             </button>
           )}
+          {acceptedAt && !!proposal.testInstallments?.length && <div className="mt-4 space-y-2">
+            <h3 className="font-semibold">Test installment payments</h3>
+            {proposal.testInstallments.map((item,stage)=><button key={stage} disabled={paying || item.status !== "Unpaid"} type="button"
+              className="btn-secondary block px-3 py-2 text-sm" onClick={()=>void openTestPayment(stage)}>
+              {item.label} · USD {item.amount} · {item.status}
+            </button>)}
+            {paymentNotice && <p role="status">{paymentNotice}</p>}
+          </div>}
           {acceptError && <p className="text-sm mt-2" style={{ color: "var(--red, #b91c1c)" }}>{acceptError}</p>}
           <p className="text-xs mt-4" style={{ color: "var(--canvas-text-3)" }}>
             This records your name and the time. It does not start billing or change your tier.
@@ -216,7 +235,7 @@ export default function ProposalPage() {
         />
       )}
 
-      {data?.state === "ready" && data.proposal && <ReadyView proposal={data.proposal} />}
+      {data?.state === "ready" && data.proposal && <ReadyView key={data.proposal.id} proposal={data.proposal} />}
     </AppShell>
   );
 }
