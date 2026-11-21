@@ -352,7 +352,7 @@ function buildFallbackReport(answers: AnsweredQuestion[], contactName: string, c
   const workflows = guide.workflows.map((w) => ({ slug: w.id, name: w.name, why: "Candidate for the pilot; verify value, access, effort, and acceptance criteria together." }));
 
   return {
-    summary: `${contactName} is looking for help with ${guide.audience === "personal" ? "personal and family logistics" : guide.audience === "both" ? "work and personal logistics" : "business operations"}: ${problemsA.slice(0, 200)}. These are candidate workflows to confirm in consultation.`,
+    summary: `${contactName} is looking for help with ${guide.audience === "personal" ? "personal goals and projects" : guide.audience === "both" ? "work and personal goals" : "business operations"}: ${problemsA.slice(0, 200)}. These are candidate workflows to confirm in consultation.`,
     keyFindings: [
       `Desired outcome: ${guide.desiredOutcome}`,
       `Information boundaries: ${guide.boundaries}`,
@@ -364,7 +364,7 @@ function buildFallbackReport(answers: AnsweredQuestion[], contactName: string, c
     proposedFirstPilot: workflows[0] ?? null,
     suggestedTier: tier,
     tierRationale: `Based on the intake, ${tier === "WHITE_GLOVE" ? "the scope and budget suggest a full Done-for-you engagement" : tier === "GUIDED" ? "Guided sessions would allow hands-on build with appropriate oversight" : "Self-serve is a good starting point"}.`,
-    proposalScope: "Audit the selected processes, agree one pilot, document workflow contracts, and deliver an operating guide. Installation, training, and care depend on the agreed tier and scope.",
+    proposalScope: workflows.map(w => w.name).join("; ") + ". Confirm deliverables, responsibilities and acceptance criteria during the fit call.",
     discoveryQuestions: [
       "Can you walk me through a typical week in detail?",
       `Tell me more about how ${systemA} is used day to day.`,

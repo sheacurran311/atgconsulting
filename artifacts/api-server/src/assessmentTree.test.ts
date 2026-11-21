@@ -90,3 +90,36 @@ test("changing the selected problems invalidates an obsolete first priority",()=
  assert.ok(!cleaned.some(item=>item.id==="first_priority"));
  assert.equal(assessmentStep(cleaned,"top_problems").questions[0]?.id,"first_priority");
 });
+
+test("website requests get project discovery even in a trade business",()=>{
+  const values=[business,answer("business_type","Trades"),answer("top_problems",select("Build or redesign a website"))];
+  const ids=assessmentOrder(values);
+  for(const id of ["website_url","website_current","website_features","project_requirements","budget_range","urgency"])assert.ok(ids.includes(id),id);
+  for(const id of ["family_coordination","ops_scheduling","ai_tools_today","task_frequency"])assert.ok(!ids.includes(id),id);
+  assert.equal(new Set(ids).size,ids.length);
+});
+test("personal learning, coordination and travel have distinct follow-ups",()=>{
+  const ids=(goal:string)=>assessmentOrder([family,answer("top_problems",select(goal))]);
+  assert.ok(!ids("Learn a tool or develop a skill").includes("family_coordination"));
+  assert.ok(!ids("School and sports schedules").includes("travel_needs"));
+  assert.ok(ids("Plan trips or events").includes("travel_needs"));
+  const q=assessmentQuestions([family]).find(q=>q.id==="top_problems")!;
+  assert.equal(q.category,"goals");
+  assert.equal(q.allowOther,true);
+  assert.ok(!q.options?.some(v=>/sports/i.test(v)));
+});
+test("a custom priority survives resume and a change of project removes stale website answers",()=>{
+  const custom="Organize a photo archive";
+  const rows=applicableAnswers([family,answer("top_problems",select(custom)),answer("website_features","Bookings")]);
+  assert.ok(rows.some(a=>a.answer.includes(custom)));
+  assert.ok(!rows.some(a=>a.id==="website_features"));
+});
+
+
+test("the operating guide starts with the selected priority and keeps unrelated examples out",async()=>{
+  const {buildOperatingPlan}=await import("./lib/operatingPlan");
+  const raw=JSON.stringify([both,answer("top_problems",select("Plan trips or events","Build or redesign a website")),answer("first_priority","Build or redesign a website")]);
+  const plan=buildOperatingPlan(raw);
+  assert.deepEqual(plan.workflows.map(w=>[w.name,w.realm]),[["Build or redesign a website","business"],["Plan trips or events","personal"]]);
+  assert.ok(!plan.workflows.some(w=>w.id==="family-coordination"));
+});

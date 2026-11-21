@@ -472,7 +472,7 @@ export default function IntakePage() {
                 Let's map what needs handling.
               </h1>
               <p className="text-sm mb-6" style={{ color: "var(--ink-text-2)", lineHeight: 1.65 }}>
-                Choose what needs help: your business, personal and family logistics, or both. Your selections determine the next questions; no long written answers required.
+                Tell us what you want to improve or build at work, in your personal life, or both. You can choose a starting point or describe your own.
                 Shea reviews your priorities, current tools, and boundaries to prepare your audit and consultation.
               </p>
 

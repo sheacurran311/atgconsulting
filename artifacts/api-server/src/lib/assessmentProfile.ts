@@ -14,9 +14,13 @@ export const AUDIT_QUESTIONS: Question[] = [
   { id: "data_boundaries", category: "security", text: "Which information or accounts must stay separate or off limits? For example: family vs work, employer systems, or school information.", type: "text", core: true },
   { id: "pilot_owner", category: "goals", text: "Who will review the pilot and be responsible for the system day to day? A role is enough; no contact details needed.", type: "text", core: true },
   { id: "support_preference", category: "goals", text: "What kind of help would suit you?", type: "choice", core: true, options: ["A plan and setup instructions", "Guided installation and training", "Done-for-you setup in my accounts", "Setup plus ongoing maintenance", "Not sure yet"] },
-  { id: "family_sources", category: "personal", text: "Where do school, sports, household, and travel updates arrive? Name the apps or channels, not children's names or private content.", type: "text", core: true },
-  { id: "family_coordination", category: "personal", text: "What gets missed or conflicts: deadlines, pickups, activity changes, travel, household tasks, or something else?", type: "text", core: true },
-  { id: "travel_needs", category: "personal", text: "What help would you like with trips or sports travel? For example: itinerary, departure reminders, packing, or comparing options. Purchases stay with you.", type: "text", core: true },
+  { id: "family_sources", category: "personal", text: "Where do updates come from, and where would you like to keep track of them?", type: "text", core: true },
+  { id: "family_coordination", category: "personal", text: "Which part of coordination takes the most effort?", type: "text", core: true },
+  { id: "travel_needs", category: "personal", text: "What would you like help organizing for a trip?", type: "text", core: true },
+  { id: "project_requirements", category: "project", text: "What should the finished project let you or your customers do?", type: "text", core: true },
+  { id: "website_current", category: "website", text: "What are you starting with? Include your current platform, content you can reuse, and anything that must survive a redesign or migration.", type: "text", core: false },
+  { id: "website_features", category: "website", text: "What does the site need at launch?", type: "multiselect", options: ["Service or portfolio pages", "Bookings or lead capture", "Online sales", "Branding or logo work", "Search visibility or migration", "Connections to existing tools", "Help defining the scope"], allowOther: true, core: false },
+  { id: "support_scope", category: "support", text: "What would you like a technical partner to own, and how often do you need help?", type: "text", core: false },
   { id: "first_priority", category: "goals", text: "Which of these improvements matters most right now?", type: "choice", core: true },
   { id: "website_url", category: "company", text: "What is your business website? If you do not have one, you can skip this question.", type: "text", core: false },
   { id: "current_software", category: "systems", text: "Which specific apps or software do you currently use? Product names are enough; do not share logins or account details.", type: "text", core: false },
@@ -27,8 +31,20 @@ export const AUDIT_QUESTIONS: Question[] = [
   { id: "website_goal", category: "marketing", text: "What do you most want customers to do when they visit your website?", type: "choice", core: false },
 ];
 export const AUDIT_MAP = Object.fromEntries(AUDIT_QUESTIONS.map((q) => [q.id, q]));
-const businessTasks = ["Find and research prospects", "Sales follow-ups and outreach", "Booking and scheduling", "Quotes and estimates", "Customer requests and admin", "Invoices and expense tracking", "Content and marketing", "Website SEO and search visibility", "Meeting notes and proposals"];
-const personalTasks = ["School and sports schedules", "Family and sports travel", "Household tasks and reminders", "Personal email and paperwork"];
+const projectTasks = ["Build or redesign a website", "Design a logo or refresh a brand", "Build a custom app or connect systems", "Combine website and workflow improvements", "Get ongoing technical support"];
+const businessTasks = [...projectTasks, "Find and research prospects", "Sales follow-ups and outreach", "Booking and scheduling", "Quotes and estimates", "Customer requests and admin", "Invoices and expense tracking", "Content and marketing", "Website SEO and search visibility", "Meeting notes and proposals", "Reporting and data analysis"];
+const personalTasks = ["Manage my time and commitments", "Organize files, email and paperwork", "Research options and make decisions", "Plan trips or events", "Learn a tool or develop a skill", "Manage a personal project", "Coordinate shared routines"];
+const historicalPersonalTasks = ["School and sports schedules", "Family and sports travel", "Household tasks and reminders", "Personal email and paperwork"];
+
+export function personalGoal(goal: string) { return [...personalTasks,...historicalPersonalTasks].includes(goal); }
+
+export function projectFocus(priority: string) {
+  if (/combin.*website|website.*workflow/i.test(priority)) return "combined";
+  if (/ongoing technical|fractional|technical partner/i.test(priority)) return "support";
+  if (/custom app|connect systems|integration project/i.test(priority)) return "development";
+  if (/redesign|build.*website|website.*build|brand refresh|refresh a brand|logo/i.test(priority)) return "website";
+  return null;
+}
 const selectionQuestions: Record<string, { text: string; options: string[]; type?: "choice" | "multiselect" }> = {
   customer_impact: { text: "What is the main cost of this problem today?", type: "choice", options: ["Lost leads or missed revenue", "Staff time and repetitive work", "Slow response to customers", "Errors or work that has to be redone", "Customer experience or retention", "Not sure yet"] },
   lead_volume: { text: "Roughly how many new inquiries or leads arrive per month?", type: "choice", options: ["0–10", "11–30", "31–100", "101–300", "More than 300", "Not sure"] },
@@ -42,22 +58,22 @@ const selectionQuestions: Record<string, { text: string; options: string[]; type
   role: { text: "What is your role?", type: "choice", options: ["Owner or solo operator", "Manager or team lead", "Sales or outreach", "Operations or administration", "Employee exploring improvements"] },
   core_system: { text: "Which tools handle your business work today?", options: ["Gmail / Google Workspace", "Outlook / Microsoft 365", "CRM (such as HubSpot or Salesforce)", "Spreadsheets", "Accounting software", "Project or task management app", "Mostly manual / no formal system"] },
   sales_pipeline_stage: { text: "Where would sales help make the biggest difference?", options: ["Finding qualified prospects", "Research before outreach", "Writing personalized outreach", "Following up consistently", "Preparing proposals", "Updating the CRM", "Not sure yet"] },
-  family_sources: { text: "Where do your personal or family updates arrive?", options: ["Email", "Text messages or group chats", "School or sports apps", "Shared calendar", "Paper notices", "Several places that do not sync"] },
-  family_coordination: { text: "What is hardest to keep coordinated?", options: ["Schedule changes", "Conflicting events", "Pickups and rides", "Registration or payment deadlines", "Remembering tasks", "Sharing updates with the right people"] },
+  family_sources: { text: "Where do updates about these commitments arrive?", options: ["Email", "Text messages or group chats", "An organization or activity app", "Shared calendar", "Paper notices", "Several places that do not sync"] },
+  family_coordination: { text: "What is hardest to keep coordinated?", options: ["Schedule changes", "Conflicting events", "Coordinating people or locations", "Registration or payment deadlines", "Remembering tasks", "Sharing updates with the right people"] },
   travel_needs: { text: "What would make travel easier?", options: ["Itineraries in one place", "Comparing travel options", "Departure and arrival reminders", "Packing lists", "Handling schedule changes", "Coordinating a group"] },
   ai_tools_today: { text: "Which AI tools have you tried?", options: ["ChatGPT", "Claude", "Grok", "Microsoft Copilot", "Google Gemini", "None yet", "Not sure which tools I use"] },
-  data_boundaries: { text: "Which boundaries should we plan around?", options: ["Keep work and family separate", "Employer approval is required", "Children's or school information", "Customer or confidential business information", "No access to financial accounts", "Help me decide during the consultation"] },
+  data_boundaries: { text: "Which boundaries should we plan around?", options: ["Keep work and family separate", "Employer approval is required", "Private personal records", "Customer or confidential business information", "No access to financial accounts", "Help me decide during the consultation"] },
   pilot_owner: { text: "Who would review and manage the first workflow?", type: "choice", options: ["Me", "Me and my partner / household", "Me and a colleague", "A team manager", "I need help choosing an owner"] },
   success_definition: { text: "What results would matter most?", options: ["Less time on repetitive work", "Fewer missed tasks or deadlines", "More consistent follow-up", "Fewer errors or duplicate entries", "Less stress and better coordination", "A clear process I can trust"] },
 };
 /** Selected problems remain the backlog; the highest priority drives short follow-up branches. */
-function selectedProblems(raw:string):string[] {
+export function selectedProblems(raw:string):string[] {
   if (!raw.trim() || raw === "(skipped)") return [];
   try {
     const parsed:unknown=JSON.parse(raw);
-    if(Array.isArray(parsed)) return parsed.filter((v):v is string=>typeof v==="string"&&Boolean(v.trim())).slice(0,12);
+    if(Array.isArray(parsed)) return parsed.filter((v):v is string=>typeof v==="string"&&Boolean(v.trim()));
   }catch { /* Previous text-only answers are valid. */ }
-  return raw.split(/[;\n]/).map(v=>v.trim()).filter(Boolean).slice(0,12);
+  return raw.split(/[;\n]/).map(v=>v.trim()).filter(Boolean);
 }
 function hasMatch(raw:string,pattern:RegExp):boolean { return pattern.test(raw.toLowerCase()); }
 
@@ -68,6 +84,8 @@ export function assessmentOrder(answers:Answer[]):string[] {
   const business=audience!=="personal",personal=audience!=="business";
   const selected=selectedProblems(values.top_problems??"");
   const priority=selected.includes(values.first_priority??"")?values.first_priority:selected[0]??"";
+  const project=business ? projectFocus(priority) : null;
+  const personalPriority=personal&&(audience==="personal"||personalGoal(priority));
   const industry=values.business_type??"";
   const trades=business&&hasMatch(industry,/trade|construction|home service|plumb|electri|landscap|roof|clean/);
   const sales=hasMatch(priority,/sales|prospect|outreach|lead|follow.up|quote|estimate/);
@@ -82,20 +100,24 @@ export function assessmentOrder(answers:Answer[]):string[] {
   if(operational)branch.push("ops_volume","ops_handoff_risk","ops_manual_steps");
   if(business&&!branch.length)branch.push("ops_manual_steps","lead_source");
   const branchLimit=audience==="both"?2:3;
-  const branchQuestions=[...new Set(branch)].slice(0,branchLimit);
+  const branchQuestions = project === "website" || project === "combined" ? ["project_requirements","website_current","website_features"]
+    : project === "development" ? ["project_requirements","current_software"]
+    : project === "support" ? ["support_scope","current_software"]
+    : personalPriority ? [] : [...new Set(branch)].slice(0,branchLimit);
   const needsApprover=business&&/partial|^no\b/i.test(values.decision_authority??"");
-  const travel=personal&&hasMatch(priority || (values.top_problems ?? ""),/travel|trip|sports/);
+  const travel=personal&&hasMatch(priority || (values.top_problems ?? ""),/travel|trip/);
+  const coordination=personalPriority&&hasMatch(priority,/schedule|commitment|coordinate|routine|travel|trip/);
   const plan=[
     "contact_email","contact_name","audience",
     ...(business?["company_name","business_type","team_size","role","decision_authority",...(needsApprover?["decision_process"]:[]),"website_url"]:[]),
     "top_problems",...(selected.length>1?["first_priority"]:[]),
-    "task_frequency","time_per_task","workflow_example",
-    ...(audience!=="both"?["customer_impact"]:[]),
-    ...(business?["core_system","current_software",...branchQuestions]:[]),
-    ...(personal?["family_sources","family_coordination",...(travel?["travel_needs"]:[])]:[]),
-    "ai_tools_today","approval_preference","data_boundaries","pilot_owner","success_definition","budget_range","urgency","support_preference",
+    ...(project && project!=="combined" ? [] : ["task_frequency","time_per_task","workflow_example"]),
+    ...(audience==="business"&&!project?["customer_impact"]:[]),
+    ...(business?[...(project==="website"?[]:["core_system","current_software"]),...branchQuestions]:[]),
+    ...(coordination?["family_sources","family_coordination",...(travel?["travel_needs"]:[])]:[]),
+    ...(!project||project==="combined"?["ai_tools_today","approval_preference"]:[]),"data_boundaries","pilot_owner","success_definition","budget_range","urgency","support_preference",
   ];
-  return plan;
+  return [...new Set(plan)];
 }
 export function assessmentQuestions(answers:Answer[]):Question[] {
   const values=Object.fromEntries(answers.map(a=>[a.id,a.answer]));
@@ -104,14 +126,17 @@ export function assessmentQuestions(answers:Answer[]):Question[] {
     const base=AUDIT_MAP[id]??QUESTION_MAP[id];
     if(id==="top_problems"){
       const groups=[
-        ...(audience!=="personal"?[{label:"Business",options:businessTasks}]:[]),
+        ...(audience!=="personal"?[{label:"Projects and technical support",options:projectTasks},{label:"Business operations and growth",options:businessTasks.filter(task=>!projectTasks.includes(task))}]:[]),
         ...(audience!=="business"?[{label:"Personal & household",options:personalTasks}]:[]),
       ];
-      return {...base!,text:"Which tasks or problems would you most like help with?",type:"multiselect",allowOther:true,optionGroups:groups,options:groups.flatMap(g=>g.options)};
+      return {...base!,category:"goals",text:"What would you like to improve or build?",type:"multiselect",allowOther:true,optionGroups:groups,options:groups.flatMap(g=>g.options)};
     }
     if(id==="first_priority"){
       const options=selectedProblems(values.top_problems??"");
       return {...base!,text:"Of the areas you selected, which one should we address first?",type:"choice",options,allowOther:false};
+    }
+    if(id==="workflow_example" && (audience==="personal" || !businessTasks.includes(values.first_priority ?? selectedProblems(values.top_problems ?? "")[0] ?? ""))) {
+      return {...base!,type:"text",text:"Tell us about one example in your own words. What are you trying to do, and where would help make a difference?"};
     }
     const selection=selectionQuestions[id];
     if(selection)return {id,category:base?.category??"goals",core:base?.core??true,...selection,type:selection.type??"multiselect",allowOther:true};
@@ -141,7 +166,7 @@ export function applicableAnswers<T extends Answer>(answers:T[]):T[]{
     if(!selected.length)return [answer];
     const retained=selected.filter(value=>
       !(audience==="personal"&&businessTasks.includes(value)) &&
-      !(audience==="business"&&personalTasks.includes(value)));
+      !(audience==="business"&&[...personalTasks,...historicalPersonalTasks].includes(value)));
     if(!retained.length)return [];
     return [{...answer,answer:JSON.stringify(retained)} as T];
   });
@@ -150,6 +175,7 @@ export function applicableAnswers<T extends Answer>(answers:T[]):T[]{
   const applicable=new Set(assessmentQuestions(withoutStalePriority).map(q=>q.id));
   const branched=new Set([
     "company_name","business_type","team_size","role","decision_authority","decision_process",
+    "project_requirements","website_current","website_features","support_scope","workflow_example","task_frequency","time_per_task","ai_tools_today","approval_preference",
     "website_url","first_priority","current_software","core_system","customer_impact",
     "lead_source","sales_pipeline_stage","follow_up_process","crm_tool","lead_volume",
     "ops_scheduling","quote_process","ops_volume","ops_handoff_risk","ops_manual_steps",
