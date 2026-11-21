@@ -53,3 +53,24 @@ test("invalid proposal milestones never become invented delivery tasks",()=>{
  const contract=proposalDeliveryPlan("invalid-json","Actual confirmed scope",completed);
  assert.deepEqual(contract.milestones,[]);
 });
+
+test("the delivery snapshot preserves every reviewed milestone and its full terms", () => {
+  const rows = Array.from({ length: 21 }, (_, index) => ({
+    label: `Milestone ${index + 1}`,
+    description: `Deliverable ${index + 1}`,
+  }));
+  rows[0].label = "A".repeat(161);
+  rows[0].description = "B".repeat(2001) + " subject to written approval";
+  const snapshot = proposalDeliveryPlan(JSON.stringify(rows), "Agreed scope", completed);
+  assert.deepEqual(snapshot.milestones.map(({ sequence, title, deliverable }) => ({
+    sequence, label: title, description: deliverable,
+  })), rows.map((row, index) => ({ sequence: index + 1, ...row })));
+});
+
+test("a partly invalid milestone list cannot produce an approvable snapshot", () => {
+  const valid = { label: "Pilot", description: "Deliver five reviewed examples" };
+  for (const invalid of [null, {}, { ...valid, label: " " }, { ...valid, description: "" }]) {
+    const snapshot = proposalDeliveryPlan(JSON.stringify([valid, invalid]), "Scope", completed);
+    assert.deepEqual(snapshot.milestones, []);
+  }
+});
