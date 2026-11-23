@@ -18,12 +18,11 @@ test("audience branches retain audit essentials and separate family from busines
     assert.ok(ids.includes("approval_preference"));
     assert.ok(ids.includes("data_boundaries"));
     assert.ok(ids.includes("task_frequency"));
-    assert.ok(ids.length <= 25);
-    assert.equal(ids.includes("family_sources"), audience !== "My business");
+    assert.ok(ids.length <= 30);
+    assert.ok(!ids.includes("family_sources"));
     assert.equal(ids.includes("business_type"), audience !== "My personal and family life");
     const plan = buildOperatingPlan(JSON.stringify(answers));
-    assert.equal(plan.workflows.some((w) => w.realm === "personal"), audience !== "My business");
-    assert.equal(plan.workflows.some((w) => w.realm === "business"), audience !== "My personal and family life");
+    assert.deepEqual(plan.workflows.map(w=>w.name),["Define the first project"]);
     assert.ok(plan.workflows.every((w) => w.status === "planned" && w.baselineMinutes === null));
     assert.match(operatingPlanMarkdown(plan), /Not measured/);
   }
@@ -92,9 +91,9 @@ test("report delivery does not claim success without a configured mail provider"
 test("guided assessment branches by priorities and clears deselected paths", () => {
   const a = [{ id: "audience", answer: "Both business and personal life" }, { id: "top_problems", answer: '["Family and sports travel","Sales follow-ups and outreach"]' }];
   const plan = assessmentQuestions(a);
-  assert.ok(plan.filter(q => !q.id.startsWith("contact_")).every(q => ["choice", "multiselect"].includes(q.type) && q.options?.length));
-  assert.ok(plan.some(q => q.id === "travel_needs") && plan.some(q => q.id === "sales_pipeline_stage"));
-  assert.equal(assessmentStep(a, "audience").questions[0]?.id, "top_problems");
+  assert.ok(plan.some(q=>q.id==="first_priority"));
+  assert.ok(plan.some(q => q.id === "travel_needs") && !plan.some(q => q.id === "sales_pipeline_stage"));
+  assert.equal(assessmentStep(a, "top_problems").questions[0]?.id, "first_priority");
   const changed = [{ id: "audience", answer: "My personal and family life" }, { id: "top_problems", answer: '["School and sports schedules"]' }, { id: "sales_pipeline_stage", answer: "stale" }, { id: "travel_needs", answer: "stale" }];
   assert.deepEqual(applicableAnswers(changed).map(a => a.id), ["audience", "top_problems"]);
 });
@@ -102,13 +101,13 @@ test("guided assessment branches by priorities and clears deselected paths", () 
 test("mixed audience priorities have labeled groups and support every selection", () => {
   const answers = [{ id: "audience", answer: "Both business and personal life" }];
   const q = assessmentQuestions(answers).find((q) => q.id === "top_problems")!;
-  assert.deepEqual(q.optionGroups?.map((group) => group.label), ["Business", "Personal & household"]);
+  assert.deepEqual(q.optionGroups?.map((group) => group.label), ["Projects and technical support", "Business operations and growth", "Personal & household"]);
   assert.ok(q.options!.length > 3);
   const selected = q.options!;
   const next = assessmentStep([...answers, { id: q.id, answer: JSON.stringify(selected) }], q.id);
-  assert.equal(next.questions[0]?.id, "task_frequency");
+  assert.equal(next.questions[0]?.id, "first_priority");
   for (const audience of ["My business", "My personal and family life"]) {
     const question = assessmentQuestions([{ id: "audience", answer: audience }]).find((q) => q.id === "top_problems")!;
-    assert.equal(question.optionGroups?.length, 1);
+    assert.equal(question.optionGroups?.length, audience === "My business" ? 2 : 1);
   }
 });

@@ -8,11 +8,11 @@ const field = { width: "100%", padding: 16, borderRadius: 12, border: "1px solid
 const shortIds = new Set(["contact_name", "contact_email", "company_name", "approver_name", "approver_email", "approver_role", "role", "pilot_owner"]);
 const help: Record<string, string> = {
   contact_name: "Your first name is enough. This helps Shea personalize your review.",
-  audience: "Choose one. Both includes business questions and personal/family questions. You can change this later.",
-  top_problems: "Select all the areas you would like help with. Add your own option if something is missing.",
+  audience: "Choose one. Choose both if work and personal goals overlap. You can change this later.",
+  top_problems: "Choose any that fit, or describe the result you want in your own words.",
   task_frequency: "An estimate is fine: for example, 30 minutes every weekday. This gives us a baseline for evaluating the pilot.",
   workflow_example: "Describe what triggers the task, the steps you take, and the result you want. Leave out private records.",
-  success_definition: "What would a useful improvement look like? For example: fewer missed schedule changes, or follow-ups ready for approval each morning.",
+  success_definition: "What would a useful improvement look like? For example: a faster turnaround, fewer mistakes, or a project ready to launch.",
   data_boundaries: "Name the boundaries, not the sensitive data. This becomes part of your workflow's permissions and approval rules.",
   support_preference: "This helps us suggest a plan, guided setup, or done-for-you scope. It does not purchase or commit you to a service.",
 };
@@ -40,7 +40,7 @@ export default function AssessmentQuestion({ question: q, value, onChange, busy,
   const empty = q.type === "multiselect" ? selected.length === 0 : !value.trim();
   const optionGroups = q.optionGroups ?? [{ label: "", options }];
   return <form onSubmit={(e) => { e.preventDefault(); if (!busy) onContinue(); }} style={{ color: "#FAFAF9" }} aria-busy={busy}>
-    <div className="flex items-center justify-between mb-3 text-sm"><span>YOUR AI AUDIT · {q.category.replaceAll("_", " ")}</span><span>Question {index + 1} of {total}</span></div>
+    <div className="flex items-center justify-between mb-3 text-sm"><span>ATG consultation</span><span>Question {index + 1} of {total}</span></div>
     <progress aria-label="Assessment progress" value={index} max={total} style={{ width: "100%", accentColor: "#6E94FF", height: 8 }} />
     <h2 ref={heading} tabIndex={-1} id="assessment-question" className="text-2xl font-bold mt-6 mb-3" style={{ outline: "none", lineHeight: 1.3 }}>{q.text}</h2>
     <p id="assessment-help" className="text-sm mb-5" style={{ color: "#C6C6CB", lineHeight: 1.65 }}>{help[q.id] ?? (q.type === "multiselect" ? "Select all that apply, then choose Continue." : q.type === "choice" ? "Select one answer, then choose Continue." : "Use your own words. If you are unsure, say so — we can clarify during the review.")}</p>
@@ -54,12 +54,12 @@ export default function AssessmentQuestion({ question: q, value, onChange, busy,
           <span>{option}</span>
         </label>;
       })}</div>)}
-      {q.allowOther && <div><button type="button" className="underline" aria-expanded={customOpen || !!custom} onClick={() => { if (customOpen || custom) setCustom(""); setCustomOpen(!(customOpen || custom)); }}>{customOpen || custom ? "Remove my own option" : "Other — add my own option"}</button>
+      {q.allowOther && <div><button type="button" className="underline" aria-expanded={customOpen || !!custom} onClick={() => { if (customOpen || custom) setCustom(""); setCustomOpen(!(customOpen || custom)); }}>{customOpen || custom ? "Remove my own option" : "Describe something else"}</button>
         {(customOpen || custom) && <input style={field} aria-label="Your own option" maxLength={240} value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={q.id === "top_problems" ? "Separate extra tasks with commas or semicolons" : "Your own option"} />}</div>}
     </fieldset>}
     {(q.type === "text" || q.type === "number") && <>
       {short ? <input aria-labelledby="assessment-question" aria-describedby="assessment-help" disabled={busy} type={q.id.includes("email") ? "email" : q.type === "number" ? "number" : "text"} autoComplete={q.id === "contact_name" ? "given-name" : q.id === "contact_email" ? "email" : "off"} maxLength={q.id.includes("name") ? 100 : 4000} value={value} onChange={(e) => onChange(e.target.value)} style={field} placeholder={q.id === "contact_name" ? "Your name" : "Your answer"} />
-        : <textarea aria-labelledby="assessment-question" aria-describedby="assessment-help" disabled={busy} rows={5} maxLength={4000} value={value} onChange={(e) => onChange(e.target.value)} style={{ ...field, resize: "vertical" }} placeholder={q.id === "top_problems" ? "School updates, sports travel, sales follow-ups…" : "Describe your situation…"} onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !busy) { e.preventDefault(); onContinue(); } }} />}
+        : <textarea aria-labelledby="assessment-question" aria-describedby="assessment-help" disabled={busy} rows={5} maxLength={4000} value={value} onChange={(e) => onChange(e.target.value)} style={{ ...field, resize: "vertical" }} placeholder={q.id === "top_problems" ? "What are you trying to accomplish?" : "Describe your situation…"} onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !busy) { e.preventDefault(); onContinue(); } }} />}
       {!short && <p className="text-xs mt-2" style={{ color: "#B8B8C0" }}>{value.length}/4000 characters · Ctrl/⌘ + Enter to continue</p>}
       {q.id === "top_problems" && chips.length > 0 && <div className="mt-4"><p className="text-sm mb-2">Ideas to get started (tap to add):</p><div className="flex flex-wrap gap-2">{chips.map((chip) => <button key={chip} type="button" disabled={busy} onClick={() => { if (!value.includes(chip)) onChange(value ? `${value}\n${chip}` : chip); }} style={{ padding: "8px 12px", border: "1px solid #64646F", borderRadius: 20, background: "#232325", color: "#FAFAF9" }}>{chip}</button>)}</div></div>}
     </>}

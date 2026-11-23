@@ -1,3 +1,4 @@
+import { testPaymentsEnabled } from "../lib/quotePayments";
 import { parseInvestment } from "../lib/clientProposal";
 import { quoteSchema, reviewedInvestment, savedQuote } from "../lib/customQuote";
 /**
@@ -1075,7 +1076,7 @@ router.get("/admin/discovery/:id/delivery-contract", withUser, requireAdmin, asy
   res.setHeader("Cache-Control","private, no-store");
   const proposal=await prisma.discoveryProposal.findUnique({
     where:{discoveryIntakeId:req.params.id as string},
-    select:{status:true,approvedAt:true,deliveryPlanJson:true,acceptedAt:true,fitCallRevision:true,updatedAt:true},
+    select:{id:true,investment:true,status:true,approvedAt:true,deliveryPlanJson:true,acceptedAt:true,fitCallRevision:true,updatedAt:true},
   });
   if(!proposal||!proposal.approvedAt||proposal.status==="draft"){
     res.status(404).json({error:"An approved proposal is required before delivery planning."});return;
@@ -1086,7 +1087,20 @@ router.get("/admin/discovery/:id/delivery-contract", withUser, requireAdmin, asy
       !("milestones" in contract)||!Array.isArray((contract as {milestones:unknown}).milestones)){
       res.status(404).json({error:"This legacy approved proposal has no delivery snapshot. Its approval was preserved."});return;
     }
-    res.json({contract,acceptedAt:proposal.acceptedAt?.toISOString()??null,
+    const quote = proposal.acceptedAt ? savedQuote(proposal.investment) : null;
+    const showTestPayments = !!quote && testPaymentsEnabled();
+    const payments = showTestPayments ? await prisma.quoteInstallment.findMany({
+      where:{proposalId:proposal.id}, select:{stage:true,paidAt:true,refundedCents:true},
+    }) : [];
+    const kickoff = quote ? {
+      workstreams:quote.workstreams,
+      installments:quote.installments.map((item,stage)=>{
+        const payment=payments.find(row=>row.stage===stage);
+        const testStatus = !showTestPayments ? null : payment?.refundedCents ? "Refund recorded" : payment?.paidAt ? "Paid" : "Unpaid";
+        return {...item,testStatus};
+      }),
+    } : null;
+    res.json({contract,kickoff,acceptedAt:proposal.acceptedAt?.toISOString()??null,
       fitCallRevision:proposal.fitCallRevision,approvedProposalUpdatedAt:proposal.updatedAt.toISOString()});
   } catch {res.status(500).json({error:"Approved delivery snapshot is unavailable."});}
 });

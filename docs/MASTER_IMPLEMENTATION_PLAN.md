@@ -3,6 +3,12 @@
 **Canonical status document:** November 19, 2026  
 **Previous baseline:** [November 15 implementation plan](audits/2026-11-15/ATG-implementation-plan-2026-11-15.md) and [product audit](audits/2026-11-15/ATG-product-audit-2026-11-15.md). Both remain historical evidence, not the current backlog.
 
+## Adaptive intake and project delivery handoff
+
+The assessment now routes from the visitor's selected audience and first priority. New website, brand, combined, custom development and ongoing support choices lead to project-specific discovery. Personal choices include planning, organization, learning, research and custom goals. Existing sports and travel answers remain readable. Consultation preparation and newly generated operating guides use the submitted priorities. Approved scope, accepted workstreams and scheduled installments are available together in Admin Discovery once a custom quote is accepted. Stripe sandbox receipts are labeled as test payments.
+
+Next delivery increment: link a consultant-reviewed milestone to an existing consultation action item, including owner, due date, evidence and client visibility. Defer Replit browser acceptance to the consolidated test window.
+
 ## November 20 implementation checkpoint: W3 custom proposals and test payments
 
 The W3 branch adds itemized workstream fees, negotiated USD installments, an approved-version check at client acceptance, and optional Stripe test Checkout with a post-payment invoice per stage. Acceptance and test receipts do not activate a legacy package or change a real client's access. The Phase 5 Replit acceptance window remains pending independently.

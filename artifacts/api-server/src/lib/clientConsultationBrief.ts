@@ -1,3 +1,4 @@
+import { personalGoal, projectFocus } from "./assessmentProfile";
 /**
  * Reusable consultant briefing compiled from a consented ATG intake.
  * Read-only: does not generate client-visible output, alter milestones, send
@@ -50,10 +51,12 @@ export function buildConsultationBrief(rawAnswers:string|null|undefined, guidedS
   const focusSales=/sales|lead|prospect|quote|estimate|outreach|follow.up/i.test(priority);
   const focusMarketing=/marketing|content|website|seo|search|social/i.test(priority);
   const focusOps=/admin|operat|schedul|book|customer request/i.test(priority);
+  const personalFocus = audience === 'personal' || (audience === 'both' && personalGoal(priority));
+  const project = !personalFocus ? projectFocus(priority) : null;
   const context:ClientConsultationBrief["knownContext"]=[];
   for(const [label,key] of [
     ["Business", "company_name"],["Business type","business_type"],["Team size","team_size"],
-    ["Business website","website_url"],["Current software","current_software"],
+    ["Business website","website_url"],["Project outcome","project_requirements"],["Existing site and migration constraints","website_current"],["Launch requirements","website_features"],["Ongoing support scope","support_scope"],["Current software","current_software"],
     ["AI platform experience","ai_tools_today"],["Current workload frequency","task_frequency"],
     ["Time per task","time_per_task"],["Decision authority","decision_authority"],
     ["Desired results","success_definition"],["Budget range","budget_range"],
@@ -64,13 +67,25 @@ export function buildConsultationBrief(rawAnswers:string|null|undefined, guidedS
   const missing:string[]=[];
   if(business&&!text(answers.company_name))missing.push("Confirm the business or operating entity.");
   if(business&&!text(answers.team_size))missing.push("Confirm team size and who handles the workflow today.");
-  if(!text(answers.workflow_example))missing.push("Walk through one real, redacted example from trigger to result.");
-  if(!text(answers.time_per_task))missing.push("Establish the time baseline for one workflow cycle.");
-  if(business&&!text(answers.current_software)&&!text(answers.core_system))missing.push("Confirm actual software and source-of-truth systems.");
+  if((!project || project==="combined")&&!text(answers.workflow_example))missing.push("Walk through one real, redacted example from trigger to result.");
+  if((!project || project==="combined")&&!text(answers.time_per_task))missing.push("Establish the time baseline for one workflow cycle.");
+  if(business&&project!=="website"&&!text(answers.current_software)&&!text(answers.core_system))missing.push("Confirm actual software and source-of-truth systems.");
   if(!text(answers.success_definition))missing.push("Agree a measurable 30- or 90-day success criterion.");
   if(business&&!text(answers.decision_authority))missing.push("Identify the person authorized to approve the pilot.");
   if(!text(answers.data_boundaries))missing.push("Document data exclusions and approval boundaries.");
-  const targeted=trades?[
+  const targeted = project==="website" || project==="combined" ? [
+    "Which pages, brand assets and visitor actions need approval for launch?",
+    "Who owns the domain, hosting and content, and which URLs or integrations must be preserved?",
+    project==="combined" ? "What should happen after a visitor submits an inquiry, and who owns that handoff?" : "What evidence will confirm the launch meets the agreed scope?",
+  ] : project==="development" || project==="support" ? [
+    "What should the first release or support engagement accomplish?",
+    "Which existing systems, access permissions and owners affect delivery?",
+    "Who will accept the work, and what evidence will they review?",
+  ] : personalFocus ? [
+    "Walk me through the last time you tried to do this. Where did it get difficult?",
+    "What would you like to keep doing yourself, and where would help be valuable?",
+    "What would a successful first attempt look like for you?",
+  ] : trades?[
     "Where do incoming requests arrive, and how are calls, quotes and appointments assigned?",
     "What is your typical turnaround from inquiry to estimate and estimate to booking?",
     "Who can approve a proposed follow-up and verify a successful job booking?",
@@ -131,7 +146,7 @@ export function buildConsultationBrief(rawAnswers:string|null|undefined, guidedS
   const skillIds=focusSales||trades?["customer-research","sales-enablement","revops"]:focusMarketing?["customer-research","seo-audit","marketing-plan","cro"]:focusOps?["customer-research","marketing-loops","onboarding"]:["customer-research","marketing-plan","onboarding"];
   return {audience,organization:business?text(answers.company_name)??null:null,primaryPriority:priority,knownContext:context,
     missingInformation:missing.slice(0,8),fitCall,guidedSessions,
-    recommendedSkills:atgBusinessSkills.filter(s=>skillIds.includes(s.id)).map(s=>({id:s.id,title:s.title,purpose:s.description})),
+    recommendedSkills:personalFocus ? [] : atgBusinessSkills.filter(s=>skillIds.includes(s.id)).map(s=>({id:s.id,title:s.title,purpose:s.description})),
     note:"Internal preparation only. Review all findings against the current client record. Do not send, publish, mark milestones complete, or claim a customer platform is connected.",
   };
 }

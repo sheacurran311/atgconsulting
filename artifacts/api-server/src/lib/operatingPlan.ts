@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { answerMap } from "./intakeAnswers";
-import { audienceFrom } from "./assessmentProfile";
+import { audienceFrom, personalGoal, projectFocus, selectedProblems } from "./assessmentProfile";
 
 const text = z.string().trim().max(2000);
 const date = z.string().max(30).refine((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v), "Use YYYY-MM-DD");
@@ -46,16 +46,27 @@ export function buildOperatingPlan(raw: string | null | undefined): OperatingPla
   const a = answerMap(raw);
   const audience = audienceFrom(Object.entries(a).map(([id, answer]) => ({ id, answer })));
   const workflows: OperatingPlanContent["workflows"] = [];
-  if (audience !== "business") workflows.push(
-    contract("family-coordination", "School and sports coordination", "personal", "Schedule coordinator", "A permitted school/sports update arrives or the weekly review begins.", "Extract dates with source references, check conflicts, prepare calendar changes and deadline reminders. Keep family records separate from work."),
-    contract("travel-planning", "Family and sports travel", "personal", "Travel coordinator", "An upcoming trip is confirmed or its schedule changes.", "Prepare itinerary, departure reminders, packing checklist, and options. Ask before booking, spending, or cancelling."),
-  );
-  if (audience !== "personal") workflows.push(
-    contract("prospecting", "Prospect research and preparation", "business", "Research coordinator", "A customer-approved target list is ready.", "Research public company information, retain source links, check fit, and prepare meeting briefs. Do not invent contacts or facts."),
-    contract("follow-up", "Sales follow-up and CRM handoff", "business", "Follow-up coordinator", "A meeting ends, a lead arrives, or an agreed follow-up becomes due.", "Prepare personalized follow-up, propose next steps and CRM changes, and stop pending sequences when a reply or opt-out arrives."),
-  );
+  const selected = selectedProblems(a.top_problems ?? "");
+  const ordered = selected.includes(a.first_priority) ? [a.first_priority,...selected.filter(goal=>goal!==a.first_priority)] : selected;
+  const goals = ordered.length ? ordered : ["Define the first project"];
+  for (const goal of goals.slice(0,8)) {
+    const realm = audience==="personal" || (audience==="both" && personalGoal(goal)) ? "personal" : "business";
+    const project = projectFocus(goal);
+    const title = goal.slice(0,240);
+    const pilot = realm==="personal" && /travel|trip/i.test(goal)
+      ? contract("travel-planning",title,realm,"Trip planner","An upcoming trip needs planning.","Gather the itinerary, compare options and review bookings with the traveler.")
+      : realm==="personal" && /schedule|commitment|routine/i.test(goal)
+      ? contract("family-coordination",title,realm,"Schedule coordinator","A commitment changes or a shared review is due.","Collect updates, check for conflicts and review reminders.")
+      : project==="website" || project==="combined"
+      ? contract("website-delivery",title,realm,"Project owner","Website scope is approved.","Review content ownership, conversion goals, integrations, migration needs and launch acceptance.")
+      : /prospect|sales|outreach|follow.up/i.test(goal) && realm==="business"
+      ? contract("follow-up",title,realm,"Sales coordinator","A qualified opportunity needs attention.","Research the opportunity, prepare a next step and confirm follow-up ownership.")
+      : contract("project-"+(workflows.length+1),title,realm,"Project owner","The agreed example or project brief is ready.","Review the current approach and test one improvement against the stated outcome.");
+    if(workflows.some(w=>w.id===pilot.id)) pilot.id="selection-"+(workflows.length+1);
+    workflows.push(pilot);
+  }
   return OperatingPlanSchema.parse({ audience,
-    summary: a.top_problems || "Review the assessment with the customer and agree the first workflow.",
+    summary: selected.join("; ").slice(0,2000) || "Review the assessment with the customer and agree the first workflow.",
     desiredOutcome: a.success_definition || "Agree a measurable outcome during consultation.",
     boundaries: a.data_boundaries || "Keep business and family information separate. Do not store credentials or raw inbox/calendar contents in ATG.",
     approvalPolicy: a.approval_preference || "Customer approval before any external action; exact permissions agreed during consultation.",
