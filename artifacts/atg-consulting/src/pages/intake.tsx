@@ -1,3 +1,4 @@
+import { industrySites } from "@/content/industrySites";
 /**
  * /intake — Mobile-first adaptive discovery intake.
  *
@@ -82,8 +83,10 @@ export default function IntakePage() {
   const requestedTier = searchParams.get("tier");
   const requestedSessions = searchParams.get("sessions");
   const requestedAudience = searchParams.get("audience");
+  const websiteInquiry = searchParams.get("service") === "website";
   const requestedVertical = searchParams.get("vertical");
   const verticalBusinessTypes: Record<string,string> = {
+    ...Object.fromEntries(industrySites.map(site=>[site.slug,site.industry])),
     trades: "Trades, construction or home services",
     realestate: "Real estate",
     hospitality: "Hospitality",
@@ -224,6 +227,11 @@ export default function IntakePage() {
       preAnswers.push({ id: "business_type", category: "company",
         question: "Which best describes your work?", answer: verticalBusinessTypes[requestedVertical]! });
     }
+    if (websiteInquiry && industrySites.some(site=>site.slug===requestedVertical) &&
+        !preAnswers.some(answer=>answer.id==="top_problems") &&
+        !preAnswers.some(answer=>answer.id==="audience" && /^my personal/i.test(answer.answer))) {
+      preAnswers.push({id:"top_problems", category:"goals", question:"What would you like to improve or build?",answer:JSON.stringify(["Build or redesign a website"])});
+    }
     if (prefilledName) preAnswers.push({ id: "contact_name", category: "contact", question: "What's your name?", answer: prefilledName });
     if (prefilledCompany) preAnswers.push({ id: "company_name", category: "company", question: "What's your company name?", answer: prefilledCompany });
     const r = await fetch("/api/discovery/start", {
@@ -264,7 +272,7 @@ export default function IntakePage() {
     }
 
     setLoading(false);
-  }, [prefilledName, prefilledCompany, contactEmail, requestedTier, requestedSessions, requestedAudience, requestedVertical]);
+  }, [prefilledName, prefilledCompany, contactEmail, requestedTier, requestedSessions, requestedAudience, requestedVertical, websiteInquiry]);
 
   // Auto-start when arriving via engagement member token
   useEffect(() => {
@@ -497,7 +505,7 @@ export default function IntakePage() {
               )}
 
               <div className="space-y-2 mb-7">
-                {["Up to 10 questions", "No passwords, tokens, or confidential client data", "Shea reviews before any follow-up"].map((p) => (
+                {["Up to 11 questions", "No passwords, tokens, or confidential client data", "Shea reviews before any follow-up"].map((p) => (
                   <p key={p} className="flex gap-2 text-sm" style={{ color: "var(--ink-text-2)" }}>
                     <span style={{ color: "var(--blue)" }}>›</span>{p}
                   </p>

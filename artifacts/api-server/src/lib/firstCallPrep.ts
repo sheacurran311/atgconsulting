@@ -24,9 +24,11 @@ export function firstCallPrep(raw:string, confirmed:Record<string,string> = {}) 
   const priority=goals.includes(a.first_priority)?a.first_priority:goals[0]||"";
   const tracks=[...new Set([priority,...goals].map(goal=>serviceFor(goal,a.audience||"")))];
   const known=Object.entries(a).filter(([key,value])=>!["contact_email","contact_name","audience","top_problems","first_priority"].includes(key)&&supplied(value)).map(([id,value])=>({id,value}));
+  const practiceWebsite = /medical practice|orthopedic|dental practice/i.test(a.business_type || "") &&
+    tracks.some(track => track.name === "Websites" || track.name === "Website and workflow modernization");
   const questions: Array<[string,string]>=[
     ["priority",priority?"Confirm the first priority and what can wait.":"Identify the first priority."],
-    ["workflowExample",Object.entries(a).some(([id,v])=>id.startsWith("meeting_context_")&&supplied(v))?"Walk through the prospect’s example and identify the main constraint.":tracks[0]!.prompt],
+    ["workflowExample",practiceWebsite ? "Walk through how a recent new patient found the practice and booked a first visit. Where do people get stuck? Would a callback request, appointment request or existing scheduling portal help? Agree what staff need before responding, who follows up, by when, and what the patient sees next." : Object.entries(a).some(([id,v])=>id.startsWith("meeting_context_")&&supplied(v))?"Walk through the prospect’s example and identify the main constraint.":tracks[0]!.prompt],
     ["decisionMaker","Identify who can approve the work."],
     ["budget",supplied(a.budget_range)?"Confirm whether the stated budget fits the first deliverable.":"Establish a workable budget range."],
     ["timing",supplied(a.urgency)?"Confirm the target date and what drives it.":"Establish timing and any hard deadline."],

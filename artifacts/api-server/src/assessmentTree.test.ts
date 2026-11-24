@@ -138,7 +138,7 @@ test("public pre-call intake covers all services with one relevant project quest
     const plan=preCallQuestions(rows);
     const context=plan.filter(q=>q.id.startsWith("meeting_context_"));
     assert.equal(context.length,1);
-    assert.ok(plan.length<=10 && !plan.some(q=>["data_boundaries","pilot_owner","ai_tools_today"].includes(q.id)));
+    assert.ok(plan.length<=11 && !plan.some(q=>["data_boundaries","pilot_owner","ai_tools_today"].includes(q.id)));
     const intake=[...rows,answer(context[0]!.id,"My actual example"),answer("budget_range","(skipped)")];
     const prep=firstCallPrep(JSON.stringify(intake),{decisionMaker:"Owner"});
     assert.equal(prep.tracks[0]?.name,track);
@@ -156,6 +156,6 @@ test("mixed projects preserve secondary scope and drop obsolete context on edit"
   const prep=firstCallPrep(JSON.stringify(rows));
   assert.deepEqual(prep.otherGoals,[logo]);
   assert.deepEqual(prep.tracks.map(t=>t.name),["Websites","Brand identity"]);
-  assert.equal(preCallQuestions(rows).length,10);
+  assert.equal(preCallQuestions(rows).length,11);
   assert.ok(!applicableAnswers([...rows,answer("meeting_context_brand_identity","old")]).some(a=>a.id==="meeting_context_brand_identity"));
 });

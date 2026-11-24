@@ -1,3 +1,4 @@
+import { industrySites } from "./industrySites";
 import { serviceFor } from "./firstCallPrep";
 import { QUESTION_BANK, QUESTION_MAP, type Question } from "./questionBank";
 
@@ -55,7 +56,7 @@ const selectionQuestions: Record<string, { text: string; options: string[]; type
   task_frequency: { text: "How often does this work come up?", type: "choice", options: ["Several times a day", "About once a day", "A few times a week", "Weekly", "Occasionally or around events", "Not sure yet"] },
   time_per_task: { text: "About how long does one round of this work take?", type: "choice", options: ["Under 15 minutes", "15–30 minutes", "30–60 minutes", "1–2 hours", "More than 2 hours", "Not sure yet"] },
   workflow_example: { text: "What usually starts the work you want help with?", options: ["An email or message arrives", "A date or schedule changes", "A new lead or customer request arrives", "A meeting ends", "A recurring deadline or weekly review", "I remember and do it manually", "Not sure yet"] },
-  business_type: { text: "Which best describes your work?", type: "choice", options: ["Sales or business development", "Professional services or consulting", "Trades, construction or home services", "Real estate", "Retail or e-commerce", "Hospitality", "Coaching or content creation"] },
+  business_type: { text: "Which industry best describes your business?", type: "choice", options: [...industrySites.map(site=>site.industry), "Sales or business development", "Professional services or consulting", "Trades, construction or home services", "Real estate", "Retail or e-commerce", "Hospitality", "Coaching or content creation"] },
   role: { text: "What is your role?", type: "choice", options: ["Owner or solo operator", "Manager or team lead", "Sales or outreach", "Operations or administration", "Employee exploring improvements"] },
   core_system: { text: "Which tools handle your business work today?", options: ["Gmail / Google Workspace", "Outlook / Microsoft 365", "CRM (such as HubSpot or Salesforce)", "Spreadsheets", "Accounting software", "Project or task management app", "Mostly manual / no formal system"] },
   sales_pipeline_stage: { text: "Where would sales help make the biggest difference?", options: ["Finding qualified prospects", "Research before outreach", "Writing personalized outreach", "Following up consistently", "Preparing proposals", "Updating the CRM", "Not sure yet"] },
@@ -151,12 +152,16 @@ export function preCallQuestions(answers:Answer[]):Question[] {
   const goals=selectedProblems(values.top_problems??"");
   const primary=goals.includes(values.first_priority) ? values.first_priority : goals[0]??"";
   const track=serviceFor(primary,values.audience??"");
+  const industry=industrySites.find(site=>site.industry===values.business_type);
+  const contextPrompt=industry && track.name==="Websites"
+    ? industry.question+" Include your current website if you have one."
+    : track.prompt;
   const contextId="meeting_context_"+track.name.toLowerCase().replace(/[^a-z]+/g,"_");
-  const ids=["contact_email","contact_name","audience",...(audienceFrom(answers)!=="personal"?["company_name"]:[]),
+  const ids=["contact_email","contact_name","audience",...(audienceFrom(answers)!=="personal"?["company_name","business_type"]:[]),
     "top_problems",...(goals.length>1?["first_priority"]:[]),contextId,"success_definition","urgency","budget_range"];
   const detailed=new Map(assessmentQuestions(answers).map(question=>[question.id,question]));
   return ids.flatMap((id):Question[]=>{
-    if(id===contextId)return [{id,category:"goals",core:false,type:"text",text:track.prompt}];
+    if(id===contextId)return [{id,category:"goals",core:false,type:"text",text:contextPrompt}];
     if(id==="success_definition")return [{id,category:"goals",core:false,type:"text",text:"What would make this project a success for you?"}];
     const question=detailed.get(id);
     return question?[question]:[];

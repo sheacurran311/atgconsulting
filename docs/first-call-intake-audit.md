@@ -9,7 +9,7 @@ Give Shea enough information to prepare a useful 20-minute conversation: who the
 | Area reviewed | Finding | Implemented change or outstanding check |
 |---|---|---|
 | Start and review screens | Copy promised an audit and an estimated completion time without measured completion data. | Explain the meeting purpose and show the upper question count. |
-| Public question sequence | The detailed tree could reach 29 questions, including AI experience, operational baselines and permissions before qualification. | Use 8 to 10 questions including contact details. Company and first priority depend on audience and number of goals. |
+| Public question sequence | The detailed tree could reach 29 questions, including AI experience, operational baselines and permissions before qualification. | Use 8 to 11 questions including contact details. Company, industry and first priority depend on audience and number of goals. |
 | Service coverage | Logo and identity requests inherited website migration questions. Custom and mixed goals needed distinct preparation. | Use service-specific prompts and keep secondary goals in the private brief. Unknown business requests use open discovery. |
 | Resume, imported answers and edits | Existing sessions can contain useful detailed answers from the previous tree. | Preserve applicable answers and display them in preparation. Changing the primary service invalidates context collected under the previous service. |
 | First-call worksheet | The backend computed missing information, but the worksheet exposed only a collapsed agenda and blank fields. | Show submitted context, open meeting decisions, and proposal and kickoff prompts directly in Admin Discovery. Saved call answers remove covered topics from the meeting queue. |

@@ -1,3 +1,4 @@
+import { industrySites, industryPath } from "@/content/industrySites";
 /**
  * Who We Help — vertical selector with 3 concrete workflows per business type.
  * Content driven by src/content/verticals.ts — edit that file to update.
@@ -65,6 +66,14 @@ export default function WhoWeHelp() {
           </p>
         </div>
 
+        <nav aria-label="Website design by industry" className="mb-10">
+          <h3 className="text-2xl font-bold mb-4">Website design by industry</h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">{industrySites.map(site=>(
+            <a key={site.slug} href={industryPath(site)} className="rounded-lg border border-canvas-border p-4 text-sm font-semibold hover:underline">
+              {site.industry}<span className="sr-only"> website design</span>
+            </a>
+          ))}</div>
+        </nav>
         <div className="grid lg:grid-cols-[260px_1fr] gap-8">
           {/* Vertical selector */}
           <div>

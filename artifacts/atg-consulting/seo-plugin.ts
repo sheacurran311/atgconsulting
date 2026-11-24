@@ -1,3 +1,5 @@
+import { industrySites, industryPath } from "../api-server/src/lib/industrySites.ts";
+import { industryDocument } from "../api-server/src/lib/industryDocument.ts";
 /**
  * Injects blog meta, Open Graph, and JSON-LD into the initial HTML,
  * and serves /sitemap.xml and /robots.txt from the Vite dev and preview servers.
@@ -113,6 +115,16 @@ async function handle(
     return;
   }
 
+  if (pathname.startsWith("/website-design/")) {
+    const site=industrySites.find(item=>industryPath(item)===pathname.replace(/\/$/,""));
+    if (!site) { res.statusCode=404; res.end(req.method==="HEAD"?undefined:"Industry page not found."); return; }
+    try {
+      const template=await renderIndex(req.url??pathname);
+      res.setHeader("Content-Type","text/html; charset=utf-8");
+      res.end(req.method==="HEAD"?undefined:industryDocument(template,origin,site));
+    } catch(error) { next(error); }
+    return;
+  }
   const blogIndex = pathname === "/blog" || pathname === "/blog/";
   const postMatch = pathname.match(/^\/blog\/([a-z0-9-]+)\/?$/);
   if (!blogIndex && !postMatch) { next(); return; }
@@ -157,6 +169,11 @@ async function prerenderBuiltBlog(outDir: string): Promise<void> {
   const indexHtml = fs.readFileSync(indexPath, "utf8");
   const origin = (process.env.APP_URL ?? "https://atgconsulting.io").replace(/\/$/, "");
   const posts: { slug: string; title: string; description: string; publishedAt: string | null }[] = [];
+  for (const site of industrySites) {
+    const directory=path.join(outDir,"website-design",site.slug);
+    fs.mkdirSync(directory,{recursive:true});
+    fs.writeFileSync(path.join(directory,"index.html"),industryDocument(indexHtml,origin,site));
+  }
   const listed = await loadPosts();
   for (const row of listed) {
     const post = await loadPost(row.slug);
