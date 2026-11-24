@@ -1,3 +1,4 @@
+import { firstCallPrep } from "./firstCallPrep";
 import { z } from "zod";
 import { buildConsultationBrief } from "./clientConsultationBrief";
 
@@ -53,12 +54,9 @@ export function fitCallPromptContext(answers:FitCallAnswersType):string {
   return fitCallFields.filter(field=>answers[field.key].trim())
     .map(field=>`${field.label}: ${answers[field.key]}`).join("\n");
 }
-export function fitCallAgenda(rawIntakeAnswers:string):{
-  stages:ReturnType<typeof buildConsultationBrief>["fitCall"];
-  missingInformation:string[];
-}{
+export function fitCallAgenda(rawIntakeAnswers:string, confirmed: Record<string,string> = {}) {
   const brief=buildConsultationBrief(rawIntakeAnswers);
-  return {stages:brief.fitCall,missingInformation:brief.missingInformation};
+  return {stages:brief.fitCall,missingInformation:brief.missingInformation,prep:firstCallPrep(rawIntakeAnswers,confirmed)};
 }
 const milestoneText = z.string().refine(value => value.trim().length > 0);
 const reviewedMilestones = z.array(z.object({
