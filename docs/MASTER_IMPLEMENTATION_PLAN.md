@@ -3,6 +3,10 @@
 **Canonical status document:** November 19, 2026  
 **Previous baseline:** [November 15 implementation plan](audits/2026-11-15/ATG-implementation-plan-2026-11-15.md) and [product audit](audits/2026-11-15/ATG-product-audit-2026-11-15.md). Both remain historical evidence, not the current backlog.
 
+## Initial consultation preparation
+
+See the [intake audit and discovery waterfall](first-call-intake-audit.md). The public intake prepares a first meeting. Admin Discovery presents reported facts, open decisions, service-specific proposal requirements and kickoff dependencies. Authenticated Replit acceptance is pending.
+
 ## Adaptive intake and project delivery handoff
 
 The assessment now routes from the visitor's selected audience and first priority. New website, brand, combined, custom development and ongoing support choices lead to project-specific discovery. Personal choices include planning, organization, learning, research and custom goals. Existing sports and travel answers remain readable. Consultation preparation and newly generated operating guides use the submitted priorities. Approved scope, accepted workstreams and scheduled installments are available together in Admin Discovery once a custom quote is accepted. Stripe sandbox receipts are labeled as test payments.
