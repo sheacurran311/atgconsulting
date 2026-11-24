@@ -1,3 +1,4 @@
+import { industrySites, industryBody } from "@/content/industrySites";
 import { useEffect, useState } from "react";
 import { Route, Switch, Router, useLocation, Redirect } from "wouter";
 import { ClerkProvider, useUser } from "@clerk/react";
@@ -51,19 +52,26 @@ function Metadata() {
   const [location] = useLocation();
   useEffect(() => {
     const intake = location.replace(/\/$/, "") === "/intake";
+    const industry = industrySites.find(site=>location.replace(/\/$/,"") === "/website-design/"+site.slug);
     const isResult = false;
     const isApp = location.startsWith("/app");
     const isAdmin = location.startsWith("/admin");
     const title =
-      isResult ? "Your AI snapshot | ATG Consulting"
+      industry ? "Website Design for "+industry.audience+" | ATG Consulting"
+      : isResult ? "Your AI snapshot | ATG Consulting"
       : intake ? "Map my workflow | ATG Consulting"
       : isApp ? "Client portal | ATG Consulting"
       : isAdmin ? "Admin | ATG Consulting"
       : "ATG Consulting | AI audits for your business and your life";
-    const desc = intake || isResult
+    const desc = industry ? industry.description : intake || isResult
       ? "An AI assessment for your business, personal and family logistics, or both. No account required."
       : "Shea designs and delivers AI systems tailored to your specific role, clients, and daily life. Based in Colorado, USA.";
     document.title = title;
+    if (!industry && document.querySelector('#atg-jsonld')?.textContent?.includes('"@type":"Service"')) {
+      document.querySelector("#atg-jsonld")?.remove();
+      document.querySelector('link[rel="canonical"]')?.setAttribute("href",window.location.origin+location);
+      document.querySelector('meta[property="og:url"]')?.setAttribute("content",window.location.origin+location);
+    }
     for (const [attr, key, content] of [
       ["name", "description", desc],
       ["name", "robots", (intake || isResult || isApp || isAdmin) ? "noindex, nofollow" : "index, follow"],
@@ -176,6 +184,10 @@ function AuthenticatedApp() {
         <Route path="/admin/playbook" component={DeliveryPlaybookPage} />
         <Route path="/admin/account" component={AdminAccountPage} />
         <Route path="/admin/today" component={AdminTodayPage} />
+        <Route path="/website-design/:slug">{params=>{
+          const site=industrySites.find(row=>row.slug===params.slug);
+          return site ? <div dangerouslySetInnerHTML={{__html:industryBody(site)}} /> : <NotFound />;
+        }}</Route>
         <Route path="/blog" component={BlogPage} />
         <Route path="/blog/:slug" component={BlogPostPage} />
 
