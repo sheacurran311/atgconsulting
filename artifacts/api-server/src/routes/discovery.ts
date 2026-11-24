@@ -48,7 +48,7 @@ import { getPainChips } from "../lib/catalogAI";
 import { isAiEnabled } from "../lib/grokClient";
 import { FitCallSave, parseFitCallAnswers, fitCallMissing, fitCallAgenda, fitCallPromptContext, proposalDeliveryPlan, type FitCallAnswersType } from "../lib/fitCall";
 import { createATGProposalDoc } from "../lib/proposalDocs";
-import { assessmentQuestions, assessmentOrder, assessmentStep, applicableAnswers, ALL_ASSESSMENT_QUESTIONS, ALL_ASSESSMENT_MAP } from "../lib/assessmentProfile";
+import { preCallQuestions, assessmentStep, applicableAnswers, ALL_ASSESSMENT_QUESTIONS, ALL_ASSESSMENT_MAP } from "../lib/assessmentProfile";
 
 const router = Router();
 
@@ -113,7 +113,7 @@ async function getOrVerifySession(id: string): Promise<{ id: string; answers: An
 // ── GET /api/discovery/questions — static question bank ───────────────────────
 
 router.get("/discovery/questions", (_req, res) => {
-  res.json({ questions: ALL_ASSESSMENT_QUESTIONS, fallbackOrder: assessmentOrder([]) });
+  res.json({ questions: ALL_ASSESSMENT_QUESTIONS, fallbackOrder: preCallQuestions([]).map(q=>q.id) });
 });
 
 // ── POST /api/discovery/start ─────────────────────────────────────────────────
@@ -163,7 +163,7 @@ router.post("/discovery/start", async (req, res) => {
   });
 
   // Skip contact details already entered or imported; continue through /next.
-  const firstQuestions = assessmentStep(initialAnswers).questions;
+  const firstQuestions = assessmentStep(initialAnswers, undefined, preCallQuestions(initialAnswers)).questions;
 
   // Attach helper text to the email question for the client
   const questionsWithMeta = firstQuestions.map((q) =>
@@ -179,7 +179,7 @@ router.post("/discovery/start", async (req, res) => {
   res.json({
     sessionId: intake.id,
     questions: questionsWithMeta,
-    questionPlan: assessmentQuestions(initialAnswers),
+    questionPlan: preCallQuestions(initialAnswers),
     answers: initialAnswers,
     totalAsked: initialAnswers.length,
     done: firstQuestions.length === 0,
@@ -224,7 +224,7 @@ router.post("/discovery/next", async (req, res) => {
     data:  { answers: JSON.stringify(merged), transcript: buildTranscript(merged) },
   });
 
-  const step = assessmentStep(merged, parsed.data.afterQuestionId);
+  const step = assessmentStep(merged, parsed.data.afterQuestionId, preCallQuestions(merged));
   const allNext = step.questions;
 
   res.json({
@@ -881,7 +881,7 @@ router.get("/admin/discovery/:id/fit-call", withUser, requireAdmin, async (req, 
     revision:record?.revision??0,
     answers:parseFitCallAnswers(record?.answersJson),
     completedAt:record?.completedAt?.toISOString()??null,
-    agenda:fitCallAgenda(intake.answers),
+    agenda:fitCallAgenda(intake.answers,parseFitCallAnswers(record?.answersJson)),
   });
 });
 
@@ -890,7 +890,7 @@ router.put("/admin/discovery/:id/fit-call", withUser, requireAdmin, async(req,re
   const parsed=FitCallSave.safeParse(req.body);
   if(!parsed.success){res.status(422).json({error:"Invalid fit-call answers."});return;}
   const intake=await prisma.discoveryIntake.findUnique({
-    where:{id:req.params.id as string},select:{id:true,consentGiven:true},
+    where:{id:req.params.id as string},select:{id:true,consentGiven:true,answers:true},
   });
   if(!intake){res.status(404).json({error:"Intake not found."});return;}
   if(!intake.consentGiven){res.status(409).json({error:"Fit-call notes require a consented assessment."});return;}
@@ -928,7 +928,7 @@ router.put("/admin/discovery/:id/fit-call", withUser, requireAdmin, async(req,re
   const actor=(req as AuthedRequest).atgUser!;
   await audit({actorUserId:actor.id,action:updated.status==="completed"?"FIT_CALL_COMPLETED":"FIT_CALL_DRAFT_SAVED",
     entity:"DiscoveryIntake",entityId:intake.id,meta:{revision:updated.revision},ip:req.ip});
-  res.json({status:updated.status,revision:updated.revision,
+  res.json({agenda:fitCallAgenda(intake.answers,parseFitCallAnswers(updated.answersJson)),status:updated.status,revision:updated.revision,
     answers:parseFitCallAnswers(updated.answersJson),
     completedAt:updated.completedAt?.toISOString()??null});
 });
