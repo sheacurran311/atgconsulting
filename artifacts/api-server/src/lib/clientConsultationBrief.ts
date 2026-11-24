@@ -1,3 +1,4 @@
+import { firstCallPrep } from "./firstCallPrep";
 import { personalGoal, projectFocus } from "./assessmentProfile";
 /**
  * Reusable consultant briefing compiled from a consented ATG intake.
@@ -42,6 +43,7 @@ function text(value:string|undefined):string|undefined{
 }
 export function buildConsultationBrief(rawAnswers:string|null|undefined, guidedSessionCount=3):ClientConsultationBrief {
   const answers=answerMap(rawAnswers);
+  const prep=firstCallPrep(rawAnswers??"");
   const audience=answers.audience?.toLowerCase().includes("both")?"both":/personal|family/i.test(answers.audience??"")?"personal":"business";
   const business=audience!=="personal";
   const priorities=problems(answers.top_problems??"");
@@ -64,6 +66,8 @@ export function buildConsultationBrief(rawAnswers:string|null|undefined, guidedS
     const value=text(answers[key]);
     if(value && (business || !["Business","Business type","Team size","Business website","Decision authority"].includes(label)))context.push({label,value});
   }
+  const submittedContext=prep.known.find(row=>row.id.startsWith("meeting_context_"));
+  if(submittedContext)context.push({label:"Prospect's project brief",value:submittedContext.value});
   const missing:string[]=[];
   if(business&&!text(answers.company_name))missing.push("Confirm the business or operating entity.");
   if(business&&!text(answers.team_size))missing.push("Confirm team size and who handles the workflow today.");
@@ -73,7 +77,11 @@ export function buildConsultationBrief(rawAnswers:string|null|undefined, guidedS
   if(!text(answers.success_definition))missing.push("Agree a measurable 30- or 90-day success criterion.");
   if(business&&!text(answers.decision_authority))missing.push("Identify the person authorized to approve the pilot.");
   if(!text(answers.data_boundaries))missing.push("Document data exclusions and approval boundaries.");
-  const targeted = project==="website" || project==="combined" ? [
+  const targeted = prep.tracks[0]?.name==="Logo and brand identity" ? [
+    "Who should the identity reach, and where will the logo appear?",
+    "Which existing assets or visual references should guide the design?",
+    "Who approves concepts and final artwork?",
+  ] : project==="website" || project==="combined" ? [
     "Which pages, brand assets and visitor actions need approval for launch?",
     "Who owns the domain, hosting and content, and which URLs or integrations must be preserved?",
     project==="combined" ? "What should happen after a visitor submits an inquiry, and who owns that handoff?" : "What evidence will confirm the launch meets the agreed scope?",
@@ -111,7 +119,7 @@ export function buildConsultationBrief(rawAnswers:string|null|undefined, guidedS
       `Is ${priority.toLowerCase()} still the first priority?`,
       business?`Who owns this process at ${text(answers.company_name)??"the business"}?`:"Who will own this process after setup?",
     ]},
-    {minutes:"3–10",title:"Diagnose the actual workflow",outcome:"Understand the current process and evidence",questions:[
+    {minutes:"3–10",title:"Explore the priority and current situation",outcome:"Understand the current process and evidence",questions:[
       ...targeted.slice(0,2),
       "Can you show or describe a recent example without sharing confidential records?",
     ]},

@@ -467,13 +467,13 @@ export default function IntakePage() {
                 </div>
               )}
 
-              <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>FREE DISCOVERY ASSESSMENT</p>
+              <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.1em" }}>FREE CONSULTATION INTAKE</p>
               <h1 className="font-extrabold mb-3" style={{ color: "var(--ink-text)", fontSize: "clamp(24px, 6vw, 36px)", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
                 Let's map what needs handling.
               </h1>
               <p className="text-sm mb-6" style={{ color: "var(--ink-text-2)", lineHeight: 1.65 }}>
                 Tell us what you want to improve or build at work, in your personal life, or both. You can choose a starting point or describe your own.
-                Shea reviews your priorities, current tools, and boundaries to prepare your audit and consultation.
+                Shea uses your answers to prepare for your first call, identify what needs clarification and suggest where to start.
               </p>
 
               {/* Saved progress banner */}
@@ -497,7 +497,7 @@ export default function IntakePage() {
               )}
 
               <div className="space-y-2 mb-7">
-                {["Mostly quick selections — about 5 minutes", "No passwords, tokens, or confidential client data", "Shea reviews before any follow-up"].map((p) => (
+                {["Up to 10 questions", "No passwords, tokens, or confidential client data", "Shea reviews before any follow-up"].map((p) => (
                   <p key={p} className="flex gap-2 text-sm" style={{ color: "var(--ink-text-2)" }}>
                     <span style={{ color: "var(--blue)" }}>›</span>{p}
                   </p>
@@ -611,7 +611,7 @@ export default function IntakePage() {
                 Review your assessment.
               </h2>
               <p className="text-sm mb-6" style={{ color: "var(--ink-text-2)", lineHeight: 1.6 }}>
-                Check your selections below. After you submit, our analyzer prepares a draft for Shea to review, connecting your priorities to a practical pilot and the right level of help. Nothing is purchased or activated.
+                Check the details Shea will use to prepare your first meeting. You can clarify scope, budget and timing together on the call.
               </p>
 
               <div className="space-y-3 mb-6" aria-label="Review your answers">

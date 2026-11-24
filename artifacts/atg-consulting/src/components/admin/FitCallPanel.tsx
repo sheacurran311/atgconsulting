@@ -8,7 +8,7 @@ type FitCallAnswers={
 };
 type FitCall={
   intakeId:string;status:"draft"|"completed";revision:number;answers:FitCallAnswers;completedAt:string|null;
-  agenda:{stages:Array<{minutes:string;title:string;outcome:string;questions:string[]}>;missingInformation:string[]};
+  agenda:{prep:{priority:string;otherGoals:string[];known:{id:string;value:string}[];open:string[];tracks:{name:string;proposal:string;kickoff:string}[]};stages:Array<{minutes:string;title:string;outcome:string;questions:string[]}>;missingInformation:string[]};
 };
 const sections:Array<{name:string;fields:Array<{key:keyof FitCallAnswers;label:string;hint?:string}>}>=[
  {name:"0–3 minutes | Confirm the outcome",fields:[
@@ -16,18 +16,18 @@ const sections:Array<{name:string;fields:Array<{key:keyof FitCallAnswers;label:s
   {key:"processOwner",label:"Process owner"},
  ]},
  {name:"3–10 minutes | Map the workflow",fields:[
-  {key:"workflowExample",label:"Real example: trigger, steps, output",hint:"Use redacted examples. Do not paste client secrets."},
+  {key:"workflowExample",label:"Current situation, example or project brief",hint:"Use redacted examples. Do not paste client secrets."},
   {key:"currentSystems",label:"Tools and source-of-truth systems"},
   {key:"baseline",label:"Current frequency, time or cost baseline"},
  ]},
  {name:"10–15 minutes | Feasibility and decision rights",fields:[
-  {key:"decisionMaker",label:"Who can approve the pilot?"},
+  {key:"decisionMaker",label:"Who can approve the work?"},
   {key:"budget",label:"Budget and payment constraints"},
   {key:"timing",label:"Target timing"},
   {key:"boundaries",label:"Data boundaries and approval requirements"},
  ]},
  {name:"15–20 minutes | Pilot and next action",fields:[
-  {key:"pilot",label:"Agreed single first pilot"},
+  {key:"pilot",label:"Agreed first deliverable or pilot"},
   {key:"successMetric",label:"Measurable acceptance criterion"},
   {key:"clientDependencies",label:"Client responsibilities and dependencies"},
   {key:"exclusions",label:"Explicit exclusions"},
@@ -52,7 +52,7 @@ export default function FitCallPanel({intakeId,onCompleted,onRecordChange}:{inta
   if(!record||!answers||busy)return;
   setBusy(true);setError("");setNotice("");
   try{
-   const updated=await adminJson<Pick<FitCall,"status"|"revision"|"answers"|"completedAt">>(
+   const updated=await adminJson<Pick<FitCall,"agenda"|"status"|"revision"|"answers"|"completedAt">>(
     `/api/admin/discovery/${intakeId}/fit-call`,{
      method:"PUT",headers:{"Content-Type":"application/json"},
      body:JSON.stringify({expectedRevision:record.revision,status,answers}),
@@ -67,12 +67,24 @@ export default function FitCallPanel({intakeId,onCompleted,onRecordChange}:{inta
  if(loading)return <section className="rounded-xl border border-canvas-border p-4"><p className="text-sm">Loading the 20-minute consultation worksheet…</p></section>;
  return <section className="rounded-xl border border-canvas-border p-4 sm:p-5 space-y-4" aria-label="Structured fit-call worksheet">
   <div><h3 className="text-lg font-bold">20-minute Fit Call | Structured Outcomes</h3>
-   <p className="text-sm opacity-70">Capture the second intake here. Only you can view these notes until you approve a separate proposal.</p></div>
+   <p className="text-sm opacity-70">Review the prospect’s answers before the meeting. Record what you confirm during the call.</p></div>
   {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
   {notice&&<p role="status" className="text-sm text-green-700">{notice}</p>}
   {record&&answers&&<>
    <div className="text-xs opacity-70">Status: {record.status}. Revision {record.revision}.
     {record.completedAt&&` Completed ${new Date(record.completedAt).toLocaleString()}.`}</div>
+   <section className="rounded border border-canvas-border p-4 space-y-3" aria-label="First-call playbook">
+    <h4 className="font-bold">First-call playbook</h4>
+    <p><strong>First priority</strong> {record.agenda.prep.priority || "Identify together on the call"}</p>
+    {!!record.agenda.prep.otherGoals.length && <p>Also requested: {record.agenda.prep.otherGoals.join("; ")}</p>}
+    <h5 className="font-semibold">What the prospect told us</h5>
+    <dl>{record.agenda.prep.known.map(row=><div key={row.id}><dt className="text-xs font-bold">{row.id.startsWith("meeting_context_")?"Project context":row.id.replaceAll("_"," ")}</dt><dd className="text-sm">{row.value}</dd></div>)}</dl>
+    <h5 className="font-semibold">Open questions for this call</h5>
+    {record.agenda.prep.open.length ? <ul className="list-disc pl-5">{record.agenda.prep.open.map(q=><li key={q}>{q}</li>)}</ul> : <p>All first-call topics have recorded answers.</p>}
+    {record.agenda.prep.tracks.map(track=><div key={track.name} className="border-t pt-2"><h5 className="font-semibold">{track.name}</h5>
+      <p className="text-sm"><strong>Before quoting</strong> {track.proposal}</p>
+      <p className="text-sm"><strong>At kickoff</strong> {track.kickoff}</p></div>)}
+   </section>
    <details className="rounded border border-canvas-border p-3">
     <summary className="font-semibold text-sm cursor-pointer">Client-specific consultation agenda</summary>
     <div className="mt-3 space-y-3">{record.agenda.stages.map((stage,i)=>

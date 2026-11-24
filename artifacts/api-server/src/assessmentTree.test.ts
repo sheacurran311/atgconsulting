@@ -123,3 +123,39 @@ test("the operating guide starts with the selected priority and keeps unrelated 
   assert.deepEqual(plan.workflows.map(w=>[w.name,w.realm]),[["Build or redesign a website","business"],["Plan trips or events","personal"]]);
   assert.ok(!plan.workflows.some(w=>w.id==="family-coordination"));
 });
+
+test("public pre-call intake covers all services with one relevant project question",async()=>{
+  const {preCallQuestions}=await import("./lib/assessmentProfile");
+  const {firstCallPrep}=await import("./lib/firstCallPrep");
+  for(const [goal,track] of [
+    ["Design a logo or refresh a brand","Brand identity"],["Build or redesign a website","Websites"],
+    ["Find and research prospects","Sales, marketing and search"],["Invoices and expense tracking","Business automation"],
+    ["Build a custom app or connect systems","Custom development"],["Get ongoing technical support","Fractional technical support"],
+    ["Manage a personal project","Personal productivity"],["Combine website and workflow improvements","Website and workflow modernization"],
+    ["Invent something unusual","Open discovery"],
+  ]){
+    const rows=[track==="Personal productivity"?family:business,answer("top_problems",select(goal))];
+    const plan=preCallQuestions(rows);
+    const context=plan.filter(q=>q.id.startsWith("meeting_context_"));
+    assert.equal(context.length,1);
+    assert.ok(plan.length<=10 && !plan.some(q=>["data_boundaries","pilot_owner","ai_tools_today"].includes(q.id)));
+    const intake=[...rows,answer(context[0]!.id,"My actual example"),answer("budget_range","(skipped)")];
+    const prep=firstCallPrep(JSON.stringify(intake),{decisionMaker:"Owner"});
+    assert.equal(prep.tracks[0]?.name,track);
+    assert.ok(prep.known.some(row=>row.value==="My actual example"));
+    assert.ok(prep.open.some(q=>q.includes("budget")));
+    assert.ok(!prep.open.some(q=>q.includes("who can approve")));
+    assert.equal(assessmentStep(intake,undefined,plan).questionPlan.length,plan.length);
+  }
+});
+test("mixed projects preserve secondary scope and drop obsolete context on edit",async()=>{
+  const {preCallQuestions}=await import("./lib/assessmentProfile");
+  const {firstCallPrep}=await import("./lib/firstCallPrep");
+  const logo="Design a logo or refresh a brand",web="Build or redesign a website";
+  const rows=[business,answer("top_problems",select(logo,web)),answer("first_priority",web)];
+  const prep=firstCallPrep(JSON.stringify(rows));
+  assert.deepEqual(prep.otherGoals,[logo]);
+  assert.deepEqual(prep.tracks.map(t=>t.name),["Websites","Brand identity"]);
+  assert.equal(preCallQuestions(rows).length,10);
+  assert.ok(!applicableAnswers([...rows,answer("meeting_context_brand_identity","old")]).some(a=>a.id==="meeting_context_brand_identity"));
+});

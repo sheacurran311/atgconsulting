@@ -1,3 +1,4 @@
+import { serviceFor } from "./firstCallPrep";
 import { QUESTION_BANK, QUESTION_MAP, type Question } from "./questionBank";
 
 export type Audience = "business" | "personal" | "both";
@@ -145,8 +146,24 @@ export function assessmentQuestions(answers:Answer[]):Question[] {
 }
 
 /** Deterministic navigation; never request AI on the answer-save path. */
-export function assessmentStep(answers:Answer[],afterQuestionId?:string){
-  const questionPlan=assessmentQuestions(answers);
+export function preCallQuestions(answers:Answer[]):Question[] {
+  const values=Object.fromEntries(answers.map(a=>[a.id,a.answer]));
+  const goals=selectedProblems(values.top_problems??"");
+  const primary=goals.includes(values.first_priority) ? values.first_priority : goals[0]??"";
+  const track=serviceFor(primary,values.audience??"");
+  const contextId="meeting_context_"+track.name.toLowerCase().replace(/[^a-z]+/g,"_");
+  const ids=["contact_email","contact_name","audience",...(audienceFrom(answers)!=="personal"?["company_name"]:[]),
+    "top_problems",...(goals.length>1?["first_priority"]:[]),contextId,"success_definition","urgency","budget_range"];
+  const detailed=new Map(assessmentQuestions(answers).map(question=>[question.id,question]));
+  return ids.flatMap((id):Question[]=>{
+    if(id===contextId)return [{id,category:"goals",core:false,type:"text",text:track.prompt}];
+    if(id==="success_definition")return [{id,category:"goals",core:false,type:"text",text:"What would make this project a success for you?"}];
+    const question=detailed.get(id);
+    return question?[question]:[];
+  });
+}
+
+export function assessmentStep(answers:Answer[],afterQuestionId?:string,questionPlan=assessmentQuestions(answers)){
   const answered=new Set(answers.map(a=>a.id));
   const position=afterQuestionId?questionPlan.findIndex(q=>q.id===afterQuestionId):-1;
   const pending=questionPlan.filter(q=>!answered.has(q.id));
@@ -183,7 +200,8 @@ export function applicableAnswers<T extends Answer>(answers:T[]):T[]{
     "family_sources","family_coordination","travel_needs",
     "approver_name","approver_email","approver_role",
   ]);
-  return withoutStalePriority.filter(a=>!branched.has(a.id)||applicable.has(a.id));
+  const contextId=preCallQuestions(withoutStalePriority).find(q=>q.id.startsWith("meeting_context_"))?.id;
+  return withoutStalePriority.filter(a=>a.id.startsWith("meeting_context_") ? a.id===contextId : !branched.has(a.id)||applicable.has(a.id));
 }
 export const ALL_ASSESSMENT_QUESTIONS = [...QUESTION_BANK, ...AUDIT_QUESTIONS];
 export const ALL_ASSESSMENT_MAP = { ...QUESTION_MAP, ...AUDIT_MAP };
