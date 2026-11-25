@@ -1,3 +1,35 @@
+# ATG Consulting | Master Implementation Plan: historical decisions and status register
+
+**Updated November 24, 2026.** Forward execution authority: [Commercial Launch Master Plan v4.0](COMMERCIAL_LAUNCH_MASTER_PLAN_V4.md). The historical text below is preserved for decision provenance; its old branch statuses, fixed prices, deployment instructions and future-tense statements are not current instructions. Baseline: main bf18a28, merged PRs #78 and #79. Source presence is not production verification.
+
+## November 24 reconciliation
+
+| Workstream | Status | Changes / remaining work |
+|---|---|---|
+| Commercial positioning | Source implemented | Six capabilities, bespoke proposals, free first step, optional support; no public fixed pricing. Legacy self-serve checkout retired; do not resurrect. |
+| Web/branding | Source implemented | Industry pages and service-specific intake merged in #79; validate live mobile, CTAs, SEO, accessibility and demo collateral. |
+| Growth animation | Source implemented | GrowthWorkflowScroll exists; validate deployed performance, touch and reduced motion. |
+| Intake/consultation | Source implemented | #78 shorter 8–11 question intake, private first-call brief and 14-field fit-call worksheet; live submission, notifications, booking, persistence and role checks pending. |
+| Proposal and payment | Partial | Reviewed proposal revision, immutable scope, workstreams, installments and sandbox receipts exist; offline invoicing and acceptance validation first; operator invoices, change orders, contract-specific delivery access and production payments pending. |
+| Guided/DIFY | Partial | Playbook and modules exist; milestone-to-action-item mapping, ownership, evidence and visibility remain. |
+| Workflow pricing | Partial | 50-workflow catalogue and internal ranges approved; versioned admin catalogue, estimator and actual delivery measurements remain. |
+| Internal prospecting | Partial | Admin CRUD, scoring, drafts, reviewed status changes, Sheet/Gmail/Calendar reads and bounded writeback exist; licensed autonomous discovery, inspection, enrichment, shared suppression, scheduled runs, stable identities and canonical synchronization remain. |
+| Google integrations | Partial | Internal Replit connector probes previously reported; production account identity and access not independently verified. Docs export gated. Customer GSC/GA4 allowlist only; full OAuth and monitoring remain. |
+| SEO/AEO | Partial | Pure source-separated metric analysis and anomaly logic exist; ingestion, encrypted tokens, snapshots, scheduling, reports and AEO benchmarking remain. |
+| Sales launch | Open | First prospect cohort, collateral, compliant sender, consultation availability, invoice/SOW process and end-to-end pilot gates. |
+| Runtime | Unverified | Latest deployment SHA, database migration, tests/build, production flags, legal publication, email and booking require recorded evidence. |
+
+## Superseded decisions and additions
+
+- November 17 Word plan: free access replacing paid Self-Serve retained; earlier fixed Guided/DIFY prices superseded by November 19 bespoke quote policy. Existing enum compatibility is not a purchasable product.
+- November 19 catalogue: website bands and five bundle ranges remain internal scoping hypotheses, not public pricing. Full project labor includes QA, revisions, training and risk.
+- November 20 custom quotes: sandbox payments do not prove production collection or grant access. Manual invoicing is a launch fallback; no billing activation without approval.
+- November 24 #78/#79: first-call discovery and industry-specific pages merged; supersede earlier interim generic intake path.
+- November 24 launch audit: prioritize P0 release, acquisition pilot, quote-to-delivery and sales collateral; P1 CRM, estimator, client SEO and milestone integration; P2/P3 automated dispatch, change orders, support, ROI and scale.
+- Owner-approved goal: controlled outreach November 30 with safe manual alternatives where appropriate. No unapproved live sends, production billing or deployment. Full automated consultancy is not a launch prerequisite.
+
+## Historical plan (retained verbatim)
+
 # ATG Consulting | Current Product Master Plan
 
 **Canonical status document:** November 19, 2026  
