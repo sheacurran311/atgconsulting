@@ -2,6 +2,8 @@ import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
+import { governanceReview } from "../lib/businessContext";
+import { transformationServices } from "../lib/transformationServices";
 import { audit } from "../lib/audit";
 import { buildOperatingPlan, OperatingPlanSchema, operatingPlanMarkdown } from "../lib/operatingPlan";
 
@@ -33,6 +35,16 @@ export function createOperationsRouter(resolve: RequestHandler = withUser) {
   router.put(adminPath, requireAdmin, async (req, res) => {
     const body = z.object({ version: z.number().int().positive(), content: OperatingPlanSchema, internalNotes: z.string().max(10000) }).safeParse(req.body);
     if (!body.success) { res.status(422).json({ error: body.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }); return; }
+    const client = req.params.id as string;
+    const active = body.data.content.workflows.filter(w=>["configured","tested","live"].includes(w.status) && (w.serviceId || transformationServices.some(s=>s.id===w.id)));
+    if(active.length){
+      const context=await prisma.businessContextVersion.findFirst({where:{clientId:client},orderBy:{version:"desc"}});
+      const profile=context?JSON.parse(context.content):null;
+      for(const workflow of active){
+        const review=governanceReview(profile,client,workflow.serviceId??workflow.id);
+        if(review.status!=="cleared"){res.status(409).json({error:"Governance review required before recording active transformation workflows.",reasons:review.reasons});return;}
+      }
+    }
     const updated = await prisma.operatingPlan.updateMany({ where: { clientId: req.params.id as string, version: body.data.version }, data: { content: JSON.stringify(body.data.content), internalNotes: body.data.internalNotes, version: { increment: 1 } } });
     if (!updated.count) { res.status(409).json({ error: "This plan changed elsewhere. Reload before saving." }); return; }
     await audit({ actorUserId: (req as AuthedRequest).atgUser!.id, action: "OPERATING_PLAN_UPDATED", entity: "Client", entityId: req.params.id as string });
