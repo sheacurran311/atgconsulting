@@ -98,6 +98,7 @@ model Client {
   declaredAccounts    DeclaredAccount[]
   dayBlocks           DayBlock[]
   operatingPlan       OperatingPlan?
+  businessContextVersions BusinessContextVersion[]
 }
 
 // ── Intake ─────────────────────────────────────────────────────────────────────
@@ -1302,4 +1303,16 @@ model QuoteInstallment {
   refundedCents Int @default(0)
   paidAt      DateTime?
   @@unique([proposalId, stage])
+}
+
+// Immutable consultant-reviewed context metadata; no credential or raw document storage.
+model BusinessContextVersion {
+  id String @id @default(cuid())
+  clientId String
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  version Int
+  content String
+  actorUserId String
+  createdAt DateTime @default(now())
+  @@unique([clientId, version])
 }
