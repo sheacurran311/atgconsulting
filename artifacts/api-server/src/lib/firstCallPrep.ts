@@ -1,4 +1,5 @@
 import { answerMap } from "./intakeAnswers";
+import { transformationServiceFor } from "./transformationServices";
 
 const services = [
   { name:"Brand identity", match:/logo|brand identity|refresh a brand/i, prompt:"Where will the design appear, and what should change about the current identity?", proposal:"Agree concepts, file formats, revision rounds, usage and sign-off.", kickoff:"Collect existing artwork, references and approved copy." },
@@ -13,6 +14,8 @@ const services = [
 ];
 
 export function serviceFor(goal:string, audience:string) {
+  const expanded = /^my personal|^personal$/i.test(audience) ? undefined : transformationServiceFor(goal);
+  if (expanded) return { name: expanded.name, prompt: expanded.prompt, proposal: expanded.proposal, kickoff: expanded.kickoff };
   return services.find(service=>goal && service.match.test(goal)) ??
     services.find(service=>service.name===(/^my personal|^personal$/i.test(audience)?"Personal productivity":"Open discovery"))!;
 }
@@ -22,7 +25,7 @@ export function firstCallPrep(raw:string, confirmed:Record<string,string> = {}) 
   const supplied=(value:string|undefined)=>Boolean(value?.trim()&&!/^\(skipped\)$|^not sure(?: yet)?$|^unsure$/i.test(value.trim()));
   const goals=(a.top_problems||"").split(/[;\n]/).map(s=>s.trim()).filter(supplied);
   const priority=goals.includes(a.first_priority)?a.first_priority:goals[0]||"";
-  const tracks=[...new Set([priority,...goals].map(goal=>serviceFor(goal,a.audience||"")))];
+  const tracks=[...new Map([priority,...goals].map(goal=>serviceFor(goal,a.audience||"")).map(track=>[track.name,track])).values()];
   const known=Object.entries(a).filter(([key,value])=>!["contact_email","contact_name","audience","top_problems","first_priority"].includes(key)&&supplied(value)).map(([id,value])=>({id,value}));
   const practiceWebsite = /medical practice|orthopedic|dental practice/i.test(a.business_type || "") &&
     tracks.some(track => track.name === "Websites" || track.name === "Website and workflow modernization");
