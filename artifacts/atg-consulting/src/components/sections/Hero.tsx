@@ -21,15 +21,15 @@ export default function Hero() {
         </div>
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <motion.div initial={reducedMotion ? false : { opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75, ease: "easeOut" }}>
-            <p className="font-mono text-xs mb-5 uppercase" style={{ color: "var(--blue)", letterSpacing: "0.12em" }}>Websites · Design · AI · Automation</p>
+            <p className="font-mono text-xs mb-5 uppercase" style={{ color: "var(--blue)", letterSpacing: "0.12em" }}>Strategy · Automation · Digital transformation</p>
             <h1 id="hero-heading" className="display-xl mb-6" style={{ color: "var(--ink-text)" }}>
-              Your business. <span style={{ color: "var(--blue)" }}>Modernized.</span>
+              Your AI <span style={{ color: "var(--blue)" }}>transformation partner.</span>
             </h1>
             <p className="text-lg leading-relaxed mb-5" style={{ color: "var(--ink-text-2)", maxWidth: "570px" }}>
-              Better websites, sharper branding, and practical AI-powered workflows. ATG helps businesses and individuals design, build, and use technology that makes everyday work easier.
+              ATG helps small and medium-sized businesses identify, implement and improve AI-powered solutions, modern websites, and connected business systems. We also offer practical technology consulting for individuals.
             </p>
             <p className="text-sm leading-relaxed mb-8" style={{ color: "var(--ink-text-2)", maxWidth: "550px" }}>
-              Don't just ask AI what to do. Put it to work, with hands-on consulting, carefully configured tools, and a clear path from idea to implementation.
+              From your first automation to ongoing fractional AI leadership, we combine strategic guidance with hands-on implementation, measurable goals and clear ownership.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link to="/intake" className="btn-primary" style={{ fontSize: "15px", padding: "12px 22px" }}>Start a free assessment →</Link>
