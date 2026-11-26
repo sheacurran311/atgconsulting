@@ -77,3 +77,37 @@ test("fractional leadership reaches consultant brief and planned delivery contra
   assert.equal(plan.workflows[0]?.status,"planned");
   assert.ok(plan.workflows[0]?.actions.includes("advisory hours"));
 });
+
+import { readiness, opportunity, roi, estimate } from "./lib/consultingIntelligence";
+test("readiness distinguishes missing evidence from zero maturity",()=>{
+ const d={score:0,evidence:"Reviewed baseline"};
+ const input={infrastructure:d,data:d,process:d,adoption:d,governance:d,team:d};
+ assert.equal(readiness(input).score,0);
+ assert.equal(readiness({...input,team:{score:null,evidence:""}}).score,null);
+ assert.throws(()=>readiness({...input,team:{score:4,evidence:""}}));
+});
+test("opportunity score cannot override governance",()=>{
+ const d={score:4,evidence:"Reviewed evidence"};
+ const input={serviceId:"workflow-engineering",impact:d,roi:d,feasibility:d,urgency:d,confidence:d};
+ const p=emptyBusinessContext("a");
+ assert.equal(opportunity(input,p,"a").priority,"discovery");
+ assert.equal(opportunity(input,p,"b").priority,"blocked");
+ const approved={...p,decisionOwner:"Owner",accessReview:"confirmed",dataReview:"confirmed",humanOversight:"confirmed",regulatedReview:"not-applicable"};
+ assert.equal(opportunity(input,approved,"a").score,100);
+ assert.equal(opportunity(input,approved,"a").priority,"priority");
+ assert.equal(opportunity({...input,serviceId:"voice-ai"},approved,"a").priority,"discovery");
+});
+test("ROI distinguishes capacity and realizable cash; no false payback",()=>{
+ const input={weeklyHours:10,hourlyCostCents:3500,reductionPercent:60,realizablePercent:0,setupCents:150000,monthlyCostCents:10000};
+ const r=roi(input);
+ assert.equal(r.monthlyCapacityCents,91000);
+ assert.equal(r.monthlyCashScenarioCents,0);
+ assert.equal(r.paybackMonths,null);
+ assert.equal(roi({...input,realizablePercent:100}).monthlyNetCashScenarioCents,81000);
+});
+test("bespoke estimate includes advisory support monitoring and reserves",()=>{
+ const r=estimate({implementationHours:10,testingHours:2,trainingHours:1,advisoryHours:4,supportHours:3,monitoringHours:2,internalHourlyCents:7500,setupDirectCents:0,monthlyDirectCents:5000,monthlyReserveCents:10000,contingencyPercent:0,marginPercent:45});
+ assert.equal(r.monthlyCostCents,82500);
+ assert.equal(r.indicativeMonthlyCents,150000);
+ assert.equal(r.binding,false);
+});
