@@ -1,5 +1,6 @@
 import { industrySites } from "./industrySites";
 import { serviceFor } from "./firstCallPrep";
+import { transformationServices, transformationServiceFor } from "./transformationServices";
 import { QUESTION_BANK, QUESTION_MAP, type Question } from "./questionBank";
 
 export type Audience = "business" | "personal" | "both";
@@ -34,7 +35,8 @@ export const AUDIT_QUESTIONS: Question[] = [
 ];
 export const AUDIT_MAP = Object.fromEntries(AUDIT_QUESTIONS.map((q) => [q.id, q]));
 const projectTasks = ["Build or redesign a website", "Design a logo or refresh a brand", "Build a custom app or connect systems", "Combine website and workflow improvements", "Get ongoing technical support"];
-const businessTasks = [...projectTasks, "Find and research prospects", "Sales follow-ups and outreach", "Booking and scheduling", "Quotes and estimates", "Customer requests and admin", "Invoices and expense tracking", "Content and marketing", "Website SEO and search visibility", "Meeting notes and proposals", "Reporting and data analysis"];
+const expandedTasks = transformationServices.map(service => service.goal);
+const businessTasks = [...projectTasks, ...expandedTasks, "Find and research prospects", "Sales follow-ups and outreach", "Booking and scheduling", "Quotes and estimates", "Customer requests and admin", "Invoices and expense tracking", "Content and marketing", "Website SEO and search visibility", "Meeting notes and proposals", "Reporting and data analysis"];
 const personalTasks = ["Manage my time and commitments", "Organize files, email and paperwork", "Research options and make decisions", "Plan trips or events", "Learn a tool or develop a skill", "Manage a personal project", "Coordinate shared routines"];
 const historicalPersonalTasks = ["School and sports schedules", "Family and sports travel", "Household tasks and reminders", "Personal email and paperwork"];
 
@@ -87,6 +89,7 @@ export function assessmentOrder(answers:Answer[]):string[] {
   const selected=selectedProblems(values.top_problems??"");
   const priority=selected.includes(values.first_priority??"")?values.first_priority:selected[0]??"";
   const project=business ? projectFocus(priority) : null;
+  const expanded=business ? transformationServiceFor(priority) : undefined;
   const personalPriority=personal&&(audience==="personal"||personalGoal(priority));
   const industry=values.business_type??"";
   const trades=business&&hasMatch(industry,/trade|construction|home service|plumb|electri|landscap|roof|clean/);
@@ -102,7 +105,7 @@ export function assessmentOrder(answers:Answer[]):string[] {
   if(operational)branch.push("ops_volume","ops_handoff_risk","ops_manual_steps");
   if(business&&!branch.length)branch.push("ops_manual_steps","lead_source");
   const branchLimit=audience==="both"?2:3;
-  const branchQuestions = project === "website" || project === "combined" ? ["project_requirements","website_current","website_features"]
+  const branchQuestions = expanded ? ["project_requirements","current_software","ai_tools_today"] : project === "website" || project === "combined" ? ["project_requirements","website_current","website_features"]
     : project === "development" ? ["project_requirements","current_software"]
     : project === "support" ? ["support_scope","current_software"]
     : personalPriority ? [] : [...new Set(branch)].slice(0,branchLimit);
@@ -128,7 +131,7 @@ export function assessmentQuestions(answers:Answer[]):Question[] {
     const base=AUDIT_MAP[id]??QUESTION_MAP[id];
     if(id==="top_problems"){
       const groups=[
-        ...(audience!=="personal"?[{label:"Projects and technical support",options:projectTasks},{label:"Business operations and growth",options:businessTasks.filter(task=>!projectTasks.includes(task))}]:[]),
+        ...(audience!=="personal"?[{label:"Projects and technical support",options:projectTasks},{label:"Business operations and growth",options:businessTasks.filter(task=>!projectTasks.includes(task)&&!expandedTasks.includes(task))},{label:"AI strategy and transformation",options:expandedTasks}]:[]),
         ...(audience!=="business"?[{label:"Personal & household",options:personalTasks}]:[]),
       ];
       return {...base!,category:"goals",text:"What would you like to improve or build?",type:"multiselect",allowOther:true,optionGroups:groups,options:groups.flatMap(g=>g.options)};
