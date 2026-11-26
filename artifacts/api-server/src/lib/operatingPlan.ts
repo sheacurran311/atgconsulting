@@ -6,6 +6,7 @@ import { audienceFrom, personalGoal, projectFocus, selectedProblems } from "./as
 const text = z.string().trim().max(2000);
 const date = z.string().max(30).refine((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v), "Use YYYY-MM-DD");
 export const WorkflowContractSchema = z.object({
+  serviceId: z.string().optional(),
   id: z.string().regex(/^[a-z0-9-]+$/).max(80), name: text.min(1), realm: z.enum(["business", "personal"]),
   owner: text.min(1), role: text, trigger: text.min(1), inputs: text, actions: text,
   approval: text.min(1), recovery: text.min(1), success: text.min(1), platform: text,
@@ -65,6 +66,7 @@ export function buildOperatingPlan(raw: string | null | undefined): OperatingPla
       : /prospect|sales|outreach|follow.up/i.test(goal) && realm==="business"
       ? contract("follow-up",title,realm,"Sales coordinator","A qualified opportunity needs attention.","Research the opportunity, prepare a next step and confirm follow-up ownership.")
       : contract("project-"+(workflows.length+1),title,realm,"Project owner","The agreed example or project brief is ready.","Review the current approach and test one improvement against the stated outcome.");
+    if(expanded) pilot.serviceId=expanded.id;
     if(workflows.some(w=>w.id===pilot.id)) pilot.id="selection-"+(workflows.length+1);
     workflows.push(pilot);
   }
