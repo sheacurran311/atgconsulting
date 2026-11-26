@@ -101,13 +101,13 @@ test("guided assessment branches by priorities and clears deselected paths", () 
 test("mixed audience priorities have labeled groups and support every selection", () => {
   const answers = [{ id: "audience", answer: "Both business and personal life" }];
   const q = assessmentQuestions(answers).find((q) => q.id === "top_problems")!;
-  assert.deepEqual(q.optionGroups?.map((group) => group.label), ["Projects and technical support", "Business operations and growth", "Personal & household"]);
+  assert.deepEqual(q.optionGroups?.map((group) => group.label), ["Projects and technical support", "Business operations and growth", "AI strategy and transformation", "Personal & household"]);
   assert.ok(q.options!.length > 3);
   const selected = q.options!;
   const next = assessmentStep([...answers, { id: q.id, answer: JSON.stringify(selected) }], q.id);
   assert.equal(next.questions[0]?.id, "first_priority");
   for (const audience of ["My business", "My personal and family life"]) {
     const question = assessmentQuestions([{ id: "audience", answer: audience }]).find((q) => q.id === "top_problems")!;
-    assert.equal(question.optionGroups?.length, audience === "My business" ? 2 : 1);
+    assert.equal(question.optionGroups?.length, audience === "My business" ? 3 : 1);
   }
 });
