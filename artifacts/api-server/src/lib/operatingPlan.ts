@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { answerMap } from "./intakeAnswers";
+import { transformationServiceFor } from "./transformationServices";
 import { audienceFrom, personalGoal, projectFocus, selectedProblems } from "./assessmentProfile";
 
 const text = z.string().trim().max(2000);
@@ -53,7 +54,9 @@ export function buildOperatingPlan(raw: string | null | undefined): OperatingPla
     const realm = audience==="personal" || (audience==="both" && personalGoal(goal)) ? "personal" : "business";
     const project = projectFocus(goal);
     const title = goal.slice(0,240);
-    const pilot = realm==="personal" && /travel|trip/i.test(goal)
+    const expanded = realm==="business" ? transformationServiceFor(goal) : undefined;
+    const pilot = expanded ? contract(expanded.id,title,realm,"Project owner","The consultant and customer agree the scope.",expanded.proposal+" "+expanded.kickoff)
+      : realm==="personal" && /travel|trip/i.test(goal)
       ? contract("travel-planning",title,realm,"Trip planner","An upcoming trip needs planning.","Gather the itinerary, compare options and review bookings with the traveler.")
       : realm==="personal" && /schedule|commitment|routine/i.test(goal)
       ? contract("family-coordination",title,realm,"Schedule coordinator","A commitment changes or a shared review is due.","Collect updates, check for conflicts and review reminders.")
