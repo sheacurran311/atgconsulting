@@ -1,3 +1,4 @@
+import businessContextRouter from "./businessContext";
 import quotePayments from "./quotePayments";
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
@@ -82,5 +83,6 @@ router.use(adminTodayRouter);
 router.use(prospectingRouter);
 router.use(workshopRouter);
 router.use(operationsRouter);
+router.use(businessContextRouter);
 
 export default router;
