@@ -37,3 +37,43 @@ test("mixed priorities preserve fractional leadership and existing website scope
   assert.deepEqual(firstCallPrep(JSON.stringify(rows)).tracks.map(t=>t.name),["Fractional AI leadership","Websites"]);
   assert.equal(preCallQuestions(rows).length,11);
 });
+
+import { serviceWorkflowLinks, workflowCandidates } from "./lib/serviceWorkflowLinks";
+import { emptyBusinessContext, governanceReview } from "./lib/businessContext";
+import { buildConsultationBrief } from "./lib/clientConsultationBrief";
+import { buildOperatingPlan } from "./lib/operatingPlan";
+
+test("catalog references resolve without inventing or duplicating existing identifiers",()=>{
+  for(const service of transformationServices){
+    const links=serviceWorkflowLinks[service.id]!;
+    const resolved=workflowCandidates(service.id)!;
+    for(const key of ["recipes","templates","modules"] as const){
+      assert.deepEqual(new Set(resolved[key].map(r=>r.id)),new Set(links[key]),service.id+" "+key);
+    }
+    assert.equal(resolved.status,"candidate-only");
+    assert.ok(resolved.gap);
+  }
+  assert.equal(workflowCandidates("unknown"),null);
+});
+test("context review fails closed, isolates tenants and requires voice pilot evidence",()=>{
+  const draft=emptyBusinessContext("client-a");
+  assert.equal(governanceReview(draft,"client-b","ai-readiness").status,"blocked");
+  assert.equal(governanceReview(draft,"client-a","ai-readiness").status,"review");
+  const approved={...draft,decisionOwner:"Owner",accessReview:"confirmed",dataReview:"confirmed",humanOversight:"confirmed",regulatedReview:"not-applicable"};
+  assert.equal(governanceReview(approved,"client-a","ai-readiness").status,"cleared");
+  assert.equal(governanceReview(approved,"client-a","voice-ai").status,"review");
+  assert.equal(governanceReview({...approved,accessReview:"blocked"},"client-a","ai-readiness").status,"blocked");
+  assert.equal(governanceReview({...approved,credential:"secret"},"client-a","ai-readiness").status,"blocked");
+  assert.equal(governanceReview({...approved,sources:[{label:"Restricted records",owner:"Owner",classification:"restricted",authorization:"confirmed"}]},"client-a","ai-readiness").status,"review");
+});
+test("fractional leadership reaches consultant brief and planned delivery contract",()=>{
+  const service=transformationServices.find(s=>s.id==="fractional-ai-leadership")!;
+  const raw=JSON.stringify([business,{id:"top_problems",answer:JSON.stringify([service.goal])}]);
+  const brief=buildConsultationBrief(raw);
+  assert.ok(brief.fitCall[1]!.questions.includes(service.prompt));
+  assert.equal(brief.transformationCandidates?.[0]?.serviceId,service.id);
+  const plan=buildOperatingPlan(raw);
+  assert.equal(plan.workflows[0]?.id,service.id);
+  assert.equal(plan.workflows[0]?.status,"planned");
+  assert.ok(plan.workflows[0]?.actions.includes("advisory hours"));
+});
