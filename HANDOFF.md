@@ -1,3 +1,15 @@
+# CURRENT HANDOFF | November 24, 2026
+
+**Start here:** [Commercial Launch Master Plan v4.0](docs/COMMERCIAL_LAUNCH_MASTER_PLAN_V4.md) is the forward execution authority. [Master Implementation Plan](docs/MASTER_IMPLEMENTATION_PLAN.md) is the historical decision/status register. [Internal workflow catalogue](docs/ATG_INTERNAL_WORKFLOW_CATALOG_AND_PRICING.md) is the internal estimating reference.
+
+Target controlled outreach November 30. Execute P0 phases A–D first; P1/P2/P3 follow demand and acceptance gates. Do not assume merged source is deployed or tested. Keep a task evidence ledger and use isolated branches and reviewed PRs. Never start another dev server or disrupt SSH, edit .replit, alter production secrets, or apply schema/deploy without approval and backup/rollback. No live automated sending or billing activation by default.
+
+**Current commercial rules override historical text below:** free assessment/resources, bespoke negotiated projects, collaborative Guided or hands-on DIFY, optional separately contracted support; no public fixed package prices or paid Self-Serve. The old checkout route is retired; do not recreate fixed Stripe checkout or grant access on proposal approval. Use approved custom quotes, actual confirmed payment and explicitly authorized access; test receipts are not live payments. Internal quote bands remain hypotheses. No advertising management or guaranteed outcomes. Preserve legacy data and enum compatibility.
+
+**Integration rules:** client-owned platforms execute their workflows; no client inbox/calendar/CRM/social OAuth. Only customer GSC/GA4 read-only scopes are approved, with full OAuth/security/tenant/verification gates still pending. ATG-owned Replit Google connectors are internal and distinct. Verify actual ATG identity before any read/write; no automatic sharing or external messages. Keep customer data private and use approved client systems for regulated workflows.
+
+**Historical handoff below is retained for architecture and migration provenance only.** Its fixed-price table, old environment defaults, old checkout instructions, test-mode assumptions, migration commands and outdated feature statuses must not be interpreted as current instructions. Inspect actual code and current plan before changing configuration.
+
 # ATG Consulting handoff
 
 This file is the starting point for the next person or agent. The product owner is Shea. Refer to him as he.
