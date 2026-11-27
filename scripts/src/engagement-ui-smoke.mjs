@@ -74,8 +74,8 @@ try {
       if (url.pathname === "/api/account" || url.pathname === "/api/client/me") return json({...account, role: clientView ? "CLIENT" : "ADMIN", isAdmin: !clientView});
       if (url.pathname === "/api/admin/clients/client-a") return json(client);
       if (url.pathname === "/api/admin/clients/client-a/prep") return json({});
-      if (url.pathname === base) return json({intakes: []});
-      if (url.pathname === base + "/unlinked") return json({records: draft ? [draft] : [], source: null});
+      if (url.pathname === base) return json({intakes: [{id: "intake-a", status: "reviewed", createdAt: "2026-11-20T15:00:00.000Z", engagementId: null}]});
+      if ([base + "/unlinked", base + "/intake-a"].includes(url.pathname)) return json({records: draft ? [draft] : [], source: null});
       if (url.pathname === base + "/unlinked/estimate" && method === "PUT") {
         const data = route.request().postDataJSON();
         assert.equal(data.content.input.additionalHourlyCents, 10000);
@@ -84,6 +84,8 @@ try {
           calculation: {setup: empty, monthly: empty, term: empty, firstYear: empty, rows: []}};
         return json(draft);
       }
+      if (url.pathname === "/api/admin/clients/client-a/discovery/intake-a/billing") return json({accepted: false, liveEnabled: false, installments: []});
+      if (url.pathname === "/api/admin/clients/client-a/discovery/intake-a/delivery") return json({milestones: [], consultations: []});
       if (url.pathname === "/api/admin/clients/client-a/seo/connections") return json({enabled: false, connections: []});
       if (url.pathname === "/api/portal/status") return json({hasClient: true, hasIntake: true, tier: "GUIDED", clientId: "client-a", personalizedSlugs: []});
       if (["/api/client/reports", "/api/workbench/messages"].includes(url.pathname)) return json([]);
@@ -121,6 +123,10 @@ try {
     await page.getByText("Google sync is disabled. Use authorized exports for this report.").waitFor();
     await page.getByRole("button", {name: "Add answer engine sample"}).click();
     await page.getByLabel("Observation date").waitFor();
+    await noOverflow();
+    await page.getByLabel("Client engagement").selectOption("intake-a");
+    assert.equal(await page.getByRole("link", {name: "Open linked discovery"}).getAttribute("href"), "/admin/discovery?intake=intake-a");
+    await page.getByRole("heading", {name: "Proposal installments"}).waitFor();
     await noOverflow();
     clientView = true;
     await page.goto("https://fixture.example.invalid/app/reports");

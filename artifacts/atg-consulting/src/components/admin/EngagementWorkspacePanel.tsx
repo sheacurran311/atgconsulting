@@ -52,7 +52,7 @@ export default function EngagementWorkspacePanel({clientId}: {clientId: string})
       {value: "unlinked", label: "Client workspace without a linked intake"},
       ...intakes.map(intake => ({value: intake.id, label: "Intake " + new Date(intake.createdAt).toLocaleDateString() + " · " + intake.status + " · " + intake.id.slice(-6)})),
     ]} />
-    {workspace !== "unlinked" && <Link className="text-sm font-semibold text-blue underline" to={"/admin/discovery/" + workspace}>Open linked discovery</Link>}
+    {workspace !== "unlinked" && <Link className="text-sm font-semibold text-blue underline" to={"/admin/discovery?intake=" + encodeURIComponent(workspace)}>Open linked discovery</Link>}
     <Workspace key={workspace} clientId={clientId} catalog={catalog} url={base + "/" + encodeURIComponent(workspace)} />
     {workspace !== "unlinked" && <div key={workspace} className="space-y-4">
       <EngagementBilling clientId={clientId} intakeId={workspace} />
