@@ -10,6 +10,8 @@ import { FinancialEntry, sumFinancialLedger } from "./lib/financialBenefitLedger
 import { buildOperatingPlan, operatingGovernanceReasons, publishedOperatingPlan } from "./lib/operatingPlan";
 import { SlaIncident, slaTiming } from "./lib/slaClock";
 import { classifyThreads } from "./lib/prospectGmail";
+import { publishedBusinessMailboxes } from "./lib/prospectSiteReview";
+import { workflowSpecifications } from "./lib/workflowSpecifications";
 import { assessProspect } from "./lib/prospecting";
 import { contractBindingFor, newContractBinding } from "./lib/engagementContract";
 
@@ -130,6 +132,16 @@ test("Gmail reconciliation for a Sent transition excludes drafts and the qualifi
   assert.equal(assessProspect({...review, suppressed: true}).label, "HOLD");
 });
 
+test("official-page mail candidates exclude personal addresses and the catalog links each service to a KPI", () => {
+  assert.deepEqual(publishedBusinessMailboxes(
+    '<a href="mailto:Info@business.org?subject=Quote">Request details</a>' +
+    '<a href="mailto:named.person@business.org">Contact an individual</a>' +
+    '<a href="mailto:info@business.org">Duplicate</a>'
+  ), ["info@business.org"]);
+  assert.equal(new Set(workflowSpecifications.map(spec => spec.id)).size, 12);
+  assert.ok(transformationServices.every(service => workflowSpecifications.some(spec => spec.serviceId === service.id && spec.tests.length >= 3)));
+});
+
 const plan = MeasurementPlan.parse({
   title: "Original measurement plan", objectives: "Decrease handling time", cadence: "Monthly", evaluationOn: "2026-12-01",
   registryVersion: 1, calculationVersion: 1, forecast: assumption,
@@ -214,6 +226,23 @@ test("PostgreSQL revision routes keep published evidence private and enforce imm
     assert.equal(finance.verifiedBenefitCents, 7000);
     assert.equal(finance.contractedFeeCents, 10000);
     assert.ok(!JSON.stringify(finance).includes(financial.sourceRecord));
+
+    const report = {period: "2026-11", summary: "Review <script>private draft</script>", limitations: "Small sample", nextSteps: "Continue",
+      kpis: [{name: "Processing time", unit: "minutes", direction: "decrease", owner: "Client",
+        baseline: null, projected: 5, observed: null, baselineStart: "2026-10-01", baselineEnd: "2026-10-07",
+        observationStart: "2026-11-01", observationEnd: "2026-11-07", baselineEvidence: null, observationEvidence: null,
+        attribution: "unassessed", comparable: false, dependencies: "Baseline collection"}],
+      projectedCapacityHours: null, projectedCashCents: null, realized: [], actualCostCents: null, actualCostEvidence: null};
+    const printRoute = "/client/engagement-workspace/" + intake.id + "/value/2026-11/";
+    assert.equal((await save("value", report)).status, 201);
+    assert.equal((await api.get(printRoute + "1/print").set("x-fixture", "client")).status, 404);
+    assert.equal((await publish("value", report.period)).status, 201);
+    const View = await api.get(printRoute + "2/print").set("x-fixture", "client");
+    assert.equal(View.status, 200);
+    assert.match(View.text, /Measurement plan revision 2/);
+    assert.match(View.text, /&lt;script&gt;private draft/);
+    assert.doesNotMatch(View.text, /<script>/);
+    assert.equal((await api.get(printRoute + "2/print").set("x-fixture", "other")).status, 404);
 
     const ops = buildOperatingPlan(null);
     const workflows = [{...ops.workflows[0]!, id: "website-delivery", realm: "business", status: "configured",

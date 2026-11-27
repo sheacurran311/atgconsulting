@@ -1,3 +1,5 @@
+import { workflowSpecifications } from "../lib/workflowSpecifications";
+import { renderValueReport } from "../lib/valueReportDocument";
 import { SlaIncident, slaTiming } from "../lib/slaClock";
 import { FinancialEntry, financialEvidenceReferences, normalizeFinancialReference, sumFinancialLedger, type FinancialEntryInput } from "../lib/financialBenefitLedger";
 import { contractBindingFor, digestOf } from "../lib/engagementContract";
@@ -144,7 +146,7 @@ export function createEngagementWorkspaceRouter(
       where: {clientId}, orderBy: [{createdAt: "desc"}, {id: "asc"}], take: 100,
       select: {id: true, createdAt: true, status: true, engagementId: true},
     });
-    res.json({intakes, catalog: workflowEstimateCatalog, catalogVersion: workflowEstimateCatalogVersion});
+    res.json({intakes, catalog: workflowEstimateCatalog, catalogVersion: workflowEstimateCatalogVersion, workflowSpecifications});
   });
   router.get(admin + "/:workspace", async (req, res) => {
     const scope = {clientId: String(req.params.clientId), workspace: String(req.params.workspace)};
@@ -321,6 +323,29 @@ export function createEngagementWorkspaceRouter(
           if (new Set(proposedRefs).size !== proposedRefs.length || proposedRefs.some(ref => historicalRefs.has(ref))) return "duplicate-financial";
         }
       }
+      if (kind.data === "value") {
+        const report = ValueReportInput.parse(JSON.parse(latest.content));
+        const proposal = scope.workspace === unlinked ? null : await db.discoveryProposal.findUnique({where: {discoveryIntakeId: scope.workspace}});
+        const binding = proposal ? await contractBindingFor(db, scope, proposal.id) : null;
+        const plan = binding ? null : await db.engagementRevision.findFirst({
+          where: {...scope, kind: "measurement", status: "published"}, orderBy: {version: "desc"},
+        });
+        const incidentRows = await db.engagementRevision.findMany({where: {...scope, kind: "sla-incident", status: "published"},
+          distinct: ["period"], orderBy: {version: "desc"}});
+        const financialRows = (await approvedFinancialEntries(db, scope)).filter(row =>
+          FinancialEntry.parse(JSON.parse(row.content)).financialPeriod <= report.period);
+        const incidents = incidentRows.flatMap(row => {
+          const incident = SlaIncident.parse(JSON.parse(row.content));
+          const month = new Intl.DateTimeFormat("sv-SE", {timeZone: "America/Denver", year: "numeric", month: "2-digit"})
+            .format(new Date(incident.reportedAt));
+          return month === report.period ? [row] : [];
+        });
+        await db.engagementRevision.create({data: {...where, kind: "value-evidence", version: latest.version + 1, status: "internal",
+          content: JSON.stringify({measurementVersion: binding?.measurementVersion ?? plan?.version ?? null,
+            incidents: incidents.map(row => ({reference: row.period, version: row.version})),
+            finance: sumFinancialLedger(financialRows.map(row => FinancialEntry.parse(JSON.parse(row.content))))}),
+          actorUserId: actor.id}});
+      }
       if (["readiness", "opportunity", "measurement"].includes(kind.data)) {
         const [context, source] = await Promise.all([contextFor(db, scope.clientId), intakeSource(db, scope)]);
         const evaluation = kind.data === "opportunity"
@@ -480,6 +505,11 @@ export function createEngagementWorkspaceRouter(
         respondedAt: incident.respondedAt, restoredAt: incident.restoredAt, resolvedAt: incident.resolvedAt,
         exceptions: incident.exceptions, timing: timing.get(JSON.stringify([row.workspace, row.period, row.version])) ?? null};
     });
+    const reportEvidenceRows = await prisma.engagementRevision.findMany({
+      where: {clientId: actor.clientId, kind: "value-evidence", workspace: {in: sites}},
+      orderBy: {version: "desc"}, distinct: ["workspace", "period"],
+    });
+    const reportEvidence = new Map(reportEvidenceRows.map(row => [JSON.stringify([row.workspace, row.period, row.version]), JSON.parse(row.content)]));
     // Keep the current executed SLA visible alongside a more recent review copy.
     const executed = new Map(rows.filter(row => row.kind === "sla" && row.status === "executed")
       .map(row => [row.workspace, row.version]));
@@ -488,7 +518,29 @@ export function createEngagementWorkspaceRouter(
       if (row.kind === "sla-incident") return false;
       if (row.kind === "change" && row.status === "published") return !acceptedChanges.has(row.workspace + ":" + row.period);
       return row.kind !== "sla" || row.status === "executed" || row.version > (executed.get(row.workspace) ?? 0);
-    }).map(clientRecord), readinessBaselines, finance, incidents});
+    }).map(row => row.kind === "value" ? {...clientRecord(row),
+      reviewedEvidence: reportEvidence.get(JSON.stringify([row.workspace, row.period, row.version])) ?? null} : clientRecord(row)),
+    readinessBaselines, finance, incidents});
+  });
+  router.get("/client/engagement-workspace/:workspace/value/:period/:revision/print", ...clientAuth, async (req, res) => {
+    res.set("Cache-Control", "private, no-store");
+    const actor = (req as AuthedRequest).atgUser;
+    if (!actor?.clientId || actor.isImpersonating) { res.sendStatus(403); return; }
+    const workspace = id.safeParse(req.params.workspace);
+    const period = reportPeriod.safeParse(req.params.period);
+    const revision = z.coerce.number().int().positive().max(1_000_001).safeParse(req.params.revision);
+    if (!workspace.success || !period.success || !revision.success) { res.sendStatus(404); return; }
+    const scope = {clientId: actor.clientId, workspace: workspace.data};
+    if (!await belongs(prisma, scope)) { res.sendStatus(404); return; }
+    const where = {...scope, version: revision.data, period: period.data};
+    const [report, reviewed] = await Promise.all([
+      prisma.engagementRevision.findFirst({where: {...where, kind: "value", status: "published"}}),
+      prisma.engagementRevision.findFirst({where: {...where, kind: "value-evidence", status: "internal"}}),
+    ]);
+    if (!report) { res.sendStatus(404); return; }
+    res.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'");
+    res.type("html").send(renderValueReport(ValueReportInput.parse(JSON.parse(report.content)), report.version,
+      reviewed ? JSON.parse(reviewed.content) : null));
   });
   router.post("/client/engagement-workspace/change/accept", ...clientAuth, async (req, res) => {
     res.set("Cache-Control", "private, no-store");

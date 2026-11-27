@@ -143,6 +143,10 @@ const kpi = z.object({
 
 export const ValueReportInput = z.object({
   period: reportPeriod, summary: text, nextSteps: text, limitations: text,
+  sections: z.object({
+    implementation: text, operationalHealth: text, roadmap: text, methodology: text,
+    verifiedCapacityHours: hours.nullable(), capacityEvidence: evidence.nullable(),
+  }).strict().optional(),
   kpis: z.array(kpi).min(1).max(20),
   projectedCapacityHours: hours.nullable(), projectedCashCents: money.nullable(),
   realized: z.array(z.object({
@@ -153,6 +157,10 @@ export const ValueReportInput = z.object({
   const unique = new Set(report.realized.map(item => item.evidence.reference.toLowerCase()));
   if (unique.size !== report.realized.length) ctx.addIssue({code: "custom", message: "Each financial record can only be counted once."});
   if (report.actualCostCents !== null && !report.actualCostEvidence) ctx.addIssue({code: "custom", message: "Actual costs require a financial record."});
+  if (report.sections?.verifiedCapacityHours !== undefined && report.sections.verifiedCapacityHours !== null &&
+      (!report.sections.capacityEvidence || report.sections.capacityEvidence.classification === "estimate")) {
+    ctx.addIssue({code: "custom", message: "Measured recovered capacity requires non-estimated evidence."});
+  }
   if (report.kpis.some(metric => !metric.observationStart.startsWith(report.period) || !metric.observationEnd.startsWith(report.period))) {
     ctx.addIssue({code: "custom", message: "Observation dates must fall in the report month."});
   }

@@ -1,3 +1,4 @@
+import ownerMetricsRouter from "./ownerMetrics";
 import prospectSiteReviewRouter from "./prospectSiteReview";
 import deliveryMilestonesRouter from "./deliveryMilestones";
 import seoGoogleRouter from "./seoGoogle";
@@ -84,6 +85,7 @@ router.use(engagementRouter);
 router.use(catalogRouter);
 router.use(contentRouter);
 router.use(adminTodayRouter);
+router.use(ownerMetricsRouter);
 router.use(prospectingRouter);
 router.use(prospectSiteReviewRouter);
 router.use(workshopRouter);

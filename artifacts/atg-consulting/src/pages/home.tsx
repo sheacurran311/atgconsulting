@@ -30,6 +30,21 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      <section className="mx-auto max-w-wide px-4 py-12 sm:px-6 lg:px-8" aria-labelledby="business-guides">
+        <h2 id="business-guides" className="section-heading mb-4">Practical guides for your first project</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[
+            ["/services/ai-readiness", "Assess AI readiness", "Review your tools, data and team before picking a pilot."],
+            ["/services/workflow-engineering", "Map a workflow worth improving", "Choose a recurring task and track time, errors and who approves the result."],
+            ["/value-realization", "Forecast and measure ROI", "Compare estimated capacity, verified savings and total investment."],
+            ["/seo-aeo", "Improve search visibility", "Review what customers can find and how they turn a visit into an inquiry."],
+          ].map(([href, title, description]) => <a key={href} href={href}
+            className="block rounded-xl border border-canvas-border bg-canvas-1 p-4 hover:border-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue">
+            <h3 className="font-semibold">{title}</h3><p className="text-sm">{description}</p>
+          </a>)}
+        </div>
+        <a className="btn-primary mt-5 inline-flex" href="/intake">Start a free assessment</a>
+      </section>
       <SheaOperator />
       <Tiers />
       <ChatVsATG />

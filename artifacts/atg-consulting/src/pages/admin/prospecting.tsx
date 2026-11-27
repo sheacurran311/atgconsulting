@@ -405,6 +405,7 @@ export default function AdminProspectingPage() {
             <p className="text-xs opacity-70 mt-1">Status: {selected.status}. Qualification requires verified source evidence.</p></div>
           <ProspectSiteReview key={selected.id} prospectId={selected.id}
             enabledForProspect={!["SUPPRESSED", "DISQUALIFIED"].includes(selected.status)}
+            onContact={(email, sourceUrl) => {setContactDraft({email, sourceUrl}); setContactChecked(false);}}
             onSelect={(observation, source) => {setClaim(observation); setSourceUrl(source); setEvidenceVerified(false);}} />
           <div className="space-y-2 rounded border p-3" style={{borderColor:"var(--canvas-border)"}}>
             <p className="font-semibold text-sm">Evidence-backed qualification (0–5)</p>

@@ -53,7 +53,7 @@ test("operating guide API isolates customers, preserves drafts, and requires a r
   const originalQuery = prisma.$queryRaw;
   const originalContext = prisma.businessContextVersion.findFirst;
   const originalIntake = prisma.discoveryIntake.findFirst;
-  prisma.$transaction = (async (work: (db: typeof prisma) => unknown) => work(prisma)) as typeof prisma.$transaction;
+  prisma.$transaction = (async (work: (db: typeof prisma) => unknown) => work(prisma)) as unknown as typeof prisma.$transaction;
   prisma.$queryRaw = (async () => [{id: "client-a"}]) as typeof prisma.$queryRaw;
   prisma.businessContextVersion.findFirst = (async () => null) as never;
   prisma.discoveryIntake.findFirst = (async () => null) as never;

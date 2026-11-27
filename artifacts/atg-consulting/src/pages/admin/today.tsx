@@ -1,3 +1,4 @@
+import OwnerMetrics from "@/components/admin/OwnerMetrics";
 /**
  * Admin Today dashboard — Shea's daily task list.
  * Aggregates: intake reviews, proposal drafts, content approvals,
@@ -242,6 +243,7 @@ export default function AdminTodayPage() {
           <p className="text-sm">Your step-by-step guide for Self-serve, Guided and Done-for-you, plus where to use each admin screen.</p>
           <p className="text-xs">Open a task to do the work. Dismiss hides a reminder; it does not approve, publish or complete client delivery. This list refreshes when you return and every 30 seconds while visible.</p>
         </section>
+        <OwnerMetrics />
         {data?.board && (
           <div className="grid lg:grid-cols-2 gap-4">
             <section className="rounded-xl p-4" style={{ background: "var(--canvas-2)", border: "1px solid var(--canvas-border)" }}>

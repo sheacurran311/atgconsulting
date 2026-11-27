@@ -71,6 +71,9 @@ export default function EngagementReports() {
         item.kind === "change" ? item.content.reference + " · " + item.content.title + " · " + (item.status === "accepted" ? "Accepted" : "Review") :
         item.content.title + (item.kind === "sla" ? item.status === "executed" ? " · Executed SLA" : " · SLA review copy" : " · Advisory update")}</summary>
       <EngagementRecord record={item} />
+      {item.kind === "value" && <a className="inline-block text-sm font-semibold underline"
+        href={"/api/client/engagement-workspace/" + encodeURIComponent(item.workspace) + "/value/" + item.period + "/" + item.version + "/print"}
+        target="_blank" rel="noopener noreferrer">Open print-ready report</a>}
       {item.kind === "change" && item.status === "published" && <AcceptChange item={item}
         onAccepted={next => setRecords(current => current.map(row => row === item ? next : row))} />}
     </details>)}

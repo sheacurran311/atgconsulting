@@ -105,6 +105,17 @@ export function robotsAllows(robots: string, path: string) {
   return true;
 }
 
+export function publishedBusinessMailboxes(markup: string) {
+  const addresses = new Set<string>();
+  const roleMailbox = /^(info|office|hello|contact|service|sales|estimates|quotes|team|inquiries|enquiries|support)@(?:[a-z0-9-]+\.)+[a-z]{2,63}$/i;
+  for (const match of markup.matchAll(/<a\b[^>]*\bhref\s*=\s*(?:"mailto:([^"\s?#]+)[^"]*"|'mailto:([^'\s?#]+)[^']*')/gi)) {
+    const address = (match[1] ?? match[2] ?? "").toLowerCase();
+    if (address.length <= 254 && roleMailbox.test(address)) addresses.add(address);
+    if (addresses.size >= 5) break;
+  }
+  return [...addresses];
+}
+
 export async function reviewOfficialSite(input: string, resolve = (host: string) => lookup(host, {all: true}), read: Reader = readPinnedPage) {
   const url = safeOfficialUrl(input);
   if (!url) throw new Error("Use the final public HTTPS page with no query parameters.");
@@ -134,5 +145,5 @@ export async function reviewOfficialSite(input: string, resolve = (host: string)
     /<form\b/i.test(markup) ? "A form element is present." : "No form element was observed in this HTML response. Check client-rendered forms manually.",
     /href\s*=\s*["']?tel:/i.test(markup) ? "A tap-to-call link is present." : "No tap-to-call link was observed in this HTML response.",
   ];
-  return {sourceUrl: url.href, observations};
+  return {sourceUrl: url.href, observations, contacts: publishedBusinessMailboxes(markup)};
 }

@@ -1,3 +1,5 @@
+import WorkflowSpecifications from "./WorkflowSpecifications";
+import type { workflowSpecifications } from "../../../../api-server/src/lib/workflowSpecifications";
 import { EngagementSlaIncident, newSlaIncident, SlaCoverageEditor } from "./EngagementSlaIncident";
 import { EngagementFinancialEditor, newFinancialEntry } from "./EngagementFinancialEditor";
 import { EngagementFinanceSummary } from "../app/EngagementFinanceSummary";
@@ -32,15 +34,17 @@ const month = () => {
 export default function EngagementWorkspacePanel({clientId}: {clientId: string}) {
   const [workspace, setWorkspace] = useState("unlinked");
   const [requested] = useState(() => new URLSearchParams(window.location.search).get("intake"));
+  const [specifications, setSpecifications] = useState<typeof workflowSpecifications>([]);
   const [catalog, setCatalog] = useState<EstimateCatalog>();
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [error, setError] = useState("");
   const base = "/api/admin/clients/" + encodeURIComponent(clientId) + "/engagement-workspace";
   useEffect(() => {
     let active = true;
-    adminJson<{intakes: Intake[]; catalog?: EstimateCatalog}>(base).then(result => {if (active) {
+    adminJson<{intakes: Intake[]; catalog?: EstimateCatalog; workflowSpecifications?: typeof workflowSpecifications}>(base).then(result => {if (active) {
       setIntakes(result.intakes);
       setCatalog(result.catalog);
+      setSpecifications(result.workflowSpecifications ?? []);
       if (requested && result.intakes.some(item => item.id === requested)) setWorkspace(requested);
     }})
       .catch((err: Error) => {if (active) setError(err.message);});
@@ -57,6 +61,7 @@ export default function EngagementWorkspacePanel({clientId}: {clientId: string})
       ...intakes.map(intake => ({value: intake.id, label: "Intake " + new Date(intake.createdAt).toLocaleDateString() + " · " + intake.status + " · " + intake.id.slice(-6)})),
     ]} />
     {workspace !== "unlinked" && <Link className="text-sm font-semibold text-blue underline" to={"/admin/discovery?intake=" + encodeURIComponent(workspace)}>Open linked discovery</Link>}
+    {!!specifications.length && <WorkflowSpecifications specifications={specifications} />}
     <Workspace key={workspace} clientId={clientId} catalog={catalog} url={base + "/" + encodeURIComponent(workspace)} />
     {workspace !== "unlinked" && <div key={workspace} className="space-y-4">
       <EngagementBilling clientId={clientId} intakeId={workspace} />

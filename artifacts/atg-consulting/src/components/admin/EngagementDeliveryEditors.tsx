@@ -163,6 +163,23 @@ export function ValueEditor({value, onChange}: {value: ValueReportInput; onChang
       {value.actualCostEvidence && <EvidenceEditor title="Actual cost evidence" financial value={value.actualCostEvidence}
         onChange={item => set("actualCostEvidence", {...item, classification: "financial record"})} />}
     </div>
+    <div className={card}>
+      <h3 className="font-bold">Delivery, operational health and roadmap</h3>
+      {value.sections ? <>
+        <div className={formGrid}>
+          {([["implementation", "Implementation activity"], ["operationalHealth", "Operational health"],
+            ["roadmap", "Strategic roadmap"], ["methodology", "Evidence and methodology"]] as const).map(([key, label]) => <TextField key={key}
+            label={label} value={value.sections![key]} multiline onChange={input => set("sections", {...value.sections!, [key]: input})} />)}
+          <NumericField label="Measured employee capacity recovered (hours)" value={value.sections.verifiedCapacityHours}
+            onChange={hours => set("sections", {...value.sections!, verifiedCapacityHours: hours,
+              capacityEvidence: hours === null ? null : value.sections?.capacityEvidence ?? blankEvidence})} />
+        </div>
+        {value.sections.capacityEvidence && <EvidenceEditor title="Measured capacity evidence" value={value.sections.capacityEvidence}
+          onChange={capacityEvidence => set("sections", {...value.sections!, capacityEvidence})} />}
+      </> : <button type="button" className="btn-ghost" onClick={() => set("sections", {
+        implementation: "", operationalHealth: "", roadmap: "", methodology: "", verifiedCapacityHours: null, capacityEvidence: null,
+      })}>Add delivery and methodology sections</button>}
+    </div>
     {value.kpis.map((metric, index) => {
       const change = <K extends keyof Metric>(key: K, next: Metric[K]) => set("kpis", value.kpis.map((row, i) => i === index ? {...row, [key]: next} : row));
       return <fieldset key={index} className={card}>

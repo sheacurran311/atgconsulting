@@ -1,3 +1,4 @@
+import type { ReviewedReportEvidence } from "../../../api-server/src/lib/valueReportDocument";
 import type { SlaIncident, slaTiming } from "../../../api-server/src/lib/slaClock";
 import type { FinancialEntryInput, sumFinancialLedger } from "../../../api-server/src/lib/financialBenefitLedger";
 import type { forecast, kpiRegistry, readinessLevels, readinessRubric, MeasurementPlanInput, OpportunityReview, ReadinessReview } from "../../../api-server/src/lib/engagementMeasurement";
@@ -30,7 +31,7 @@ export type WorkspaceRecord = {workspace: string; version: number; status: strin
   | {kind: "change"; content: ChangeOrderInput}
   | {kind: "advisory"; content: AdvisoryInput}
   | {kind: "seo"; content: SeoEvidenceInput; findings: ReturnType<typeof summarizeSeo>}
-  | {kind: "value"; content: ValueReportInput; calculation: ReturnType<typeof summarizeValue>}
+  | {kind: "value"; content: ValueReportInput; calculation: ReturnType<typeof summarizeValue>; reviewedEvidence?: ReviewedReportEvidence | null}
 );
 export type WorkspaceSource = {
   source: IntakeSource;

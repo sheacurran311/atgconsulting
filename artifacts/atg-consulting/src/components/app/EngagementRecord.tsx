@@ -104,8 +104,13 @@ export function EngagementRecord({record}: {record: Exclude<WorkspaceRecord, {ki
     return <article className="space-y-4 break-words">
       <h3 className="font-bold">Value realization · {content.period}</h3>
       <p className="whitespace-pre-line text-sm">{content.summary}</p>
+      {record.reviewedEvidence?.measurementVersion && <p className="text-sm">Measurement plan revision {record.reviewedEvidence.measurementVersion}</p>}
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
         <Fact label="Projected capacity recovered">{valueText(content.projectedCapacityHours)}{content.projectedCapacityHours === null ? "" : " hours"}</Fact>
+        {content.sections && <Fact label="Measured recovered capacity">
+          {valueText(content.sections.verifiedCapacityHours)}{content.sections.verifiedCapacityHours !== null && " hours"}
+          {content.sections.capacityEvidence && <><br /><EvidenceNote value={content.sections.capacityEvidence} /></>}
+        </Fact>}
         <Fact label="Projected cash benefit">{usd(content.projectedCashCents)}</Fact>
         <Fact label="Documented realized cash benefit">{usd(calculation.realizedCashCents)}</Fact>
         <Fact label="Documented actual cost">{usd(content.actualCostCents)}</Fact>
@@ -130,6 +135,16 @@ export function EngagementRecord({record}: {record: Exclude<WorkspaceRecord, {ki
         {content.realized.map(item => <Fact key={item.evidence.reference} label={item.label}>{usd(item.amountCents)} · <EvidenceNote value={item.evidence} /></Fact>)}
         {content.actualCostEvidence && <Fact label="Actual cost evidence"><EvidenceNote value={content.actualCostEvidence} /></Fact>}
         <Fact label="Limitations and assumptions">{content.limitations}</Fact>
+        {content.sections && <>
+          <Fact label="Implementation activity">{content.sections.implementation}</Fact>
+          <Fact label="Operational health">{content.sections.operationalHealth}</Fact>
+          <Fact label="Strategic roadmap">{content.sections.roadmap}</Fact>
+          <Fact label="Evidence and methodology">{content.sections.methodology}</Fact>
+        </>}
+        {!!record.reviewedEvidence?.incidents.length && <Fact label="Reviewed SLA incidents">{record.reviewedEvidence.incidents.map(item => item.reference).join(", ")}</Fact>}
+        {!!record.reviewedEvidence?.finance.investmentRecords && <Fact label="Cumulative ROI at report publication">
+          {record.reviewedEvidence.finance.roiPercent === null ? "Insufficient evidence" : valueText(record.reviewedEvidence.finance.roiPercent) + "%"}
+        </Fact>}
         <Fact label="Next actions">{content.nextSteps}</Fact>
       </dl>
     </article>;
