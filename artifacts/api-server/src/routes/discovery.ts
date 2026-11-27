@@ -1,3 +1,4 @@
+import { lockClientGovernance } from "../lib/clientGovernanceLock";
 import { SavedEstimate } from "../lib/engagementWorkspace";
 import { Prisma } from "@prisma/client";
 import { ContractSelection, commercialReviewSources, digestOf, newContractBinding } from "../lib/engagementContract";
@@ -1126,6 +1127,7 @@ router.post("/admin/discovery/:id/proposal/approve", withUser, requireAdmin, asy
     const intake = await db.discoveryIntake.findUnique({where: {id: workspace}, select: {clientId: true}});
     if (!intake?.clientId) return "unlinked";
     const scope = {clientId: intake.clientId, workspace};
+    await lockClientGovernance(db, scope.clientId);
     const fitCall = await db.fitCallOutcome.findUnique({where: {discoveryIntakeId: workspace}});
     if (!fitCall || fitCall.status !== "completed" || fitCall.revision !== proposal.fitCallRevision) return "fitcall";
     const deliveryPlan = proposalDeliveryPlan(proposal.milestones, proposal.scope, parseFitCallAnswers(fitCall.answersJson));
@@ -1171,7 +1173,7 @@ router.post("/admin/discovery/:id/proposal/approve", withUser, requireAdmin, asy
     await db.engagementRevision.create({data: {...scope, kind: "contract-binding", period: "", version: 1, status: "internal",
       content: JSON.stringify(binding), actorUserId: actor.id}});
     return db.discoveryProposal.findUniqueOrThrow({where: {id: proposal.id}});
-  }, {isolationLevel: Prisma.TransactionIsolationLevel.Serializable}).catch(error => {
+  }).catch(error => {
     if (error instanceof Prisma.PrismaClientKnownRequestError && ["P2002", "P2034"].includes(error.code)) return "stale" as const;
     throw error;
   });

@@ -1,3 +1,4 @@
+import { lockClientGovernance } from "../lib/clientGovernanceLock";
 import { workflowSpecifications } from "../lib/workflowSpecifications";
 import { renderValueReport } from "../lib/valueReportDocument";
 import { SlaIncident, slaTiming } from "../lib/slaClock";
@@ -108,10 +109,13 @@ async function approvedFinancialEntries(db: Database, scope: Workspace) {
   });
 }
 
-async function transaction<T>(work: (db: Prisma.TransactionClient) => Promise<T>): Promise<T | "conflict"> {
+async function transaction<T>(clientId: string, work: (db: Prisma.TransactionClient) => Promise<T>): Promise<T | "conflict"> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      return await prisma.$transaction(work, {isolationLevel: Prisma.TransactionIsolationLevel.Serializable});
+      return await prisma.$transaction(async db => {
+        await lockClientGovernance(db, clientId);
+        return work(db);
+      });
     } catch (error) {
       if (!(error instanceof Prisma.PrismaClientKnownRequestError)) throw error;
       if (error.code === "P2002") return "conflict";
@@ -200,7 +204,7 @@ export function createEngagementWorkspaceRouter(
     const content = schemas[kind.data].safeParse(parsed.data.content);
     if (!content.success) { reply(res, 422, content.error.issues.map(issue => [issue.path.join("."), issue.message].filter(Boolean).join(" · ")).join(" / ")); return; }
     const period = "period" in content.data ? content.data.period : "reference" in content.data ? content.data.reference : "";
-    const outcome = await transaction(async db => {
+    const outcome = await transaction(scope.clientId, async db => {
       if (!await belongs(db, scope)) return "missing";
       let savedContent = content.data;
       if (kind.data === "estimate") {
@@ -280,7 +284,7 @@ export function createEngagementWorkspaceRouter(
     if (!kind.success || !input.success || !validPeriod(kind.data, input.data.period ?? "")) {
       reply(res, 422, "Invalid publication request."); return;
     }
-    const outcome = await transaction(async db => {
+    const outcome = await transaction(scope.clientId, async db => {
       if (!await belongs(db, scope)) return "missing";
       if (kind.data === "change") {
         const proposal = await db.discoveryProposal.findUnique({where: {discoveryIntakeId: scope.workspace}});
@@ -384,7 +388,7 @@ export function createEngagementWorkspaceRouter(
     if (!input.success || input.data.executedOn > new Date().toISOString().slice(0, 10)) {
       reply(res, 422, "Enter the reference and date of the signed agreement."); return;
     }
-    const outcome = await transaction(async db => {
+    const outcome = await transaction(scope.clientId, async db => {
       if (!await belongs(db, scope)) return "missing";
       const where = {...scope, kind: "sla", period: ""};
       const latest = await db.engagementRevision.findFirst({where, orderBy: {version: "desc"}});
@@ -417,7 +421,7 @@ export function createEngagementWorkspaceRouter(
     if (!input.success || scope.workspace === unlinked || !id.safeParse(scope.workspace).success) {
       reply(res, 422, "Select a linked proposal and a balanced installment schedule."); return;
     }
-    const outcome = await transaction(async db => {
+    const outcome = await transaction(scope.clientId, async db => {
       if (!await belongs(db, scope)) return "missing";
       const latest = await db.engagementRevision.findFirst({where: {...scope, kind: "estimate", period: ""}, orderBy: {version: "desc"}});
       const proposal = await db.discoveryProposal.findUnique({where: {discoveryIntakeId: scope.workspace}});
@@ -551,7 +555,7 @@ export function createEngagementWorkspaceRouter(
     const input = z.object({workspace: id, reference: changeReference, expectedVersion: version.min(1), authorized: z.literal(true)}).strict().safeParse(req.body);
     if (!input.success) {reply(res, 422, "Confirm that you are authorized to accept this exact change order."); return;}
     const scope = {clientId: actor.clientId, workspace: input.data.workspace};
-    const outcome = await transaction(async db => {
+    const outcome = await transaction(scope.clientId, async db => {
       if (!await belongs(db, scope)) return "missing";
       const proposal = await db.discoveryProposal.findUnique({where: {discoveryIntakeId: scope.workspace}});
       if (!proposal?.acceptedAt || !proposal.approvedAt || !["approved", "portal_published"].includes(proposal.status)) return "missing";

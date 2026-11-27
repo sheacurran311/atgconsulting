@@ -39,7 +39,7 @@ export function createProspectSiteReviewRouter(auth = [withUser, requireAdmin], 
     const prospectId = String(req.params.id);
     const prospect = await prisma.atgProspect.findFirst({where: {id: prospectId, status: {notIn: ["SUPPRESSED", "DISQUALIFIED"]}}});
     const source = prospect && safeOfficialUrl(input.data.page ?? prospect.website);
-    if (!prospect || !source || normalizeProspectDomain(source.href) !== prospect.domain) {res.status(422).json({error: "Select an eligible prospect with its final public HTTPS page."}); return;}
+    if (!prospect || !source || normalizeProspectDomain(source.href) !== normalizeProspectDomain(prospect.website)) {res.status(422).json({error: "Select an eligible prospect with its final public HTTPS page."}); return;}
     if (await isSuppressed(prisma, suppressionKeys(prospect.domain))) {
       res.status(409).json({error: "This business is suppressed."}); return;
     }
