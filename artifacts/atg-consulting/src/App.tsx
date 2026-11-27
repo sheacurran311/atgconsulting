@@ -1,15 +1,12 @@
 import { TransformationPage } from "@/pages/transformation";
 import { marketingPage } from "../../api-server/src/lib/transformationMarketing";
 import { industrySites, industryBody } from "@/content/industrySites";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Route, Switch, Router, useLocation, Redirect } from "wouter";
 import { ClerkProvider, useUser } from "@clerk/react";
 import { clerkPubKey, clerkProxyUrl, clerkAppearance, basePath, stripBase } from "@/lib/clerk";
 import AccountLanding from "@/components/AccountLanding";
 import IntakeEntry from "@/components/IntakeEntry";
-import AutomationLibraryPage, { AdminAutomationLibraryPage } from "@/pages/app/automations";
-import DeliveryPlaybookPage from "@/pages/admin/playbook";
-import AdminAccountPage from "@/pages/admin/account";
 import Nav from "@/components/Nav";
 import CommandPalette from "@/components/CommandPalette";
 import HomePage from "@/pages/home";
@@ -19,36 +16,39 @@ import RefundsPage from "@/pages/refunds";
 import IntakeDiscoveryPage from "@/pages/intake";
 import { SignInPage, SignUpPage } from "@/pages/auth";
 
-// App (client portal) pages
-import DashboardPage from "@/pages/app/dashboard";
-import PlanPage from "@/pages/app/plan";
-import SessionsPage from "@/pages/app/sessions";
-import ConsultationsPage from "@/pages/app/consultations";
-import DocumentsPage from "@/pages/app/documents";
-import ReportsPage from "@/pages/app/reports";
-import LearnPage from "@/pages/app/learn";
-import { WorkshopHomePage, WorkshopLessonPage } from "@/pages/app/workshop";
-import AppAccountPage from "@/pages/app/account";
-import ProposalPage from "@/pages/app/proposal";
-
-// Admin pages
-import AdminClientsPage from "@/pages/admin/clients";
-import AdminReportsPage from "@/pages/admin/reports";
-import AdminContentPage from "@/pages/admin/content";
-import AdminAuditPage from "@/pages/admin/audit";
-import AdminMessagesPage from "@/pages/admin/messages";
-import AdminTiersPage from "@/pages/admin/tiers";
-import AdminWorkflowTemplatesPage from "@/pages/admin/workflow-templates";
-import AdminToolsPage from "@/pages/admin/tools";
-import AdminAIUsagePage from "@/pages/admin/ai-usage";
-import AdminDiscoveryPage from "@/pages/admin/discovery";
-import AdminEngagementsPage from "@/pages/admin/engagements";
-import AdminCatalogPage from "@/pages/admin/catalog";
-import AdminTodayPage from "@/pages/admin/today";
-import AdminProspectingPage from "@/pages/admin/prospecting";
-import AdminWorkshopPage from "@/pages/admin/workshop";
 import BlogPage from "@/pages/blog";
 import BlogPostPage from "@/pages/blog-post";
+
+const DeliveryPlaybookPage = lazy(() => import("@/pages/admin/playbook"));
+const AdminAccountPage = lazy(() => import("@/pages/admin/account"));
+const DashboardPage = lazy(() => import("@/pages/app/dashboard"));
+const PlanPage = lazy(() => import("@/pages/app/plan"));
+const SessionsPage = lazy(() => import("@/pages/app/sessions"));
+const ConsultationsPage = lazy(() => import("@/pages/app/consultations"));
+const DocumentsPage = lazy(() => import("@/pages/app/documents"));
+const ReportsPage = lazy(() => import("@/pages/app/reports"));
+const LearnPage = lazy(() => import("@/pages/app/learn"));
+const AppAccountPage = lazy(() => import("@/pages/app/account"));
+const ProposalPage = lazy(() => import("@/pages/app/proposal"));
+const AdminClientsPage = lazy(() => import("@/pages/admin/clients"));
+const AdminReportsPage = lazy(() => import("@/pages/admin/reports"));
+const AdminContentPage = lazy(() => import("@/pages/admin/content"));
+const AdminAuditPage = lazy(() => import("@/pages/admin/audit"));
+const AdminMessagesPage = lazy(() => import("@/pages/admin/messages"));
+const AdminTiersPage = lazy(() => import("@/pages/admin/tiers"));
+const AdminWorkflowTemplatesPage = lazy(() => import("@/pages/admin/workflow-templates"));
+const AdminToolsPage = lazy(() => import("@/pages/admin/tools"));
+const AdminAIUsagePage = lazy(() => import("@/pages/admin/ai-usage"));
+const AdminDiscoveryPage = lazy(() => import("@/pages/admin/discovery"));
+const AdminEngagementsPage = lazy(() => import("@/pages/admin/engagements"));
+const AdminCatalogPage = lazy(() => import("@/pages/admin/catalog"));
+const AdminTodayPage = lazy(() => import("@/pages/admin/today"));
+const AdminProspectingPage = lazy(() => import("@/pages/admin/prospecting"));
+const AdminWorkshopPage = lazy(() => import("@/pages/admin/workshop"));
+const AutomationLibraryPage = lazy(() => import("@/pages/app/automations"));
+const AdminAutomationLibraryPage = lazy(() => import("@/pages/app/automations").then(module => ({default: module.AdminAutomationLibraryPage})));
+const WorkshopHomePage = lazy(() => import("@/pages/app/workshop").then(module => ({default: module.WorkshopHomePage})));
+const WorkshopLessonPage = lazy(() => import("@/pages/app/workshop").then(module => ({default: module.WorkshopLessonPage})));
 
 function Metadata() {
   const [location] = useLocation();
@@ -124,6 +124,7 @@ function AuthenticatedApp() {
       {/* Nav is hidden inside /app and /admin (their shells provide navigation) */}
       {!isShell && <Nav onPalette={() => setPaletteOpen(true)} />}
 
+      <Suspense fallback={<p role="status" className="px-6 py-4">Loading workspace…</p>}>
       <Switch>
         {/* Marketing */}
         <Route path="/" component={HomeRedirect} />
@@ -211,6 +212,7 @@ function AuthenticatedApp() {
 
         <Route component={NotFound} />
       </Switch>
+      </Suspense>
     </ClerkProvider>
   );
 }

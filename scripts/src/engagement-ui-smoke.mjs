@@ -1,3 +1,5 @@
+import { kpiRegistry, readinessLevels, readinessRubric } from "../../artifacts/api-server/src/lib/engagementMeasurement.ts";
+import { transformationServices } from "../../artifacts/api-server/src/lib/transformationServices.ts";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
@@ -49,6 +51,8 @@ const account = {id: "fixture-user", clientId: "client-a", tier: "GUIDED", statu
 const client = {id: "client-a", user: {name: "Fixture client", email: account.email}, tier: "GUIDED", status: "ACTIVE",
   industry: "services", aiLevel: 1, plans: [], intakes: [], workflowItems: [], consultations: [], documents: [], reports: [], workflows: []};
 const base = "/api/admin/clients/client-a/engagement-workspace";
+const measurement = {registry: kpiRegistry, registryVersion: 1, readinessLevels, readinessRubric,
+  services: transformationServices.map(({id, name}) => ({id, name}))};
 const sample = {kind: "change", workspace: "intake-a", period: "CO-001", version: 2, status: "published", createdAt: "2026-11-20T15:00:00.000Z",
   content: {reference: "CO-001", title: "Extra training", scope: "Support team onboarding", reason: "New team members",
     timeline: "Week two", acceptance: "Complete the session", includedHours: 2, additionalHourlyCents: 10000, additionalFeeCents: 20000,
@@ -62,6 +66,7 @@ try {
     const page = await browser.newPage({viewport, reducedMotion: "reduce"});
     const errors = [];
     let draft;
+    let readinessDraft;
     let accepted = false;
     let clientView = false;
     page.on("pageerror", error => errors.push(error.message));
@@ -75,7 +80,20 @@ try {
       if (url.pathname === "/api/admin/clients/client-a") return json(client);
       if (url.pathname === "/api/admin/clients/client-a/prep") return json({});
       if (url.pathname === base) return json({intakes: [{id: "intake-a", status: "reviewed", createdAt: "2026-11-20T15:00:00.000Z", engagementId: null}]});
-      if ([base + "/unlinked", base + "/intake-a"].includes(url.pathname)) return json({records: draft ? [draft] : [], source: null});
+      if ([base + "/unlinked", base + "/intake-a"].includes(url.pathname)) return json({records: [draft, readinessDraft].filter(Boolean), source: null, measurement, contextVersion: 2});
+      if (url.pathname === base + "/unlinked/readiness" && method === "PUT") {
+        const data = route.request().postDataJSON();
+        assert.equal(data.content.scores.infrastructure.score, 2);
+        assert.equal(data.content.scores.data.score, null);
+        readinessDraft = {kind: "readiness", workspace: "unlinked", version: 1, status: "draft", period: data.content.period,
+          content: data.content, calculation: {score: null, coverage: 1, total: 6}};
+        return json(readinessDraft);
+      }
+      if (url.pathname === base + "/unlinked/readiness/publish" && method === "POST") {
+        assert.equal(route.request().postDataJSON().expectedVersion, 1);
+        readinessDraft = {...readinessDraft, status: "published", version: 2};
+        return json(readinessDraft);
+      }
       if (url.pathname === base + "/unlinked/estimate" && method === "PUT") {
         const data = route.request().postDataJSON();
         assert.equal(data.content.input.additionalHourlyCents, 10000);
@@ -90,7 +108,7 @@ try {
       if (url.pathname === "/api/portal/status") return json({hasClient: true, hasIntake: true, tier: "GUIDED", clientId: "client-a", personalizedSlugs: []});
       if (["/api/client/reports", "/api/workbench/messages"].includes(url.pathname)) return json([]);
       if (url.pathname === "/api/client/seo/connections") return json({enabled: false, connections: []});
-      if (url.pathname === "/api/client/engagement-workspace") return json({records: [sample]});
+      if (url.pathname === "/api/client/engagement-workspace") return json({records: [sample, readinessDraft].filter(Boolean), readinessBaselines: readinessDraft ? [readinessDraft] : []});
       if (url.pathname === "/api/client/engagement-workspace/change/accept" && method === "POST") {
         assert.deepEqual(route.request().postDataJSON(), {workspace: "intake-a", reference: "CO-001", expectedVersion: 2, authorized: true});
         accepted = true;
@@ -108,6 +126,27 @@ try {
     await page.getByRole("button", {name: "Save draft revision"}).click();
     await page.getByText("Draft revision saved.").waitFor();
     await noOverflow();
+    await page.getByRole("button", {name: "Readiness", exact: true}).click();
+    await page.getByLabel("Digital infrastructure score").selectOption("2");
+    await page.getByLabel("Digital infrastructure evidence").fill("Synthetic access inventory");
+    await page.getByLabel("Client-visible assessment summary").fill("Fixture findings");
+    await page.getByRole("button", {name: "Save draft revision"}).click();
+    await page.getByRole("button", {name: "Publish reviewed copy to client"}).click();
+    await page.getByText("Published to the client portal.").waitFor();
+    await noOverflow();
+    await page.getByRole("button", {name: "Opportunities", exact: true}).click();
+    await page.getByLabel("Opportunity service").selectOption("workflow-engineering");
+    await page.getByLabel("Evidence confidence (10%) score").waitFor();
+    await page.getByRole("button", {name: "Value Measurement Plan", exact: true}).click();
+    await page.getByRole("button", {name: "Add KPI", exact: true}).click();
+    await page.getByLabel("KPI definition").selectOption("processing-time");
+    await page.getByRole("button", {name: "Add forecast assumptions"}).click();
+    await page.getByLabel("Client loaded hourly employee cost (USD)").fill("40");
+    await noOverflow();
+    await page.getByRole("button", {name: "Financial evidence", exact: true}).click();
+    await page.getByLabel("Stable source record ID").fill("ledger-entry-1");
+    await page.getByRole("button", {name: "SLA performance", exact: true}).click();
+    await page.getByLabel("Initial response at").waitFor();
     await page.getByRole("button", {name: "SLA", exact: true}).click();
     await page.getByLabel("Additional-work hourly rate (USD)").waitFor();
     await page.getByLabel("P1 Initial response").waitFor();
@@ -130,6 +169,7 @@ try {
     await noOverflow();
     clientView = true;
     await page.goto("https://fixture.example.invalid/app/reports");
+    await page.getByText("Readiness baseline and comparison").waitFor();
     await page.getByText("CO-001 · Extra training · Review", {exact: true}).click({timeout: 6000}).catch(async error => {
       throw new Error("Client reports fixture failed at " + page.url() + "\n" + (await page.locator("body").innerText()).slice(0, 1000) + "\n" + errors.join("\n"), {cause: error});
     });
@@ -142,5 +182,5 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
-  console.log("PASS: admin Pricing, SLA, ROI, advisory, and SEO UI and client change-order acceptance at 390px and 1440px. All HTTP requests used fixtures.");
+  console.log("PASS: admin readiness, opportunity, measurement, finance, pricing, SLA, ROI, advisory and SEO UI, and client readiness and change-order acceptance at 390px and 1440px. All HTTP requests used fixtures.");
 } finally {await browser.close();}

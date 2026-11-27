@@ -9,7 +9,8 @@
     "test:admin-operations": "node --import tsx ./src/admin-operations-ui-smoke.mjs",
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:engagement-ui": "node ./src/engagement-ui-smoke.mjs"
+    "test:engagement-ui": "node --import tsx ./src/engagement-ui-smoke.mjs",
+    "test:marketing-ui": "node --import tsx ./src/marketing-ui-smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "catalog:",
