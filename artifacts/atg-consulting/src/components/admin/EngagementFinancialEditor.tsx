@@ -25,6 +25,7 @@ export function EngagementFinancialEditor({entry, onChange, existing}: {
             {value: "expense-reduction", label: "Expense reduction"}, {value: "incremental-revenue", label: "Observed incremental revenue"}]} />
         <TextField label="Financial period" type="month" value={entry.financialPeriod} onChange={financialPeriod => assign({financialPeriod})} />
         <TextField label="Source system" value={entry.sourceSystem} onChange={sourceSystem => assign({sourceSystem})} />
+        <TextField label="Source account or ledger namespace (optional)" value={entry.sourceAccount ?? ""} onChange={sourceAccount => assign({sourceAccount: sourceAccount.trim() ? sourceAccount : undefined})} />
         <TextField label="Stable source record ID" value={entry.sourceRecord} onChange={sourceRecord => assign({sourceRecord})} />
       </>}
       <NumericField label="Documented gross financial change (USD)" min={-1e9} currency value={entry.grossCents}

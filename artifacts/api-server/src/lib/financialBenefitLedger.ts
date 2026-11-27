@@ -20,6 +20,7 @@ export const FinancialEntry = z.object({
   attributionConfidence: z.enum(["low", "medium", "high"]),
   comparability: note,
   sourceSystem: name,
+  sourceAccount: name.optional(),
   sourceRecord: name,
   evidenceClass: z.enum(["System verified", "Document verified"]),
   capturedOn: date,
@@ -55,6 +56,14 @@ export const normalizeFinancialReference = (value: string) => value.normalize("N
 
 export function financialEvidenceReferences(entry: FinancialEntryInput) {
   return [entry.sourceRecord, entry.incrementalCostRecord].filter(Boolean).map(normalizeFinancialReference);
+}
+
+export function sharesFinancialSource(first: FinancialEntryInput, second: FinancialEntryInput) {
+  if (first.sourceAccount && second.sourceAccount &&
+      (normalizeFinancialReference(first.sourceSystem) !== normalizeFinancialReference(second.sourceSystem) ||
+      normalizeFinancialReference(first.sourceAccount) !== normalizeFinancialReference(second.sourceAccount))) return false;
+  const references = financialEvidenceReferences(second);
+  return financialEvidenceReferences(first).some(reference => references.includes(reference));
 }
 
 export function sumFinancialLedger(entries: FinancialEntryInput[]) {

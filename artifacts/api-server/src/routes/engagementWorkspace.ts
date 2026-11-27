@@ -2,7 +2,7 @@ import { lockClientGovernance } from "../lib/clientGovernanceLock";
 import { workflowSpecifications } from "../lib/workflowSpecifications";
 import { renderValueReport } from "../lib/valueReportDocument";
 import { SlaIncident, slaTiming } from "../lib/slaClock";
-import { FinancialEntry, financialEvidenceReferences, normalizeFinancialReference, sumFinancialLedger, type FinancialEntryInput } from "../lib/financialBenefitLedger";
+import { FinancialEntry, financialEvidenceReferences, sharesFinancialSource, normalizeFinancialReference, sumFinancialLedger, type FinancialEntryInput } from "../lib/financialBenefitLedger";
 import { contractBindingFor, digestOf } from "../lib/engagementContract";
 import { workflowEstimateCatalog, workflowEstimateCatalogVersion } from "../lib/workflowEstimateCatalog";
 import { SeoEvidenceInput, summarizeSeo } from "../lib/seoEvidence";
@@ -243,7 +243,7 @@ export function createEngagementWorkspaceRouter(
       if (kind.data === "financial" && latest) {
         const prior = FinancialEntry.parse(JSON.parse(latest.content));
         const entry = FinancialEntry.parse(content.data);
-        if ([["sourceRecord", prior.sourceRecord, entry.sourceRecord], ["sourceSystem", prior.sourceSystem, entry.sourceSystem],
+        if ([["sourceRecord", prior.sourceRecord, entry.sourceRecord], ["sourceSystem", prior.sourceSystem, entry.sourceSystem], ["sourceAccount", prior.sourceAccount ?? "", entry.sourceAccount ?? ""],
           ["financialPeriod", prior.financialPeriod, entry.financialPeriod], ["category", prior.category, entry.category]]
           .some(([, before, after]) => normalizeFinancialReference(before!) !== normalizeFinancialReference(after!))) return "financial-identity";
         if (latest.status === "published" && !entry.adjustmentReason) return "financial-reason";
@@ -304,8 +304,8 @@ export function createEngagementWorkspaceRouter(
       }
       if (kind.data === "financial" || kind.data === "value") {
         const [entries, reports] = await Promise.all([
-          db.engagementRevision.findMany({where: {...scope, kind: "financial", status: "published"}}),
-          db.engagementRevision.findMany({where: {...scope, kind: "value", status: "published"}}),
+          db.engagementRevision.findMany({where: {clientId: scope.clientId, kind: "financial", status: "published"}}),
+          db.engagementRevision.findMany({where: {clientId: scope.clientId, kind: "value", status: "published"}}),
         ]);
         const legacyRefs = (report: ValueReportInput) => [
           ...report.realized.map(item => item.evidence.reference),
@@ -315,13 +315,13 @@ export function createEngagementWorkspaceRouter(
           const entry = FinancialEntry.parse(JSON.parse(latest.content));
           const refs = financialEvidenceReferences(entry);
           if (reports.some(report => legacyRefs(ValueReportInput.parse(JSON.parse(report.content))).some(ref => refs.includes(ref)))) return "duplicate-financial";
-          const found = entries.some(row => row.period !== latest.period &&
-            financialEvidenceReferences(FinancialEntry.parse(JSON.parse(row.content))).some(ref => refs.includes(ref)));
+          const found = entries.some(row => (row.workspace !== scope.workspace || row.period !== latest.period) &&
+            sharesFinancialSource(entry, FinancialEntry.parse(JSON.parse(row.content))));
           if (found) return "duplicate-financial";
         } else {
           const proposedRefs = legacyRefs(ValueReportInput.parse(JSON.parse(latest.content)));
           const historicalRefs = new Set([
-            ...reports.filter(row => row.period !== latest.period).flatMap(row => legacyRefs(ValueReportInput.parse(JSON.parse(row.content)))),
+            ...reports.filter(row => row.workspace !== scope.workspace || row.period !== latest.period).flatMap(row => legacyRefs(ValueReportInput.parse(JSON.parse(row.content)))),
             ...entries.flatMap(row => financialEvidenceReferences(FinancialEntry.parse(JSON.parse(row.content)))),
           ]);
           if (new Set(proposedRefs).size !== proposedRefs.length || proposedRefs.some(ref => historicalRefs.has(ref))) return "duplicate-financial";
