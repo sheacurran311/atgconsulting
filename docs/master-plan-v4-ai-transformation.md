@@ -1,4 +1,6 @@
 # ATG Consulting | Master Plan v4 expansion
+
+Current execution precedence and verification: [ATG implementation reconciliation](ATG_IMPLEMENTATION_RECONCILIATION.md).
 Approved 26 November 2026. Target outreach: Monday 30 November 2026.
 This dated amendment supplements the earlier master plan; it is not a claim that the prior plan or any feature is deployed. Preserve existing production fixes and approved prices. ATG is the AI transformation partner for SMBs; this is a refinement, not a pivot. Preserve personal-use free tools and existing accounts.
 
