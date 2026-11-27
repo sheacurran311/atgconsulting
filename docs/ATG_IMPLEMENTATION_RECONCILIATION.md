@@ -2,6 +2,8 @@
 
 Use the [phase-gated implementation protocol](qa/ATG_R4_PHASE_GATED_IMPLEMENTATION.md) and [execution ledger](qa/ATG_R4_PHASE_EXECUTION_LEDGER.md). R3 did not close substantive product criteria. Complete one phase, test, commit, update canonical status and evidence, then continue. External staging and release acceptance remain separate. Do not reinterpret earlier partial implementation as completed.
 
+The [P0 checkpoint](qa/checkpoints/P0.md) records the reconciled tree, baseline CI and active replay. Track current phase decisions in the R4 ledger.
+
 # ATG Consulting implementation reconciliation
 
 November 26, 2026 · Feature branch `feat/ai-transformation-phase-1` · PR #81

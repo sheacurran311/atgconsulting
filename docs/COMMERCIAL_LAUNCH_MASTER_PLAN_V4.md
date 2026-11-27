@@ -2,11 +2,11 @@
 
 The [R4 phase-gated implementation protocol](qa/ATG_R4_PHASE_GATED_IMPLEMENTATION.md) and [phase execution ledger](qa/ATG_R4_PHASE_EXECUTION_LEDGER.md) are mandatory execution instructions. The original commercial roadmap below remains the scope authority and historical workstream reference; its dates and phase ordering are superseded by the R4 product phases. Complete every applicable phase acceptance criterion, including UI, tests, security and evidence; update this master plan and the canonical reconciliation before advancing. Continue automatically until all product gates pass; external staging/provider/owner gates are tracked separately. The next session resumes the first unpassed phase. No outreach, production deployment or main merge is authorized.
 
-## R4 phase status (initial)
+## R4 phase status
 
 | Phase | Product gate | Status |
 |---|---|---|
-| P0 | Conflict reconciliation and baseline | OPEN |
+| P0 | Conflict reconciliation and baseline | IN_PROGRESS. P0-01 refs/tree verified, P0-02 operating instructions added, P0-03 replay underway. [Evidence](qa/checkpoints/P0.md) |
 | P1 | Catalog and specifications | OPEN |
 | P2 | Commercial and delivery identity | OPEN |
 | P3 | Value realization and SLA | OPEN |
