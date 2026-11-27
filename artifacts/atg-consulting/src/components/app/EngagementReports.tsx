@@ -7,6 +7,7 @@ type PublishedRecord = Exclude<WorkspaceRecord, {kind: "estimate" | "opportunity
 type ReadinessRecord = Extract<PublishedRecord, {kind: "readiness"}>;
 
 export default function EngagementReports() {
+  const [reportPeriod, setReportPeriod] = useState("");
   const [records, setRecords] = useState<PublishedRecord[]>([]);
   const [incidents, setIncidents] = useState<PublishedIncident[]>([]);
   const [finance, setFinance] = useState<ClientFinancialSummary[]>([]);
@@ -26,6 +27,8 @@ export default function EngagementReports() {
       }).catch(() => {if (!controller.signal.aborted) setStatus("error");});
     return () => controller.abort();
   }, []);
+  const periods = [...new Set(records.map(item => item.period).filter(period => /^\d{4}-\d{2}$/.test(period)))].sort().reverse();
+  const visibleRecords = reportPeriod ? records.filter(item => item.period === reportPeriod || !/^\d{4}-\d{2}$/.test(item.period)) : records;
   const queryHistory = new Map<string, Array<{period: string; date: string; mention: boolean; citations: number; limitations?: string}>>();
   for (const item of records) {
     if (item.kind !== "seo") continue;
@@ -43,6 +46,11 @@ export default function EngagementReports() {
     {status === "loading" && <p role="status" className="text-sm">Loading engagement reports…</p>}
     {status === "error" && <p className="text-sm" role="alert">Engagement reports could not be loaded.</p>}
     {status === "ready" && !records.length && !finance.length && !incidents.length && <p className="text-sm">No engagement reports or agreements have been published yet.</p>}
+    {periods.length > 0 && <label className="block text-sm font-medium">Report month
+      <select className="field-input ml-2" value={reportPeriod} onChange={event => setReportPeriod(event.target.value)}>
+        <option value="">All months</option>{periods.map(period => <option key={period} value={period}>{period}</option>)}
+      </select>
+    </label>}
     {queryHistory.size > 0 && <section className="space-y-3 rounded-xl border border-canvas-border bg-canvas-1 p-4">
       <h3 className="font-semibold">Repeat answer-engine observations</h3>
       <p className="text-sm">Each result describes an individual sample. Results can vary between runs.</p>
@@ -89,7 +97,7 @@ export default function EngagementReports() {
         <EngagementRecord record={baseline} />
       </details>;
     })}
-    {records.map(item => <details className="space-y-4 rounded-xl border border-canvas-border bg-canvas-1 p-4"
+    {visibleRecords.map(item => <details className="space-y-4 rounded-xl border border-canvas-border bg-canvas-1 p-4"
       key={item.workspace + item.kind + item.period + item.version}>
       <summary className="cursor-pointer break-words font-semibold">{item.kind === "value" ? "Monthly value report · " + item.period :
         item.kind === "readiness" ? "Readiness assessment · " + item.period :

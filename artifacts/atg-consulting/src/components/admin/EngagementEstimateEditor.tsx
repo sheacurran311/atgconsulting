@@ -179,6 +179,15 @@ export function EngagementEstimateEditor({value, onChange, source, catalog, save
           ...(slaVersion ? [{value: "sla" as const, label: "Reviewed SLA"}] : []),
         ]} />
       {origin?.reference && <p className="break-words text-sm">Source {origin.reference} · Revision {origin.revision}</p>}
+      {origin && origin.origin !== "manual" && <div className={formGrid}>
+        <TextField label="Original source value" value={origin.rawValue ?? ""}
+          onChange={rawValue => onChange({...value, provenance: {...value.provenance, [provenanceField]: {...origin, rawValue}}})} />
+        <TextField label="Original source unit" value={origin.rawUnit ?? ""}
+          onChange={rawUnit => onChange({...value, provenance: {...value.provenance, [provenanceField]: {...origin, rawUnit}}})} />
+        <p className="break-words text-sm">Current estimate value (stored form): {String(
+          (fieldChoice >= 0 ? Object.entries(input.workstreams[fieldChoice] ?? {}).find(([key]) => key === provenanceField.split(".").at(-1))
+            : Object.entries(input).find(([key]) => key === provenanceField))?.[1] ?? "Not set")}. Monetary fields are stored in cents.</p>
+      </div>}
       {origin?.recordedAt && <p className="text-sm">Recorded {new Date(origin.recordedAt).toLocaleString()}</p>}
       {origin?.origin === "ai" && <label className="flex gap-2 text-sm"><input type="checkbox" checked={!!origin.reviewed}
         onChange={event => onChange({...value, provenance: {...value.provenance, [provenanceField]: {...origin, reviewed: event.target.checked}}})} />

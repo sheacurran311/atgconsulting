@@ -197,6 +197,7 @@ const FieldProvenance = z.object({
   origin: z.enum(["intake", "fit-call", "catalog", "proposal", "sla", "manual", "ai"]),
   reference: name.optional(), revision: name.optional(), recordedAt: z.string().datetime().optional(),
   note: z.string().trim().max(500).optional(), reviewed: z.boolean().optional(),
+  rawValue: z.string().max(500).optional(), rawUnit: z.string().trim().max(60).optional(),
 }).strict();
 export type FieldProvenance = z.infer<typeof FieldProvenance>;
 

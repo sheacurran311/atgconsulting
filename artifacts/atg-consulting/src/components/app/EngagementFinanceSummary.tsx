@@ -10,10 +10,10 @@ export function EngagementFinanceSummary({summary, contracted}: {summary: Financ
     ["Documented client investment", usd(summary.investmentCents)],
     ["Observed revenue change", usd(summary.observedRevenueCents)],
     ["Verified attributable benefit", usd(summary.benefitRecords ? summary.verifiedBenefitCents : null)],
-    ["Net financial value", usd(summary.netValueCents)], ["Cumulative financial ROI", pct(summary.roiPercent)],
+    ["Net financial value", usd(summary.netValueCents)], ["Cumulative ROI on reviewed records", pct(summary.roiPercent)],
   ];
   return <div className="space-y-3 text-sm">
-    <p>Financial ROI uses documented payments and incremental operating expenses. It divides verified attributable benefits less investment by that same investment. This is a cash-basis view of the reviewed evidence.</p>
+    <p>Financial ROI uses documented payments and incremental operating expenses. It divides verified attributable benefits less investment by that same investment. This cash-basis view covers the posted records. It does not establish complete accounting coverage.</p>
     {summary.roiPercent === null && <p role="status">ROI requires documented benefit evidence and positive net investment. Some periods may have incomplete records.</p>}
     <dl className="grid gap-3 sm:grid-cols-2">
       {totals.map(([label, amount]) => <div key={label}><dt className="font-medium">{label}</dt><dd>{amount}</dd></div>)}
