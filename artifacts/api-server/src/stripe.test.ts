@@ -110,7 +110,6 @@ test("billing startup validation reports missing required keys", () => {
     assert.deepEqual(billingConfigErrors(), [
       "STRIPE_SECRET_KEY",
       "STRIPE_WEBHOOK_SECRET",
-      "STRIPE_PRICE_SELF_SERVE",
       "STRIPE_PRICE_GUIDED",
       "STRIPE_PRICE_DFY_SETUP",
     ]);

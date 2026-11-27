@@ -1,7 +1,11 @@
-"use client";
 import { useState } from "react";
 
 const faqs = [
+  { q: "How does ATG measure ROI?", a: "We agree on baselines, measurement windows and sources before implementation. Then we track projections, measured changes and financially documented results. Monthly reports explain attribution, dependencies and what still needs evidence." },
+  { q: "What is fractional AI leadership?", a: "ATG advises on priorities, vendors, governance, staff adoption and performance at an agreed cadence. The engagement specifies included hours, responsibilities and advisory deliverables. Implementation is scoped separately where needed." },
+  { q: "How are service levels and additional work agreed?", a: "When an engagement needs ongoing support, an SLA defines covered services, coverage hours, response targets, exclusions and escalation. Extra work requires prior written approval and a change order. The hourly rate for new engagements starts at $100." },
+  { q: "How do payments work?", a: "Your accepted proposal defines the project or advisory fees and payment schedule. ATG invoices for the agreed work. One-time Stripe payments can be offered for specific installments where available." },
+  { q: "Can you measure search and AI answer visibility?", a: "ATG can evaluate technical SEO and sample AI answers with a documented query set. Authorized Search Console and Analytics data support separate visibility and on-site measures. Search rankings and AI citations can vary." },
   { q: "How much does ATG Consulting cost?", a: "There is no one-size-fits-all price. A logo refresh, website migration, and multi-system AI implementation all require different work. After reviewing your needs and speaking with you, ATG provides a tailored proposal with the deliverables, timeline, total project fee, and payment terms. Nothing is charged simply for requesting a proposal." },
   { q: "Is the initial assessment and consultation free?", a: "Yes. The initial assessment and short discovery conversation are free, without an obligation to purchase. Complex technical audits or extensive project scoping may be offered separately with a clear quote before the paid work begins." },
   { q: "Can you redesign my website or logo without selling me AI?", a: "Absolutely. Website design, redesign, logo creation, branding, hosting evaluation and migration can be standalone projects. We'll recommend retaining your existing platform if it still meets your needs. AI isn't a mandatory add-on." },
@@ -31,7 +35,7 @@ export default function FAQ() {
   return (
     <section id="faq" className="py-16 sm:py-24" style={{ background: "var(--canvas)" }} aria-labelledby="faq-heading">
       <div className="max-w-wide mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-xl mx-auto mb-12"><p className="eyebrow mb-3">Pricing and practical questions</p><h2 id="faq-heading" className="section-heading" style={{ color: "var(--canvas-text)" }}>How much does this cost?</h2></div>
+        <div className="text-center max-w-xl mx-auto mb-12"><p className="eyebrow mb-3">Pricing and practical questions</p><h2 id="faq-heading" className="section-heading" style={{ color: "var(--canvas-text)" }}>Frequently asked questions</h2></div>
         <div className="max-w-2xl mx-auto rounded-xl overflow-hidden" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas-1)" }}><div className="px-6 sm:px-8">{faqs.map(f => <Item key={f.q} q={f.q} a={f.a} />)}</div></div>
       </div>
     </section>

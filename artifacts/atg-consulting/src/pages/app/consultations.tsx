@@ -120,16 +120,16 @@ function ConsultationDetailBody({ id }: { id: string }) {
             {c.recordingUrl && (
               <a href={c.recordingUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary inline-flex text-sm">▶ Watch recording</a>
             )}
-            {c.actionItems.filter((a) => a.owner === "CLIENT").length > 0 && (
+            {c.actionItems.filter((a) => a.owner === "CLIENT" || a.readOnly).length > 0 && (
               <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-6">
-                <p className="text-xs font-bold text-blue tracking-widest uppercase mb-3">Your action items</p>
+                <p className="text-xs font-bold text-blue tracking-widest uppercase mb-3">Consultation actions</p>
                 <ul className="space-y-2">
-                  {c.actionItems.filter((a) => a.owner === "CLIENT").map((a) => (
+                  {c.actionItems.filter((a) => a.owner === "CLIENT" || a.readOnly).map((a) => (
                     <li key={a.id} className="flex items-start gap-3">
-                      <button onClick={() => toggleAction(a.id)} aria-label={a.done ? "Mark undone" : "Mark done"} className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${a.done ? "bg-blue border-blue text-white" : "border-canvas-border"}`}>
+                      <button type="button" disabled={a.readOnly} onClick={() => toggleAction(a.id)} aria-label={a.readOnly ? a.done ? "Verified complete" : "Awaiting verification" : a.done ? "Mark undone" : "Mark done"} className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${a.done ? "bg-blue border-blue text-white" : "border-canvas-border"}`}>
                         {a.done && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                       </button>
-                      <span className={`text-sm ${a.done ? "line-through text-canvas-text" : "text-canvas-text"}`}>{a.text}</span>
+                      <span className={`text-sm ${a.done ? "line-through text-canvas-text" : "text-canvas-text"}`}>{a.text}{a.readOnly && <span className="mt-1 block text-xs">{a.owner === "ADMIN" ? "ATG" : "Client"} · {a.done ? "Verified" : "Awaiting verification"}</span>}</span>
                     </li>
                   ))}
                 </ul>

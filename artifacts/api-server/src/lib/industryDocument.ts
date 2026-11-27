@@ -1,6 +1,8 @@
 import { escapeHtml, injectDocumentHead } from "./seo";
 import { industryIntake, industryPath, type IndustrySite } from "./industrySites";
 
+import { relatedSearchPath } from "./transformationMarketing";
+
 export function industryBody(site:IndustrySite) {
   const e=escapeHtml;
   return `<main class="max-w-wide mx-auto px-4 sm:px-6 lg:px-8 py-16"><div class="max-w-3xl">
@@ -11,7 +13,7 @@ export function industryBody(site:IndustrySite) {
     <h2 class="text-xl font-bold mb-2">What we’ll discuss on your first call</h2><p class="mb-3">${e(site.question)}</p>
     <p class="mb-6">Bring your current URL if you have one. Shea will review the visitor journey with you and scope the design, content and integrations your business needs.</p>
     <a class="btn-primary" href="${e(industryIntake(site))}">Discuss my website</a>
-    <p class="mt-8 text-sm"><a href="/#who-we-help">Explore other industries</a></p>
+    <p class="mt-8 flex flex-wrap gap-4 text-sm"><a class="underline" href="/#who-we-help">Explore other industries</a><a class="underline" href="${e(relatedSearchPath(site))}">Search visibility for ${e(site.audience)}</a><a class="underline" href="/value-realization">How we measure results</a></p>
   </div></main>`;
 }
 

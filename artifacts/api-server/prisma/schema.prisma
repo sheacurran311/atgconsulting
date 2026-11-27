@@ -99,6 +99,9 @@ model Client {
   dayBlocks           DayBlock[]
   operatingPlan       OperatingPlan?
   businessContextVersions BusinessContextVersion[]
+  engagementRevisions EngagementRevision[]
+  seoOAuthAttempts SeoOAuthAttempt[]
+  seoConnections SeoConnection[]
 }
 
 // ── Intake ─────────────────────────────────────────────────────────────────────
@@ -190,6 +193,10 @@ model ActionItem {
   text           String
   done           Boolean      @default(false)
   dueAt          DateTime?
+  sourceMilestoneKey String? @unique
+  clientVisible Boolean @default(true)
+  evidenceReference String?
+  updatedAt DateTime? @updatedAt
   createdAt      DateTime     @default(now())
 }
 
@@ -955,6 +962,10 @@ model DiscoveryIntake {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  acquisitionJson String?
+  discoveryInviteId String?
+  prospectId String?
+
   fitCall         FitCallOutcome?
 
   catalogMatches  CatalogMatch[]
@@ -963,6 +974,7 @@ model DiscoveryIntake {
   @@index([status, createdAt])
   @@index([expiresAt])
   @@index([clientId])
+  @@index([prospectId])
 }
 
 // ── Discovery invite links ────────────────────────────────────────────────────
@@ -982,6 +994,7 @@ model DiscoveryInvite {
   /// Private note to Grok — not shown to the prospect.
   /// Example: "large-format print shop, ERP plus factory floor plus install crews"
   contextNote        String?
+  prospectId         String?
 
   /// created | opened | in_progress | submitted | revoked
   status             String    @default("created")
@@ -1286,10 +1299,11 @@ model AtgProspect {
   approvedAt   DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  siteReviews ProspectSiteReview[]
   @@index([status, updatedAt])
 }
 
-/// Test-mode one-time payments, one ledger row per accepted quote installment.
+/// One-time payments, one ledger row per accepted quote installment.
 model QuoteInstallment {
   id          String   @id @default(cuid())
   proposalId  String
@@ -1301,6 +1315,10 @@ model QuoteInstallment {
   sessionId   String?  @unique
   invoiceId   String?
   refundedCents Int @default(0)
+  liveMode    Boolean  @default(false)
+  authorizedAt DateTime?
+  authorizedBy String?
+  checkoutStartedAt DateTime?
   paidAt      DateTime?
   @@unique([proposalId, stage])
 }
@@ -1315,4 +1333,83 @@ model BusinessContextVersion {
   actorUserId String
   createdAt DateTime @default(now())
   @@unique([clientId, version])
+}
+
+/// Append-only commercial and delivery revisions, scoped to a client and optionally an intake.
+model EngagementRevision {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  workspace   String
+  kind        String
+  period      String   @default("")
+  version     Int
+  status      String
+  content     String
+  actorUserId String
+  createdAt   DateTime @default(now())
+
+  @@unique([clientId, workspace, kind, period, version])
+  @@index([clientId, status, kind, createdAt])
+}
+
+model SeoOAuthAttempt {
+  stateHash String @id
+  clientId String
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  provider String
+  actorUserId String
+  verifierCipher String
+  expiresAt DateTime
+  consumedAt DateTime?
+
+  @@unique([clientId, provider])
+  @@index([expiresAt])
+}
+
+model SeoConnection {
+  id String @id @default(cuid())
+  clientId String
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  provider String
+  refreshCipher String
+  grantId String
+  property String?
+  status String @default("select_property")
+  lastPullAt DateTime?
+  updatedAt DateTime @updatedAt
+  snapshots SeoProviderSnapshot[]
+
+  @@unique([clientId, provider])
+  @@index([status, lastPullAt])
+}
+
+model SeoProviderSnapshot {
+  id String @id @default(cuid())
+  connectionId String
+  connection SeoConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  property String
+  start String
+  end String
+  content String
+  capturedAt DateTime @default(now())
+
+  @@unique([connectionId, property, start, end])
+  @@index([connectionId, capturedAt])
+}
+
+model ProspectSiteReview {
+  id String @id @default(cuid())
+  prospectId String
+  prospect AtgProspect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  day String
+  sourceUrl String
+  status String @default("running")
+  observations String?
+  reviewedBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([prospectId, day])
+  @@index([day])
 }

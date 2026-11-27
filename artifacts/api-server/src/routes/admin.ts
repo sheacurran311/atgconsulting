@@ -252,7 +252,7 @@ router.patch("/admin/consultations/:id", async (req, res) => {
   }
 
   if (actionItems) {
-    await prisma.actionItem.deleteMany({ where: { consultationId: req.params.id, owner: "ADMIN" } });
+    await prisma.actionItem.deleteMany({ where: { consultationId: req.params.id, owner: "ADMIN", sourceMilestoneKey: null } });
     await prisma.actionItem.createMany({
       data: actionItems.map((ai) => ({ consultationId: req.params.id, owner: ai.owner, text: ai.text, dueAt: ai.dueAt ? new Date(ai.dueAt) : null })),
     });

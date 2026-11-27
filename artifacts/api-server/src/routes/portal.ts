@@ -1,5 +1,5 @@
 import { savedQuote } from "../lib/customQuote";
-import { testPaymentsEnabled } from "../lib/quotePayments";
+import { livePaymentsEnabled, testPaymentsEnabled } from "../lib/quotePayments";
 import { legacyAssessmentFor } from "../lib/assessmentPresence";
 /**
  * Portal onboarding and personalization routes.
@@ -139,18 +139,25 @@ router.get("/portal/proposal", resolve, requireAuth, async (req, res) => {
   }
 
   const intake = intakes.find((i) => i.id === proposal.discoveryIntakeId);
-  const stages = testPaymentsEnabled() ? savedQuote(proposal.investment)?.installments ?? [] : [];
+  const testPayments = testPaymentsEnabled();
+  const livePayments = livePaymentsEnabled();
+  const stages = testPayments || livePayments ? savedQuote(proposal.investment)?.installments ?? [] : [];
   const payments = stages.length && proposal.acceptedAt ? await prisma.quoteInstallment.findMany({
-    where:{proposalId:proposal.id, clientId:user.clientId}, select:{stage:true, paidAt:true, refundedCents:true},
+    where:{proposalId:proposal.id, clientId:user.clientId}, select:{stage:true, paidAt:true, refundedCents:true, liveMode:true, authorizedAt:true},
   }) : [];
   res.json({
     state,
     proposal: {
       ...toClientProposal(proposal, intake?.contactName ?? null),
-      testInstallments: stages.map((item, stage) => {
+      testInstallments: testPayments ? stages.flatMap((item, stage) => {
         const payment = payments.find(row => row.stage === stage);
-        return {...item, status:payment?.refundedCents ? 'Refund recorded' : payment?.paidAt ? 'Paid' : 'Unpaid'};
-      }),
+        return payment?.liveMode ? [] : [{...item, stage, status:payment?.refundedCents ? "Refund recorded" : payment?.paidAt ? "Paid" : "Unpaid"}];
+      }) : [],
+      liveInstallments: livePayments ? stages.flatMap((item, stage) => {
+        const payment = payments.find(row => row.stage === stage);
+        return payment?.liveMode && payment.authorizedAt
+          ? [{...item, stage, status:payment.refundedCents ? "Refund recorded" : payment.paidAt ? "Paid" : "Unpaid"}] : [];
+      }) : [],
     },
   });
 });

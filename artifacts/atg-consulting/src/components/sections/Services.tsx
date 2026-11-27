@@ -1,3 +1,4 @@
+import { serviceDivisions, transformationServices } from "@/content/transformationServices";
 import { motion, useReducedMotion } from "framer-motion";
 
 const SERVICES = [
@@ -76,25 +77,29 @@ export default function Services() {
       <div className="max-w-wide mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mb-11">
           <p className="eyebrow mb-3">What ATG can do for you</p>
-          <h2 id="services-heading" className="display-lg mb-4" style={{ color: "var(--canvas-text)" }}>Real solutions, <span style={{ color: "var(--blue)" }}>not another subscription.</span></h2>
+          <h2 id="services-heading" className="display-lg mb-4" style={{ color: "var(--canvas-text)" }}>AI transformation <span style={{ color: "var(--blue)" }}>for your business.</span></h2>
           <p className="text-base leading-relaxed" style={{ color: "var(--canvas-text-2)" }}>
             Five connected business service areas, plus personal technology consulting. Start with one problem or combine strategic advisory, implementation and ongoing optimization into a tailored engagement.
           </p>
         </div>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {SERVICES.map((service, index) => (
+          {SERVICES.map((service, index) => {
+            const services = transformationServices.filter(item => serviceDivisions[item.division] === service.title);
+            return (
             <motion.article key={service.title} initial={reducedMotion ? false : { opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} transition={{ duration: 0.52, delay: reducedMotion ? 0 : (index % 3) * 0.1 }} className="rounded-xl p-6 flex flex-col" style={{ border: "1px solid var(--canvas-border)", background: "var(--canvas)" }}>
-              <p className="font-mono text-2xs mb-3" style={{ color: "var(--blue)", letterSpacing: "0.08em" }}>{service.marker}</p>
               <h3 className="font-extrabold text-xl mb-3" style={{ color: "var(--canvas-text)" }}>{service.title}</h3>
               <p className="text-sm leading-relaxed mb-5" style={{ color: "var(--canvas-text-2)" }}>{service.description}</p>
               <ul className="space-y-2 mb-6 flex-1">
-                {service.offerings.map((offering) => (
+                {services.length ? services.map(item => <li key={item.id}>
+                  <a className="text-sm font-semibold text-blue underline underline-offset-4" href={"/services/" + item.id}>{item.name}</a>
+                </li>) : service.offerings.map((offering) => (
                   <li key={offering} className="text-xs flex gap-2" style={{ color: "var(--canvas-text-2)" }}><span style={{ color: "var(--blue)" }}>✓</span>{offering}</li>
                 ))}
               </ul>
-              <a href={`mailto:shea@atgconsulting.io?subject=${encodeURIComponent(`ATG Inquiry: ${service.title}`)}`} className="text-sm font-semibold" style={{ color: "var(--blue)" }}>Discuss this service →</a>
+              <a href={services.length ? "/services" : "/intake?audience=personal"} className="text-sm font-semibold text-blue">{services.length ? "Explore all consulting services" : "Start a personal assessment"}</a>
             </motion.article>
-          ))}
+            );
+          })}
         </div>
         <div className="rounded-xl mt-6 p-6 sm:p-8 grid md:grid-cols-[1fr_auto] gap-6 items-center" style={{ background: "var(--ink)", border: "1px solid var(--ink-border)" }}>
           <div>
@@ -102,7 +107,7 @@ export default function Services() {
             <h3 className="font-extrabold text-xl mb-2" style={{ color: "var(--ink-text)" }}>Complete Business Modernization</h3>
             <p className="text-sm" style={{ color: "var(--ink-text-2)" }}>A new website and brand, smarter sales and marketing workflows, practical AI automation, and a technical partner to bring it together. Every project is tailored to your goals and budget.</p>
           </div>
-          <a href="mailto:shea@atgconsulting.io?subject=Complete%20Business%20Modernization%20Inquiry" className="btn-primary">Discuss a full-service project →</a>
+          <a href="/intake?audience=business&service=digital-transformation" className="btn-primary">Discuss a full-service project →</a>
         </div>
         <p className="text-xs mt-5" style={{ color: "var(--canvas-text-3)" }}>ATG does not manage advertising placements or operate your customer communications on ATG servers. Your systems remain yours, with appropriate review and approval controls.</p>
       </div>

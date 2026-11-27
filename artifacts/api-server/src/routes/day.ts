@@ -170,7 +170,7 @@ async function readDayPayload(cid: string): Promise<{
       orderBy: { scheduledAt: "asc" },
     }),
     prisma.actionItem.findMany({
-      where: { done: false, owner: "CLIENT", dueAt: { not: null }, consultation: { clientId: cid } },
+      where: { done: false, owner: "CLIENT", clientVisible: true, dueAt: { not: null }, consultation: { clientId: cid } },
       orderBy: { dueAt: "asc" },
       take: 20,
     }),

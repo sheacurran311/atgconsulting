@@ -1,3 +1,4 @@
+import { marketingPaths } from "./transformationMarketing";
 import { industrySites, industryPath } from "./industrySites";
 /**
  * Pure HTML / sitemap helpers for the public blog.
@@ -17,6 +18,7 @@ export const BLOG_DESCRIPTION =
 
 export const PUBLIC_PATHS: { path: string; changefreq: string; priority: string }[] = [
   { path: "/", changefreq: "weekly", priority: "1.0" },
+  ...marketingPaths.map(path => ({path, changefreq: "monthly", priority: "0.8"})),
   ...industrySites.map(site=>({path:industryPath(site),changefreq:"monthly",priority:"0.8"})),
   { path: "/blog", changefreq: "daily", priority: "0.8" },
   { path: "/terms", changefreq: "yearly", priority: "0.3" },

@@ -121,7 +121,7 @@ test("configured AI selects questions and falls back on provider failure", async
     fail = true;
     const fallback = await nextQuestion(answered, 0);
     assert.equal(fallback.fromFallback, true);
-    assert.deepEqual(fallback.nextIds, ["top_problems"]);
+    assert.deepEqual(fallback.nextIds, ["company_name"]);
     assert.equal(calls, 2);
   } finally {
     names.forEach((name, i) => { if (saved[i] === undefined) delete process.env[name]; else process.env[name] = saved[i]; });

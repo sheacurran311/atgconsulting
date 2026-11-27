@@ -45,6 +45,8 @@ interface IntakeRow {
 }
 
 interface IntakeDetail extends IntakeRow {
+  prospectId?: string | null;
+  acquisitionJson?: string | null;
   reportEmailedAt?: string | null;
   reportEmailSendingAt?: string | null;
   reportEmailError?: string | null;
@@ -595,6 +597,9 @@ export default function AdminDiscoveryPage() {
                 {selected.reportEmailedAt && <span className="text-sm">Emailed {new Date(selected.reportEmailedAt).toLocaleDateString()}</span>}
                 {selected.reportEmailSendingAt && <div className="text-sm max-w-md"><p>Delivery is in progress or uncertain. Check the email provider before recording a result.</p><div className="flex flex-wrap gap-2 mt-2"><button className="btn-secondary" disabled={approving} onClick={() => reportAction("email-report/reconcile", { providerChecked: true, delivered: true })}>Provider confirms delivered</button><button className="btn-secondary" disabled={approving} onClick={() => reportAction("email-report/reconcile", { providerChecked: true, delivered: false })}>Provider confirms not sent; enable retry</button></div></div>}
                 {(deliveryError || selected.reportEmailError) && <p role="alert" className="text-red-700 text-sm w-full">{deliveryError || selected.reportEmailError}</p>}
+                {selected.clientId && <Link href={`/admin/clients/${selected.clientId}/engagement?intake=${selected.id}`} className="btn-secondary text-sm">Open engagement workspace</Link>}
+                {selected.prospectId && <Link href={`/admin/prospecting?prospect=${encodeURIComponent(selected.prospectId)}`} className="btn-secondary text-sm">View source prospect</Link>}
+                {selected.acquisitionJson && <AcquisitionContext value={selected.acquisitionJson} />}
                 {selected.clientId && <Link href={`/admin/clients/${selected.clientId}/operations`} className="btn-secondary text-sm">Audit & delivery playbook</Link>}
                 {!proposal && (
                   <button type="button" onClick={generateProposal} disabled={!!generation||!fitCallMeta?.completed} title={!fitCallMeta?.completed?"Complete the fit-call worksheet first.":undefined} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
@@ -861,4 +866,13 @@ export default function AdminDiscoveryPage() {
       </div>
     </AdminShell>
   );
+}
+
+
+function AcquisitionContext({value}: {value: string}) {
+  try {
+    const source = JSON.parse(value) as {serviceId?: string | null; industryId?: string | null; channel?: string | null};
+    const description = [source.serviceId, source.industryId, source.channel].filter(Boolean).join(" · ");
+    return description ? <p className="w-full text-sm">Assessment entry · {description}</p> : null;
+  } catch {return null;}
 }

@@ -1,6 +1,6 @@
-# CURRENT HANDOFF | November 24, 2026
+# CURRENT HANDOFF | November 26, 2026
 
-**Start here:** [Commercial Launch Master Plan v4.0](docs/COMMERCIAL_LAUNCH_MASTER_PLAN_V4.md) is the forward execution authority. [Master Implementation Plan](docs/MASTER_IMPLEMENTATION_PLAN.md) is the historical decision/status register. [Internal workflow catalogue](docs/ATG_INTERNAL_WORKFLOW_CATALOG_AND_PRICING.md) is the internal estimating reference.
+**Start here:** [ATG implementation reconciliation](docs/ATG_IMPLEMENTATION_RECONCILIATION.md) defines the current priorities, verification evidence and release requirements. The [Commercial Launch Master Plan v4.0](docs/COMMERCIAL_LAUNCH_MASTER_PLAN_V4.md) retains the complete workstream list. [Master Implementation Plan](docs/MASTER_IMPLEMENTATION_PLAN.md) is the historical decision/status register. [Internal workflow catalogue](docs/ATG_INTERNAL_WORKFLOW_CATALOG_AND_PRICING.md) is the internal estimating reference.
 
 Target controlled outreach November 30. Execute P0 phases A–D first; P1/P2/P3 follow demand and acceptance gates. Do not assume merged source is deployed or tested. Keep a task evidence ledger and use isolated branches and reviewed PRs. Never start another dev server or disrupt SSH, edit .replit, alter production secrets, or apply schema/deploy without approval and backup/rollback. No live automated sending or billing activation by default.
 

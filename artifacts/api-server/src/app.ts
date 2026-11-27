@@ -1,4 +1,4 @@
-import { quoteTestWebhook } from "./routes/quotePayments";
+import { quoteLiveWebhook, quoteTestWebhook } from "./routes/quotePayments";
 import express, { type Express } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -38,7 +38,9 @@ app.use(
         return {
           id: req.id,
           method: req.method,
-          url: req.url?.split("?")[0],
+          url: req.url?.split("?")[0]?.replace(
+            /(\/api\/discovery\/invite\/)[^/]+/, "$1[redacted]",
+          ),
         };
       },
       res(res) {
@@ -72,6 +74,7 @@ app.use(cors({
 }));
 // Stripe webhook requires raw body BEFORE express.json() is applied.
 // Must be registered before the main json middleware.
+app.post("/api/stripe/quote-webhook", express.raw({ type: "application/json" }), quoteLiveWebhook);
 app.post("/api/stripe/quote-test-webhook", express.raw({ type: "application/json" }), quoteTestWebhook);
 app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), stripeWebhookHandler);
 app.use("/api/admin/clients/:id/playbook/:pbId/deployment", deploymentBodyParser);

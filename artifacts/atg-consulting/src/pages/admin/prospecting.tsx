@@ -1,3 +1,4 @@
+import ProspectSiteReview from "@/components/admin/ProspectSiteReview";
 import { useEffect, useState } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 import { adminJson } from "@/lib/adminWork";
@@ -115,6 +116,7 @@ export default function AdminProspectingPage() {
   }
 
   const [name,setName]=useState(""); const [website,setWebsite]=useState("");
+  const [inviteLink, setInviteLink] = useState("");
   const [selected,setSelected]=useState<Prospect|null>(null);
   const [draft,setDraft]=useState(""); const [notes,setNotes]=useState("");
   const [review,setReview]=useState<Review>(emptyReview);
@@ -126,6 +128,17 @@ export default function AdminProspectingPage() {
     catch(e) { setError(e instanceof Error ? e.message : "Unable to load prospects."); }
   }
   useEffect(()=>{void load();},[]);
+  useEffect(() => {
+    if (selected || !rows.length) return;
+    const target = new URLSearchParams(window.location.search).get("prospect");
+    const match = rows.find(item => item.id === target);
+    if (match) {
+      setSelected(match);
+      setDraft(match.outreachDraft);
+      setNotes(match.notes);
+      setReview(match.review ?? emptyReview);
+    }
+  }, [rows, selected]);
   useEffect(()=>{void loadSheet();},[]);
   async function add(e: React.FormEvent) {
     e.preventDefault(); if(busy) return; setBusy(true); setError(""); setMessage("");
@@ -348,7 +361,7 @@ export default function AdminProspectingPage() {
     <div className="grid md:grid-cols-2 gap-4">
       <section className="space-y-2" aria-label="Prospects">
         {rows.length===0&&<p className="text-sm opacity-70">No prospects recorded.</p>}
-        {rows.map(p=><button key={p.id} type="button" onClick={()=>{setSelected(p);setDraft(p.outreachDraft);setNotes(p.notes);setReview(p.review??emptyReview);setClaim("");setSourceUrl("");setEvidenceVerified(false);setMessage("");}}
+        {rows.map(p=><button key={p.id} type="button" onClick={()=>{setSelected(p);setDraft(p.outreachDraft);setNotes(p.notes);setReview(p.review??emptyReview);setClaim("");setSourceUrl("");setEvidenceVerified(false);setMessage("");setInviteLink("");}}
           className="block w-full text-left rounded-lg border p-3" style={{borderColor:selected?.id===p.id?"var(--blue)":"var(--canvas-border)"}}>
           <div className="font-semibold">{p.businessName}</div><div className="text-xs opacity-70">{p.domain}</div>
           <div className="text-xs mt-2">{p.status} {p.score!==null?`· Fit ${p.score}/100`:""}</div>
@@ -359,6 +372,9 @@ export default function AdminProspectingPage() {
           <div><h2 className="font-semibold text-lg">{selected.businessName}</h2>
             <a className="text-sm underline" href={selected.website} target="_blank" rel="noopener noreferrer">{selected.domain}</a>
             <p className="text-xs opacity-70 mt-1">Status: {selected.status}. Qualification requires verified source evidence.</p></div>
+          <ProspectSiteReview key={selected.id} prospectId={selected.id}
+            enabledForProspect={!["SUPPRESSED", "DISQUALIFIED"].includes(selected.status)}
+            onSelect={(observation, source) => {setClaim(observation); setSourceUrl(source); setEvidenceVerified(false);}} />
           <div className="space-y-2 rounded border p-3" style={{borderColor:"var(--canvas-border)"}}>
             <p className="font-semibold text-sm">Evidence-backed qualification (0–5)</p>
             {(["industryFit","sizeFit","observableNeed","contactConfidence","urgency"] as const).map(key=><label key={key} className="flex items-center justify-between gap-2 text-xs">
@@ -379,6 +395,23 @@ export default function AdminProspectingPage() {
             {transitions[selected.status].map(s=><button type="button" key={s} disabled={busy} onClick={()=>void save(s)}
               className="text-xs font-semibold rounded border px-3 py-2" style={{borderColor:"var(--canvas-border)"}}>{s.replaceAll("_"," ")}</button>)}
           </div>
+          {["QUALIFIED", "DRAFT_READY", "APPROVED", "CONTACTED", "REPLIED", "BOOKED"].includes(selected.status) && <>
+            <button type="button" className="btn-ghost" disabled={busy} onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                const result = await adminJson<{link: string}>("/api/admin/discovery/invite", {
+                  method: "POST", headers: {"Content-Type": "application/json"},
+                  body: JSON.stringify({prospectId: selected.id, prefilledCompany: selected.businessName.slice(0, 200)}),
+                });
+                setInviteLink(new URL(result.link, window.location.origin).href);
+              } catch (err) {setError(err instanceof Error ? err.message : "Could not create a prospect assessment link.");}
+              finally {setBusy(false);}
+            }}>Create prospect assessment link</button>
+            {inviteLink && <label className="block text-sm">Private invitation link
+              <input readOnly className="field-input mt-1 w-full" value={inviteLink} onFocus={event => event.target.select()} />
+            </label>}
+          </>}
           <p className="text-xs opacity-70">Qualification is intentionally blocked until a source-backed assessment is saved through the reviewed API workflow. Mark CONTACTED only after separately completing approved outreach.</p>
         </>:<p className="text-sm opacity-70">Select a prospect to see research and draft history.</p>}
       </section>

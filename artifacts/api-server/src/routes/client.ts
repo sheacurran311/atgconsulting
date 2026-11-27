@@ -107,7 +107,7 @@ router.get("/client/dashboard", async (req, res) => {
       select: { approvedAt: true, status: true },
     }),
     prisma.outputItem.count({ where: { clientId, status: "pending" } }),
-    prisma.actionItem.count({ where: { owner: "CLIENT", done: false, consultation: { clientId } } }),
+    prisma.actionItem.count({ where: { owner: "CLIENT", done: false, clientVisible: true, consultation: { clientId } } }),
     prisma.clientMessage.findFirst({
       where: { clientId },
       orderBy: { createdAt: "desc" },
@@ -247,10 +247,10 @@ router.get("/client/consultations", async (req, res) => {
   if (!clientId) return;
   const consultations = await prisma.consultation.findMany({
     where: { clientId },
-    include: { actionItems: { orderBy: { createdAt: "asc" } } },
+    include: { actionItems: {where: {clientVisible: true}, orderBy: {createdAt: "asc"}, select: {id:true, consultationId:true, owner:true, text:true, done:true, dueAt:true, createdAt:true, sourceMilestoneKey:true}} },
     orderBy: { scheduledAt: "desc" },
   });
-  res.json(consultations.map((call) => ({ ...customerConsultation(call), actionItems: call.actionItems })));
+  res.json(consultations.map((call) => ({ ...customerConsultation(call), actionItems: call.actionItems.map(({sourceMilestoneKey, ...item}) => ({...item, readOnly: !!sourceMilestoneKey})) })));
 });
 
 router.get("/client/consultations/:id", async (req, res) => {
@@ -258,10 +258,10 @@ router.get("/client/consultations/:id", async (req, res) => {
   if (!clientId) return;
   const c = await prisma.consultation.findFirst({
     where: { id: req.params.id, clientId },
-    include: { actionItems: { orderBy: { createdAt: "asc" } } },
+    include: { actionItems: {where: {clientVisible: true}, orderBy: {createdAt: "asc"}, select: {id:true, consultationId:true, owner:true, text:true, done:true, dueAt:true, createdAt:true, sourceMilestoneKey:true}} },
   });
   if (!c) { res.status(404).json({ error: "Not found." }); return; }
-  res.json({ ...customerConsultation(c), actionItems: c.actionItems });
+  res.json({ ...customerConsultation(c), actionItems: c.actionItems.map(({sourceMilestoneKey, ...item}) => ({...item, readOnly: !!sourceMilestoneKey})) });
 });
 
 router.patch("/client/action-items/:id", async (req, res) => {
@@ -269,11 +269,20 @@ router.patch("/client/action-items/:id", async (req, res) => {
   if (!clientId) return;
   // Clients can only toggle their own action items
   const ai = await prisma.actionItem.findFirst({
-    where: { id: req.params.id, owner: "CLIENT", consultation: { clientId } },
+    where: { id: req.params.id, owner: "CLIENT", clientVisible: true, consultation: { clientId } },
   });
   if (!ai) { res.status(404).json({ error: "Not found." }); return; }
-  const updated = await prisma.actionItem.update({ where: { id: ai.id }, data: { done: !ai.done } });
-  res.json(updated);
+  if (ai.sourceMilestoneKey) {
+    res.status(409).json({error: "ATG verifies this delivery milestone."});
+    return;
+  }
+  const updated = await prisma.actionItem.updateMany({
+    where: {id: ai.id, clientVisible: true, owner: "CLIENT", consultation: {clientId}, done: ai.done},
+    data: {done: !ai.done},
+  });
+  if (updated.count !== 1) {res.status(409).json({error: "The action changed. Refresh before retrying."}); return;}
+  const {id, consultationId, owner, text, dueAt, createdAt} = ai;
+  res.json({id, consultationId, owner, text, dueAt, createdAt, done: !ai.done});
 });
 
 // ── Documents ─────────────────────────────────────────────────────────────────

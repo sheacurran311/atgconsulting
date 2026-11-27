@@ -1,3 +1,4 @@
+import { transformationServices } from "@/content/transformationServices";
 import { industrySites } from "@/content/industrySites";
 /**
  * /intake — Mobile-first adaptive discovery intake.
@@ -83,8 +84,11 @@ export default function IntakePage() {
   const requestedTier = searchParams.get("tier");
   const requestedSessions = searchParams.get("sessions");
   const requestedAudience = searchParams.get("audience");
-  const websiteInquiry = searchParams.get("service") === "website";
+  const requestedService = searchParams.get("service");
+  const websiteInquiry = requestedService === "website";
+  const transformationInquiry = transformationServices.find(service => service.id === requestedService);
   const requestedVertical = searchParams.get("vertical");
+  const acquisitionChannel = searchParams.get("channel");
   const verticalBusinessTypes: Record<string,string> = {
     ...Object.fromEntries(industrySites.map(site=>[site.slug,site.industry])),
     trades: "Trades, construction or home services",
@@ -232,6 +236,11 @@ export default function IntakePage() {
         !preAnswers.some(answer=>answer.id==="audience" && /^my personal/i.test(answer.answer))) {
       preAnswers.push({id:"top_problems", category:"goals", question:"What would you like to improve or build?",answer:JSON.stringify(["Build or redesign a website"])});
     }
+    if (transformationInquiry && !preAnswers.some(answer => answer.id === "top_problems") &&
+      !preAnswers.some(answer => answer.id === "audience" && /^my personal/i.test(answer.answer))) {
+      preAnswers.push({id: "top_problems", category: "goals", question: "What would you like to improve or build?",
+        answer: JSON.stringify([transformationInquiry.goal])});
+    }
     if (prefilledName) preAnswers.push({ id: "contact_name", category: "contact", question: "What's your name?", answer: prefilledName });
     if (prefilledCompany) preAnswers.push({ id: "company_name", category: "company", question: "What's your company name?", answer: prefilledCompany });
     const r = await fetch("/api/discovery/start", {
@@ -272,7 +281,7 @@ export default function IntakePage() {
     }
 
     setLoading(false);
-  }, [prefilledName, prefilledCompany, contactEmail, requestedTier, requestedSessions, requestedAudience, requestedVertical, websiteInquiry]);
+  }, [prefilledName, prefilledCompany, contactEmail, requestedTier, requestedSessions, requestedAudience, requestedVertical, websiteInquiry, transformationInquiry]);
 
   // Auto-start when arriving via engagement member token
   useEffect(() => {
@@ -385,6 +394,7 @@ export default function IntakePage() {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId, finalAnswers: answered.map((a) => a.id === "contact_email" ? { ...a, answer: contactEmail.trim().toLowerCase() } : a), contactEmail: contactEmail.trim().toLowerCase(), consentGiven: true, honeypot: "",
+        acquisition: {service: requestedService, industry: requestedVertical, channel: acquisitionChannel},
         ...(currentEngMemberToken.current ? { engMemberToken: currentEngMemberToken.current } : {}) }),
     }).catch(() => null);
 
@@ -404,7 +414,7 @@ export default function IntakePage() {
     clearLS();
     setPhase("done");
     setSubmitting(false);
-  }, [sessionId, answered, contactEmail, consentGiven]);
+  }, [sessionId, answered, contactEmail, consentGiven, requestedService, requestedVertical, acquisitionChannel]);
 
   // ── Extract from pasted text or file ─────────────────────────────────────
   const extract = useCallback(async () => {
