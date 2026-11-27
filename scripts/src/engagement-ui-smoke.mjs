@@ -27,9 +27,11 @@ const bundle = await build({
       import {Router, Route, Switch} from "wouter";
       import Clients from "./src/pages/admin/clients";
       import Reports from "./src/pages/app/reports";
+      import Demo from "./src/components/sections/WorkflowDemonstration";
       createRoot(document.getElementById("root")).render(<Router><Switch>
         <Route path="/admin/clients/:id/:tab?" component={Clients}/>
         <Route path="/app/reports" component={Reports}/>
+        <Route path="/demo" component={Demo}/>
       </Switch></Router>);
     `,
     resolveDir: front, loader: "tsx",
@@ -62,7 +64,7 @@ const browser = await chromium.launch({headless: true, ...(process.env.ATG_CHROM
   ? {executablePath: process.env.ATG_CHROMIUM_EXECUTABLE, args: ["--no-sandbox", "--disable-dev-shm-usage"]}
   : process.platform === "win32" ? {channel: "msedge"} : {})});
 try {
-  for (const viewport of [{width: 390, height: 844}, {width: 1440, height: 1000}]) {
+  for (const viewport of [{width: 390, height: 844}, {width: 768, height: 950}, {width: 1440, height: 1000}]) {
     const page = await browser.newPage({viewport, reducedMotion: "reduce"});
     const errors = [];
     let draft;
@@ -180,7 +182,17 @@ try {
     await noOverflow();
     assert.equal(accepted, true);
     assert.deepEqual(errors, []);
+    await page.goto("https://fixture.example.invalid/demo");
+    await page.getByRole("button", {name: "After", exact: true}).click();
+    await page.getByRole("button", {name: "Approve sample follow-up"}).click();
+    await page.getByText("Sample follow-up approved for the queue.").waitFor();
+    await page.getByLabel("Sample request").selectOption("urgent");
+    await page.getByText("Route to the staffed phone line.").waitFor();
+    await noOverflow();
+    if (process.env.ATG_QA_SCREENSHOTS) await page.screenshot({
+      path: path.join(process.env.ATG_QA_SCREENSHOTS, "workflow-demo-" + viewport.width + ".png"), fullPage: true,
+    });
     await page.close();
   }
-  console.log("PASS: admin readiness, opportunity, measurement, finance, pricing, SLA, ROI, advisory and SEO UI, and client readiness and change-order acceptance at 390px and 1440px. All HTTP requests used fixtures.");
+  console.log("PASS: admin readiness, opportunity, measurement, finance, pricing, SLA, ROI, advisory and SEO UI, and client readiness and change-order acceptance and public demo interaction at 390px, 768px and 1440px. All HTTP requests used fixtures.");
 } finally {await browser.close();}

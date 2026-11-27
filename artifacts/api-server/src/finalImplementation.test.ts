@@ -1,3 +1,4 @@
+import { conflictingAeoVersions } from "./lib/seoEvidence";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -6,7 +7,7 @@ import request from "supertest";
 import { emptyBusinessContext } from "./lib/businessContext";
 import { opportunity, readiness } from "./lib/consultingIntelligence";
 import { forecast, ForecastInput, kpiRegistry, MeasurementPlan } from "./lib/engagementMeasurement";
-import { FinancialEntry, sumFinancialLedger } from "./lib/financialBenefitLedger";
+import { FinancialEntry, sharesFinancialSource, sumFinancialLedger } from "./lib/financialBenefitLedger";
 import { buildOperatingPlan, operatingGovernanceReasons, publishedOperatingPlan } from "./lib/operatingPlan";
 import { SlaIncident, slaTiming } from "./lib/slaClock";
 import { classifyThreads } from "./lib/prospectGmail";
@@ -101,6 +102,34 @@ test("SLA clock excludes holidays, off-hours and authorized pauses across DST", 
   assert.equal(timing?.metRestoration, true);
   assert.equal(slaTiming(incident, undefined, "America/Denver"), null);
   assert.equal(SlaIncident.safeParse({...incident, pauses: [...incident.pauses, ...incident.pauses]}).success, false);
+});
+
+test("open SLA deadlines count covered time beyond ninety days", () => {
+  const open = SlaIncident.parse({...incident, reportedAt: "2026-01-01T00:00:00Z", acknowledgedAt: null,
+    respondedAt: null, restoredAt: null, resolvedAt: null, pauses: []});
+  const calendar = {intervals: [{day: "Thu" as const, startMinute: 0, endMinute: 60}],
+    excludedDates: [], targets: {P1: targets, P2: targets, P3: targets, P4: targets}};
+  const timing = slaTiming(open, calendar, "UTC", "2026-05-01T00:00:00Z");
+  assert.equal(timing?.elapsedCoveredMinutes, 1080);
+  assert.equal(timing?.responseStatus, "breached");
+  assert.equal(timing?.responseDeadline, "2026-01-01T00:30:00.000Z");
+  assert.equal(slaTiming(open, calendar, "UTC", "2026-01-01T00:10:00Z")?.responseStatus, "open");
+});
+
+test("financial source namespaces distinguish independent ledgers and reserve legacy IDs conservatively", () => {
+  const named = {...financial, sourceAccount: "billing-main"};
+  assert.equal(sharesFinancialSource(named, {...named, sourceRecord: " Invoice-101 "}), true);
+  assert.equal(sharesFinancialSource(named, {...named, sourceAccount: "billing-other"}), false);
+  assert.equal(sharesFinancialSource(named, {...financial, sourceSystem: "legacy"}), true);
+});
+
+test("tracked answer-engine observations require a new version for a changed query scope", () => {
+  const original = {queryReference: "SERVICE-01", queryVersion: 1, question: "Who offers repair?",
+    platform: "Fixture", model: "A", locationContext: "Denver", sampledOn: "2026-11-01",
+    observedMention: false, citations: [], limitations: "One manual observation"};
+  assert.equal(conflictingAeoVersions([original, {...original, sampledOn: "2026-11-12", observedMention: true}]), false);
+  assert.equal(conflictingAeoVersions([original, {...original, model: "B"}]), true);
+  assert.equal(conflictingAeoVersions([original, {...original, model: "B", queryVersion: 2}]), false);
 });
 
 test("legacy workflow classification, stale authorization, and private publication fields", () => {
