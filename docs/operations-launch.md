@@ -24,6 +24,10 @@ Reviewed assessment reports can now be emailed explicitly by an administrator. A
 6. Publish the operating guide, walk through running and stopping the workflow, obtain acceptance of that version, and remove temporary access. Deliver training and agreed setup artifacts.
 7. Review after 30 days: compare measured effort and errors with the baseline, review actual costs, and decide whether to expand, adjust, or retire. Record care hours, response expectations, and escalation owners in the agreement; do not imply an uncontracted SLA.
 
+## Current branch database delta
+
+Generate the Prisma diff from the deployed SHA to the intended branch SHA. From the previously verified feature baseline this continuation adds the `AtgProspectSuppression` table with a text primary key, source, actor and timestamp. Engagement assessment, contract, evidence, report and SLA incident records reuse the pre-existing append-only `EngagementRevision` table and its client foreign key and composite uniqueness. Retain all historical commercial and report rows. Before release, obtain a restorable backup, confirm the target/environment and inspect Replit's proposed changes. Record the resulting test and production schema observations separately. Application rollback uses the previous compatible release and keeps additive tables and records.
+
 ## Replit release steps
 
 1. Back up the database and review the additive Prisma schema changes: OperatingPlan, OperatingEvent, and three DiscoveryIntake delivery fields. For a Replit-managed database, confirm the Shell targets development, then use `pnpm --filter @workspace/api-server db:push` there. Review any proposed changes and stop if destructive changes are proposed; do not use accept-data-loss. Replit Publish separately compares development with production, generates SQL, validates it against a production copy, and applies approved changes. Do not run schema pushes in production, deployment build commands, startup code, or the post-merge hook. This repository has no checked-in Prisma migration history for these tables. For an external database, use that provider's reviewed migration process instead.

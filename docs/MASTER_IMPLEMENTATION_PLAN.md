@@ -23,6 +23,8 @@ Current execution precedence and verification: [ATG implementation reconciliatio
 
 ## Superseded decisions and additions
 
+- November 26 final mandate: use public contacts published on official business websites for the controlled manual pilot. Earlier licensed-source language is retained solely as historical context. The latest reconciliation is authoritative for launch gate evidence.
+
 - November 17 Word plan: free access replacing paid Self-Serve retained; earlier fixed Guided/DIFY prices superseded by November 19 bespoke quote policy. Existing enum compatibility is not a purchasable product.
 - November 19 catalogue: website bands and five bundle ranges remain internal scoping hypotheses, not public pricing. Full project labor includes QA, revisions, training and risk.
 - November 20 custom quotes: sandbox payments do not prove production collection or grant access. Manual invoicing is a launch fallback; no billing activation without approval.

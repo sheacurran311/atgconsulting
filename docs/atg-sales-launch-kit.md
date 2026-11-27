@@ -1,5 +1,7 @@
 # ATG Consulting sales launch kit
 
+[Print-ready sales packet](collateral/ATG_Consulting_Sales_Packet.html) includes the one-page overview, service and fractional leadership summaries, sample assessment, SEO/AEO review, monthly report, proposal/SLA and a synthetic inquiry demonstration.
+
 ## One-page copy for review
 
 **AI transformation for small businesses**
