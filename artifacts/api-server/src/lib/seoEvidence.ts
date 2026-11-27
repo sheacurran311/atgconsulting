@@ -25,6 +25,10 @@ export const SeoEvidenceInput = z.object({
     evidence: z.string().trim().max(500),
   }).strict()).max(15),
   aeo: z.array(z.object({
+    queryReference: z.string().trim().regex(/^[A-Z0-9][A-Z0-9-]{0,39}$/).optional(),
+    queryVersion: z.number().int().positive().optional(),
+    model: text.optional(),
+    limitations: text.optional(),
     question: text, platform: text, sampledOn: date, locationContext: text, observedMention: z.boolean(), citations: z.array(citation).max(10),
   }).strict()).max(25),
 }).strict().superRefine((input, ctx) => {
@@ -37,9 +41,34 @@ export const SeoEvidenceInput = z.object({
     if (!current.end.startsWith(input.period)) issue("The current window must end during the report month.");
   }
   if ([input.previous.searchConsole, input.current.searchConsole].some(item => item.clicks > item.impressions)) issue("Search clicks cannot exceed impressions in the same aggregate.");
+  for (const row of input.aeo) {
+    if (!!row.queryReference !== !!row.queryVersion) issue("A tracked query requires both a reference and version.");
+    if (row.queryReference && !row.limitations) issue("Record the collection limitations for each tracked query.");
+  }
   if (input.actions.some(action => action.status === "verified" && !action.evidence)) issue("Verified actions require evidence.");
   try {detectSeoFindings(input.previous, input.current);}
   catch {issue("Use valid calendar dates and equal-length windows for each source.");}
 });
 export type SeoEvidenceInput = z.infer<typeof SeoEvidenceInput>;
 export const summarizeSeo = (input: SeoEvidenceInput) => detectSeoFindings(input.previous, input.current);
+
+
+type AeoSample = SeoEvidenceInput["aeo"][number];
+export function aeoIdentity(row: AeoSample) {
+  return row.queryReference ? JSON.stringify([row.queryReference, row.queryVersion]) : null;
+}
+export function aeoScope(row: AeoSample) {
+  return JSON.stringify([row.question, row.platform, row.model ?? "", row.locationContext].map(value => value.trim().toLowerCase()));
+}
+export function conflictingAeoVersions(samples: AeoSample[]) {
+  const versions = new Map<string, string>();
+  return samples.some(sample => {
+    const identity = aeoIdentity(sample);
+    if (!identity) return false;
+    const scope = aeoScope(sample);
+    const prior = versions.get(identity);
+    if (prior !== undefined && prior !== scope) return true;
+    versions.set(identity, scope);
+    return false;
+  });
+}

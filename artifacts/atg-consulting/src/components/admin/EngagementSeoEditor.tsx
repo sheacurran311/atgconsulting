@@ -64,6 +64,12 @@ export function EngagementSeoEditor({value, onChange}: {value: SeoEvidenceInput;
         const change = (next: typeof item) => set("aeo", value.aeo.map((entry, i) => i === index ? next : entry));
         return <fieldset key={index} className={formGrid}>
           <legend className="font-semibold">Sample {index + 1}</legend>
+          <TextField label="Repeat query ID (optional)" value={item.queryReference ?? ""}
+            onChange={value => change({...item, queryReference: value.toUpperCase() || undefined, queryVersion: value ? item.queryVersion ?? 1 : undefined})} />
+          {item.queryReference && <TextField label="Query version" type="number" value={String(item.queryVersion ?? "")}
+            onChange={value => change({...item, queryVersion: value ? Number(value) : undefined})} />}
+          <TextField label="Model (if known)" value={item.model ?? ""} onChange={value => change({...item, model: value || undefined})} />
+          <TextField label="Sampling limitations" value={item.limitations ?? ""} onChange={value => change({...item, limitations: value || undefined})} />
           <TextField label="Exact question" value={item.question} onChange={question => change({...item, question})} />
           <TextField label="Platform" value={item.platform} onChange={platform => change({...item, platform})} />
           <TextField label="Observation date" type="date" value={item.sampledOn} onChange={sampledOn => change({...item, sampledOn})} />

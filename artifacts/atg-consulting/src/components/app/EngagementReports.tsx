@@ -26,11 +26,36 @@ export default function EngagementReports() {
       }).catch(() => {if (!controller.signal.aborted) setStatus("error");});
     return () => controller.abort();
   }, []);
+  const queryHistory = new Map<string, Array<{period: string; date: string; mention: boolean; citations: number; limitations?: string}>>();
+  for (const item of records) {
+    if (item.kind !== "seo") continue;
+    for (const sample of item.content.aeo) {
+      if (!sample.queryReference) continue;
+      const key = JSON.stringify([item.workspace, sample.queryReference, sample.queryVersion, sample.question, sample.platform, sample.model, sample.locationContext]);
+      const history = queryHistory.get(key) ?? [];
+      history.push({period: item.period, date: sample.sampledOn, mention: sample.observedMention,
+        citations: sample.citations.length, limitations: sample.limitations});
+      queryHistory.set(key, history);
+    }
+  }
   return <section className="mb-8 space-y-3" aria-labelledby="engagement-reports">
     <h2 className="text-xl font-extrabold" id="engagement-reports">Engagement reports and agreements</h2>
     {status === "loading" && <p role="status" className="text-sm">Loading engagement reports…</p>}
     {status === "error" && <p className="text-sm" role="alert">Engagement reports could not be loaded.</p>}
     {status === "ready" && !records.length && !finance.length && !incidents.length && <p className="text-sm">No engagement reports or agreements have been published yet.</p>}
+    {queryHistory.size > 0 && <section className="space-y-3 rounded-xl border border-canvas-border bg-canvas-1 p-4">
+      <h3 className="font-semibold">Repeat answer-engine observations</h3>
+      <p className="text-sm">Each result describes an individual sample. Results can vary between runs.</p>
+      {[...queryHistory].map(([key, samples]) => {
+        const [, reference, version, question, platform, model, location] = JSON.parse(key);
+        return <details key={key} className="min-w-0 break-words text-sm">
+          <summary className="cursor-pointer font-medium">{question} · {reference} v{version}</summary>
+          <p>{platform}{model ? " · " + model : ""} · {location}</p>
+          <ul className="mt-2 list-disc pl-5">{samples.sort((a, b) => a.date.localeCompare(b.date)).map((sample, index) =>
+            <li key={index}>{sample.date} · {sample.mention ? "Mention observed" : "No mention observed"} · {sample.citations} citations{sample.limitations && " · " + sample.limitations}</li>)}</ul>
+        </details>;
+      })}
+    </section>}
     {incidents.length > 0 && <section className="space-y-3 rounded-xl border border-canvas-border bg-canvas-1 p-4">
       <h3 className="font-semibold">Reviewed SLA performance</h3>
       {incidents.map(item => <details key={item.workspace + item.reference} className="rounded-lg border border-canvas-border p-3 text-sm">

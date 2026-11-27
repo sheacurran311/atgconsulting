@@ -1,3 +1,4 @@
+import { conflictingAeoVersions } from "../lib/seoEvidence";
 import { lockClientGovernance } from "../lib/clientGovernanceLock";
 import { workflowSpecifications } from "../lib/workflowSpecifications";
 import { renderValueReport } from "../lib/valueReportDocument";
@@ -302,6 +303,15 @@ export function createEngagementWorkspaceRouter(
         await db.engagementRevision.create({data: {...where, kind: "sla-incident-timing",
           version: latest.version + 1, content: JSON.stringify(timing), status: "internal", actorUserId: actor.id}});
       }
+      if (kind.data === "seo") {
+        const next = SeoEvidenceInput.parse(JSON.parse(latest.content));
+        if (conflictingAeoVersions(next.aeo)) return "aeo-conflict";
+        if (next.aeo.some(sample => sample.queryReference)) {
+          const history = await db.engagementRevision.findMany({where: {...scope, kind: "seo", status: "published"}});
+          const samples = history.flatMap(row => SeoEvidenceInput.parse(JSON.parse(row.content)).aeo);
+          if (conflictingAeoVersions([...samples, ...next.aeo])) return "aeo-conflict";
+        }
+      }
       if (kind.data === "financial" || kind.data === "value") {
         const [entries, reports] = await Promise.all([
           db.engagementRevision.findMany({where: {clientId: scope.clientId, kind: "financial", status: "published"}}),
@@ -368,6 +378,7 @@ export function createEngagementWorkspaceRouter(
     });
     if (outcome === "missing") { reply(res, 404, "Client engagement not found."); return; }
     if (outcome === "incident-agreement") { reply(res, 409, "An executed SLA is required before publishing incident performance."); return; }
+    if (outcome === "aeo-conflict") {reply(res, 409, "The question, platform, model or location changed. Use a new query version."); return;}
     if (outcome === "duplicate-financial") { reply(res, 409, "This financial evidence is already counted in the engagement. Revise the original record."); return; }
     if (outcome === "evidence") { reply(res, 422, "Record evidence for at least one readiness dimension before publication."); return; }
     if (outcome === "proposal") {reply(res, 409, "Link an accepted proposal before publishing a change order."); return;}

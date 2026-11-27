@@ -1,3 +1,4 @@
+import WorkflowDemonstration from "@/components/sections/WorkflowDemonstration";
 import Hero from "@/components/sections/Hero";
 import Services from "@/components/sections/Services";
 import GrowthWorkflowScroll from "@/components/sections/GrowthWorkflowScroll";
@@ -16,6 +17,7 @@ export default function HomePage() {
       <Hero />
       <Services />
       <GrowthWorkflowScroll />
+      <WorkflowDemonstration />
       <WhoWeHelp />
       <HowItWorks />
       <section className="mx-auto max-w-wide px-4 py-12 sm:px-6 lg:px-8" aria-labelledby="atg-value-heading">
@@ -46,6 +48,14 @@ export default function HomePage() {
         <a className="btn-primary mt-5 inline-flex" href="/intake">Start a free assessment</a>
       </section>
       <SheaOperator />
+      <section className="mx-auto max-w-wide px-4 py-10 sm:px-6 lg:px-8" aria-labelledby="founder-projects">
+        <h2 id="founder-projects" className="section-heading mb-3">Projects built by Shea</h2>
+        <ul className="grid gap-4 sm:grid-cols-3">
+          <li><strong>Fandomly</strong><p>Fan engagement, loyalty and rewards for creators.</p></li>
+          <li><strong>TruDeF.AI</strong><p>Cross-chain decentralized finance tools for swaps, bridging and portfolio visibility.</p></li>
+          <li><strong>AgentBets.gg</strong><p>An experimental prediction market project for AI agents.</p></li>
+        </ul>
+      </section>
       <Tiers />
       <ChatVsATG />
       <FAQ />
