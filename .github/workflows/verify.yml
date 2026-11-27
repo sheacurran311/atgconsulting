@@ -1,0 +1,48 @@
+name: Verify ATG Consulting
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: disposable
+          POSTGRES_DB: atg_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d atg_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:disposable@127.0.0.1:5432/atg_ci
+      ATG_INTEGRATION_DATABASE_URL: postgresql://postgres:disposable@127.0.0.1:5432/atg_ci
+      PORT: 4511
+      BASE_PATH: /
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @workspace/api-server exec prisma generate
+      - run: pnpm --filter @workspace/api-server exec prisma db push --skip-generate
+      - run: pnpm --filter @workspace/api-server exec prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
+      - run: pnpm run build
+      - run: pnpm --filter @workspace/api-server test
+      - run: pnpm --filter @workspace/scripts exec playwright install --with-deps chromium
+      - run: pnpm --filter @workspace/scripts run test:engagement-ui
+      - run: pnpm --filter @workspace/scripts run test:marketing-ui
+      - run: pnpm audit --prod
