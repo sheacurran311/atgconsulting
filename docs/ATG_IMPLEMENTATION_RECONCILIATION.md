@@ -90,3 +90,7 @@ Use the verification ledger at the end of this file for implementation status. A
 | F-40–49 | P0/P1 | Locally verified in part | Admin, client and marketing routes; printed sample packet | Three-width crawl and two-width fixture UI checks. Production hosting, real authenticated journeys, interactive demo and deeper accessibility/performance remain open. |
 | F-50–52 | P1 | Implemented in part | Admin Today Business Operations and capacity scenario | Stated accounting bases and modeled capacity. Actual cost/schedule/time coverage, retention and benchmark aggregates remain open. |
 | F-53–62 | P0 | Locally verified in part | Existing stack, isolated DB, API and Playwright scripts, CI definition | See final QA handoff for exact results and CI availability. Production, real providers and release authorization remain separately gated. |
+
+## November 27 implementation priority
+
+The owner directed continued development of the complete product, admin and client dashboards, and public experience. Outreach preparation is secondary to the outstanding engineering. The [R3 mandate](qa/ATG_R3_FINAL_PRODUCT_COMPLETION_MANDATE.md) retains the existing 24 workstreams and earlier commercial policies. The [R3 execution ledger](qa/ATG_R3_EXECUTION_LEDGER.md) and [QA handoff](qa/ATG_R3_FINAL_COMPLETION_HANDOFF.md) record implementation and acceptance per requirement.
