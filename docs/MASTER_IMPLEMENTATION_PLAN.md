@@ -1,3 +1,7 @@
+# Current execution precedence | November 27, 2026
+
+The [R4 phase-gated protocol](qa/ATG_R4_PHASE_GATED_IMPLEMENTATION.md) and [phase ledger](qa/ATG_R4_PHASE_EXECUTION_LEDGER.md) govern current implementation sequencing. Preserve the approved historical decisions below; the commercial master plan and R3 mandate retain all requirements. Update phase status and evidence before advancing, and resume the first unpassed phase across sessions.
+
 # ATG Consulting | Master Implementation Plan: historical decisions and status register
 
 Current execution precedence and verification: [ATG implementation reconciliation](ATG_IMPLEMENTATION_RECONCILIATION.md).

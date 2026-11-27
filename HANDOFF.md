@@ -1,3 +1,7 @@
+# CURRENT EXECUTION METHOD | November 27, 2026
+
+Read [R4 phase-gated protocol](docs/qa/ATG_R4_PHASE_GATED_IMPLEMENTATION.md) and [phase ledger](docs/qa/ATG_R4_PHASE_EXECUTION_LEDGER.md) first. This supersedes previous execution sequencing. Finish one verified product phase, update the canonical plan, commit evidence, then continue automatically to the next. Resume the first unpassed phase in later sessions. No outreach/deployment/merge authorization.
+
 # CURRENT HANDOFF | November 26, 2026
 
 **Start here:** [ATG implementation reconciliation](docs/ATG_IMPLEMENTATION_RECONCILIATION.md) defines the current priorities, verification evidence and release requirements. The [Commercial Launch Master Plan v4.0](docs/COMMERCIAL_LAUNCH_MASTER_PLAN_V4.md) retains the complete workstream list. [Master Implementation Plan](docs/MASTER_IMPLEMENTATION_PLAN.md) is the historical decision/status register. [Internal workflow catalogue](docs/ATG_INTERNAL_WORKFLOW_CATALOG_AND_PRICING.md) is the internal estimating reference.

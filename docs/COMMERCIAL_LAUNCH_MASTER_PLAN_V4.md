@@ -1,3 +1,23 @@
+# Current execution priority | November 27, 2026
+
+The [R4 phase-gated implementation protocol](qa/ATG_R4_PHASE_GATED_IMPLEMENTATION.md) and [phase execution ledger](qa/ATG_R4_PHASE_EXECUTION_LEDGER.md) are mandatory execution instructions. The original commercial roadmap below remains the scope authority and historical workstream reference; its dates and phase ordering are superseded by the R4 product phases. Complete every applicable phase acceptance criterion, including UI, tests, security and evidence; update this master plan and the canonical reconciliation before advancing. Continue automatically until all product gates pass; external staging/provider/owner gates are tracked separately. The next session resumes the first unpassed phase. No outreach, production deployment or main merge is authorized.
+
+## R4 phase status (initial)
+
+| Phase | Product gate | Status |
+|---|---|---|
+| P0 | Conflict reconciliation and baseline | OPEN |
+| P1 | Catalog and specifications | OPEN |
+| P2 | Commercial and delivery identity | OPEN |
+| P3 | Value realization and SLA | OPEN |
+| P4 | Managed delivery and fractional leadership | OPEN |
+| P5 | Founder operations | OPEN |
+| P6 | CRM, acquisition and SEO/AEO | OPEN |
+| P7 | Marketing, education and complete UI | OPEN |
+| P8 | Integrated QA and final reconciliation | OPEN |
+
+Update this table at every checkpoint with exact commit and evidence; do not mark a phase passed for partial work.
+
 # ATG Consulting | Commercial Launch Master Plan v4.0
 
 Current execution precedence and verification: [ATG implementation reconciliation](ATG_IMPLEMENTATION_RECONCILIATION.md).

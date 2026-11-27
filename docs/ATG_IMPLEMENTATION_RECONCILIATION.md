@@ -1,3 +1,7 @@
+# R4 execution precedence | November 27, 2026
+
+Use the [phase-gated implementation protocol](qa/ATG_R4_PHASE_GATED_IMPLEMENTATION.md) and [execution ledger](qa/ATG_R4_PHASE_EXECUTION_LEDGER.md). R3 did not close substantive product criteria. Complete one phase, test, commit, update canonical status and evidence, then continue. External staging and release acceptance remain separate. Do not reinterpret earlier partial implementation as completed.
+
 # ATG Consulting implementation reconciliation
 
 November 26, 2026 · Feature branch `feat/ai-transformation-phase-1` · PR #81
