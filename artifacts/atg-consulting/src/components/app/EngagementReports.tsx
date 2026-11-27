@@ -41,6 +41,8 @@ export default function EngagementReports() {
           <li>Restoration {item.timing.restoration === null ? "pending evidence" : item.timing.restoration.toFixed(1) + " covered min"} / {item.timing.restorationMinutes} min target</li>
           <li>Resolution {item.timing.resolution === null ? "pending evidence" : item.timing.resolution.toFixed(1) + " covered min"}</li>
           <li>SLA time zone {item.timing.timezone}</li>
+          {item.timing.asOf && <li>Reviewed {new Date(item.timing.asOf).toLocaleString()} · Response {item.timing.responseStatus} · Restoration {item.timing.restorationStatus}</li>}
+          {item.timing.complete === false && <li>Elapsed coverage exceeds the supported ten-year window.</li>}
         </ul> : <p>Covered-hours targets are unavailable for this agreement. The recorded timestamps are shown below.</p>}
         <p>{[["Acknowledged", item.acknowledgedAt], ["Responded", item.respondedAt], ["Restored", item.restoredAt], ["Resolved", item.resolvedAt]]
           .map(([label, time]) => label + " " + (time ? new Date(time).toLocaleString() : "pending evidence")).join(" · ")}</p>

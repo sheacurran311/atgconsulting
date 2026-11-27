@@ -298,7 +298,7 @@ export function createEngagementWorkspaceRouter(
         const sla = await db.engagementRevision.findFirst({where: {...scope, kind: "sla", period: "", version: incident.slaVersion, status: "executed"}});
         if (!sla) return "incident-agreement";
         const agreement = SlaInput.parse(JSON.parse(sla.content));
-        const timing = slaTiming(incident, agreement.calendar, agreement.timezone);
+        const timing = slaTiming(incident, agreement.calendar, agreement.timezone, new Date().toISOString());
         await db.engagementRevision.create({data: {...where, kind: "sla-incident-timing",
           version: latest.version + 1, content: JSON.stringify(timing), status: "internal", actorUserId: actor.id}});
       }
