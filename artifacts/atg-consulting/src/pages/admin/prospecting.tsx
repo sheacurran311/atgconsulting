@@ -23,9 +23,9 @@ interface SheetPipeline {
 }
 interface GmailMatch {
   rowNumber:number;businessName:string;contactEmail:string;
-  status:"reply_detected"|"outbound_found"|"inbound_without_outbound"|"no_recent_match"|"error";
+  status:"reply_detected"|"outbound_found"|"inbound_without_outbound"|"no_recent_match"|"incomplete"|"error";
   lastOutboundAt:string|null;lastInboundAt:string|null;threadCount:number;
-  suggestedAction:"review_reply"|"verify_outreach"|"inspect_inbound"|"none";
+  suggestedAction:"review_reply"|"verify_outreach"|"inspect_inbound"|"hold_follow_up"|"none";
 }
 interface GmailReconciliation {
   account:string;checked:number;eligibleCount:number;limited:boolean;offset:number;nextOffset:number|null;
@@ -358,11 +358,12 @@ export default function AdminProspectingPage() {
                 outbound_found:"Outbound message observed",
                 inbound_without_outbound:"Inbound message; outbound not confirmed",
                 no_recent_match:"No match in limited search",
+                incomplete:"Search limit reached. Hold follow-up.",
                 error:"Unable to check",
               } as const)[m.status]}</td>
               <td className="p-2">{m.lastOutboundAt?new Date(m.lastOutboundAt).toLocaleDateString():""}</td>
               <td className="p-2">{m.lastInboundAt?new Date(m.lastInboundAt).toLocaleDateString():""}</td>
-              <td className="p-2">{({review_reply:"Review response",verify_outreach:"Verify sent message",inspect_inbound:"Review inbound",none:"No change"} as const)[m.suggestedAction]}</td>
+              <td className="p-2">{({review_reply:"Review response",verify_outreach:"Verify sent message",inspect_inbound:"Review inbound",hold_follow_up:"Hold follow-up",none:"No change"} as const)[m.suggestedAction]}</td>
             </tr>)}
           </tbody></table>
         </div>

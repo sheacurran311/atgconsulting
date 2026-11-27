@@ -6,7 +6,7 @@ import type { SheetProspect } from "./lib/prospectSheet";
 const account="shea@atgconsulting.io";
 const email="owner@smallbusiness.example";
 function msg(from:string,to:string,at:number) {
-  return {internalDate:String(at),payload:{headers:[{name:"From",value:from},{name:"To",value:to}]}};
+  return {labelIds:from === account ? ["SENT"] : ["INBOX"],internalDate:String(at),payload:{headers:[{name:"From",value:from},{name:"To",value:to}]}};
 }
 function prospect(overrides:Partial<SheetProspect>={}):SheetProspect {
   return {rowNumber:2,businessName:"ABC HVAC",website:"",domain:"abc.example",category:"HVAC",city:"Denver",state:"CO",
