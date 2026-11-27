@@ -1,3 +1,4 @@
+import { contactIdentity, isSuppressed, suppressProspect, suppressionKeys } from "../lib/prospectSuppression";
 /** Admin-only ATG prospect review. No automated outreach or external account connections. */
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
@@ -7,19 +8,28 @@ import { assessProspect, mayAdvanceProspect, normalizeProspectDomain, type Prosp
 import { audit } from "../lib/audit";
 import { generateProspectDraft } from "../lib/prospectDraft";
 import { readProspectPipeline } from "../lib/prospectSheet";
-import { reconcileGmail } from "../lib/prospectGmail";
+import { reconcileGmail, verifyProspectMail } from "../lib/prospectGmail";
 import { approveSheetUpdate, ProspectWriteConflict } from "../lib/prospectWriteback";
 import { readUpcomingProspectMeetings } from "../lib/prospectCalendar";
 
 export function createProspectingRouter(resolve: RequestHandler = withUser) {
 const router = Router();
-router.use("/admin/prospecting", resolve, requireAdmin);
+router.use("/admin/prospecting", resolve, requireAdmin, (req, res, next) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  if ((req as AuthedRequest).atgUser?.isImpersonating) {res.sendStatus(403); return;}
+  next();
+});
 
 const Evidence = z.object({
   claim: z.string().trim().min(1).max(500),
   sourceUrl: z.string().url().refine((x) => /^https?:\/\//i.test(x)),
   observedAt: z.string().datetime(),
   verified: z.boolean(),
+}).strict();
+const Contact = z.object({
+  email: z.string().trim().email().max(254).transform(contactIdentity),
+  sourceUrl: z.string().trim().url().refine(url => url.startsWith("https://")),
+  checkedAt: z.string().datetime(),
 }).strict();
 const Review = z.object({
   industryFit: z.number().int().min(0).max(5),
@@ -29,6 +39,9 @@ const Review = z.object({
   urgency: z.number().int().min(0).max(5),
   evidence: z.array(Evidence).max(30),
   suppressed: z.boolean(),
+  contact: Contact.optional(),
+  qualification: z.object({economicPotential: z.number().int().min(0).max(5), serviceFit: z.number().int().min(0).max(5),
+    feasibility: z.number().int().min(0).max(5), expansion: z.number().int().min(0).max(5)}).strict().optional(),
 }).strict();
 const Create = z.object({
   businessName: z.string().trim().min(1).max(160),
@@ -86,7 +99,17 @@ router.post("/admin/prospecting/google-sheet/approve", async (req, res) => {
   res.setHeader("Cache-Control", "private, no-store");
   const parsed=SheetStageApproval.safeParse(req.body);
   if(!parsed.success){res.status(422).json({error:"Invalid Sheet update request."});return;}
+  if (process.env.ATG_ENABLE_SHEET_WRITEBACK !== "true") {res.status(409).json({error: "Sheet write-back is disabled."}); return;}
   try {
+    const keys = suppressionKeys(parsed.data.expectedDomain, parsed.data.expectedEmail);
+    if (await isSuppressed(prisma, keys)) throw new ProspectWriteConflict("This contact is suppressed in the shared outreach ledger.");
+    const evidence = await verifyProspectMail(parsed.data.expectedEmail, parsed.data.expectedBusiness, new Date(parsed.data.lastContacted + "T00:00:00Z"));
+    if (!evidence || !evidence.lastOutboundAt || new Intl.DateTimeFormat("sv-SE", {timeZone: "America/Denver"})
+      .format(new Date(evidence.lastOutboundAt)) !== parsed.data.lastContacted ||
+      (parsed.data.nextStage === "Replied" && evidence.status !== "reply_detected") ||
+      (evidence.status === "reply_detected" && (parsed.data.nextStage !== "Replied" || parsed.data.nextFollowUp))) {
+      throw new ProspectWriteConflict("Confirm the actual Gmail send and clear any follow-up when a reply is detected.");
+    }
     const result=await approveSheetUpdate(parsed.data);
     const actor=(req as AuthedRequest).atgUser!;
     await audit({actorUserId:actor.id,action:"ATG_SHEET_PROSPECT_STAGE_APPROVED",
@@ -96,6 +119,21 @@ router.post("/admin/prospecting/google-sheet/approve", async (req, res) => {
   } catch(err) {
     if(err instanceof ProspectWriteConflict){res.status(409).json({error:err.message});return;}
     res.status(502).json({error:"Google Sheets update failed. Inspect the Sheet before retrying."});
+  }
+});
+
+router.post("/admin/prospecting/suppression/reconcile", async (req, res) => {
+  const actor = (req as AuthedRequest).atgUser!;
+  try {
+    const sheet = await readProspectPipeline();
+    const suppressed = sheet.rows.filter(row => row.doNotContact);
+    const keys = suppressed.flatMap(row => suppressionKeys(row.domain, row.contactEmail));
+    await suppressProspect(prisma, keys, actor.id, "atg-prospect-sheet");
+    await audit({actorUserId: actor.id, action: "ATG_PROSPECT_SUPPRESSION_RECONCILED", entity: "GoogleSheetProspect",
+      meta: {rows: suppressed.length, coverageTruncated: sheet.dataTruncated}});
+    res.json({suppressedRows: suppressed.length, coverageTruncated: sheet.dataTruncated});
+  } catch {
+    res.status(502).json({error: "The ATG Sheet could not be reconciled. Review suppression records before outreach."});
   }
 });
 
@@ -122,6 +160,7 @@ router.post("/admin/prospecting", async (req, res) => {
   if (!domain) { res.status(422).json({ error: "Valid public website required." }); return; }
   const existing = await prisma.atgProspect.findUnique({ where: { domain }, select: { id: true } });
   if (existing) { res.status(409).json({ error: "Prospect domain already tracked.", id: existing.id }); return; }
+  if (await isSuppressed(prisma, suppressionKeys(domain))) {res.status(409).json({error: "This business is permanently suppressed."}); return;}
   const created = await prisma.atgProspect.create({ data: {
     domain, businessName: parsed.data.businessName, website: parsed.data.website,
     industry: parsed.data.industry || "", notes: parsed.data.notes || "",
@@ -149,7 +188,49 @@ router.patch("/admin/prospecting/:id", async (req, res) => {
   if (next && !mayAdvanceProspect(old.status as ProspectStatus, next)) {
     res.status(409).json({ error: "Invalid status transition; review and approval cannot be bypassed." }); return;
   }
-  const review = parsed.data.review ?? (old.reviewJson ? Review.parse(JSON.parse(old.reviewJson)) : null);
+  const previousReview = old.reviewJson ? Review.parse(JSON.parse(old.reviewJson)) : null;
+  const review = parsed.data.review ?? previousReview;
+  const keys = suppressionKeys(old.domain, review?.contact?.email);
+  if (next === "SUPPRESSED") {
+    const result = await prisma.$transaction(async db => {
+      const updated = await db.atgProspect.updateMany({where: {id: old.id, updatedAt: old.updatedAt},
+        data: {status: "SUPPRESSED", approvedAt: null, approvedById: null, reviewJson: review ? JSON.stringify({...review, suppressed: true}) : old.reviewJson}});
+      if (updated.count) await suppressProspect(db, [...keys, ...suppressionKeys(old.domain, previousReview?.contact?.email)], actor.id, "operator");
+      return updated.count;
+    });
+    if (!result) {res.status(409).json({error: "Prospect changed during suppression. Reload and retry."}); return;}
+    await audit({actorUserId: actor.id, action: "ATG_PROSPECT_SUPPRESSED", entity: "AtgProspect", entityId: old.id});
+    const row = await prisma.atgProspect.findUniqueOrThrow({where: {id: old.id}});
+    res.json({...row, review: row.reviewJson ? JSON.parse(row.reviewJson) : null});
+    return;
+  }
+  const sourceDomain = review?.contact && normalizeProspectDomain(review.contact.sourceUrl);
+  const contactVerified = !!review?.contact && sourceDomain === old.domain && new Date(review.contact.checkedAt) <= new Date();
+  if (["QUALIFIED","APPROVED"].includes(next ?? "") && (!contactVerified || !review?.qualification ||
+    !review.evidence.some(item => item.verified && item.sourceUrl.startsWith("https://") && normalizeProspectDomain(item.sourceUrl) === old.domain))) {
+    res.status(422).json({error: "Record the qualification rubric, a verified official-site observation, and a publicly published business email with its official source."}); return;
+  }
+  if (next && next !== "RESEARCHED" && next !== "DISQUALIFIED" && await isSuppressed(prisma, keys)) {
+    res.status(409).json({error: "This business or contact is permanently suppressed."}); return;
+  }
+  if (next === "CONTACTED" || next === "REPLIED") {
+    if (!contactVerified || !review?.contact || !old.approvedAt || process.env.ATG_ENABLE_PROSPECT_MAIL_VERIFICATION !== "true") {
+      res.status(409).json({error: "Verified contact, approved draft, and ATG Gmail verification are required."}); return;
+    }
+    try {
+      const pipeline = await readProspectPipeline();
+      if (pipeline.dataTruncated || pipeline.rows.some(row => row.doNotContact && (normalizeProspectDomain(row.domain) === old.domain ||
+        contactIdentity(row.contactEmail) === review.contact!.email))) {
+        res.status(409).json({error: "The ATG Sheet is incomplete or marks the business Do Not Contact."}); return;
+      }
+      const evidence = await verifyProspectMail(review.contact.email, old.businessName, old.approvedAt);
+      if (!evidence || (next === "REPLIED" && evidence.status !== "reply_detected")) {
+        res.status(409).json({error: "Gmail did not confirm the actual activity for this approved contact."}); return;
+      }
+    } catch {
+      res.status(502).json({error: "Unable to confirm actual activity using ATG Gmail and the suppression Sheet."}); return;
+    }
+  }
   const score = review ? assessProspect(review) : null;
   if (next === "QUALIFIED" && score?.label !== "QUALIFIED") {
     res.status(422).json({ error: "Qualification requires verified evidence and sufficient contact confidence." }); return;
@@ -158,7 +239,7 @@ router.patch("/admin/prospecting/:id", async (req, res) => {
   if ((next === "DRAFT_READY" || next === "APPROVED") && !draft.trim()) {
     res.status(422).json({ error: "Prepare an outreach draft before approval." }); return;
   }
-  if (review?.suppressed && next !== "SUPPRESSED") {
+  if (review?.suppressed) {
     res.status(422).json({ error: "Suppressed prospects may not advance." }); return;
   }
   if (next === "APPROVED" && old.status !== "DRAFT_READY") {
@@ -197,6 +278,9 @@ router.post("/admin/prospecting/:id/draft", async (req, res) => {
   const review = prospect.reviewJson ? Review.safeParse(JSON.parse(prospect.reviewJson)) : null;
   if (!review?.success || assessProspect(review.data).label !== "QUALIFIED") {
     res.status(422).json({ error: "Verified evidence and adequate qualification are required." }); return;
+  }
+  if (prospect.domain && await isSuppressed(prisma, suppressionKeys(prospect.domain, review.data.contact?.email))) {
+    res.status(409).json({error: "This contact is permanently suppressed."}); return;
   }
   const generated = await generateProspectDraft({
     businessName: prospect.businessName,

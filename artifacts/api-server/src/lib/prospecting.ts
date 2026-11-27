@@ -23,12 +23,14 @@ export interface ProspectReview {
   urgency: number;
   evidence: ProspectEvidence[];
   suppressed: boolean;
+  qualification?: {economicPotential: number; serviceFit: number; feasibility: number; expansion: number};
 }
 
 export interface ProspectScore {
   total: number;
   label: "REVIEW" | "QUALIFIED" | "HOLD";
   reasons: string[];
+  priority?: "priority" | "qualified" | "research" | "deprioritize";
 }
 
 const weights = {
@@ -63,6 +65,15 @@ export function assessProspect(review: ProspectReview): ProspectScore {
   const reasons: string[] = [];
   if (review.suppressed) return { total: 0, label: "HOLD", reasons: ["Suppressed: do not contact."] };
   if (!evidence.length) reasons.push("No verified source evidence; do not claim a business pain point.");
+  if (review.qualification) {
+    const {economicPotential, serviceFit, feasibility, expansion} = review.qualification;
+    const total = Math.round((30 * review.observableNeed + 20 * economicPotential + 15 * serviceFit
+      + 15 * review.contactConfidence + 10 * feasibility + 10 * expansion) / 5);
+    const qualified = total >= 65 && evidence.length > 0 && review.contactConfidence >= 2;
+    if (review.contactConfidence < 2) reasons.push("Contact confidence too low for outreach.");
+    return {total, label: qualified ? "QUALIFIED" : "REVIEW", reasons,
+      priority: !qualified ? total >= 45 || reasons.length > 0 ? "research" : "deprioritize" : total >= 80 ? "priority" : "qualified"};
+  }
   let total = 0;
   for (const [key, weight] of Object.entries(weights) as Array<[keyof typeof weights, number]>) {
     const value = review[key];

@@ -12,7 +12,7 @@ const EMAIL=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 const VALID_ID=/^[A-Za-z0-9_-]{1,160}$/;
 type ConnectorClient=Pick<ReplitConnectors,"proxy">;
 type Header={name?:unknown;value?:unknown};
-type Message={internalDate?:unknown;payload?:{headers?:Header[]}};
+type Message={labelIds?:unknown;internalDate?:unknown;payload?:{headers?:Header[]}};
 type GmailThread={id?:unknown;messages?:Message[]};
 type GmailList={threads?:Array<{id?:unknown}>};
 type GmailProfile={emailAddress?:unknown};
@@ -48,7 +48,7 @@ function messageTime(m:Message):number|null {
   return Number.isSafeInteger(n)&&n>0&&n<8.64e15?n:null;
 }
 export function classifyThreads(
- threads:GmailThread[], prospectEmail:string, accountEmail:string
+ threads:GmailThread[], prospectEmail:string, accountEmail:string, requireSentLabel=false
 ):Pick<GmailMatch,"status"|"lastOutboundAt"|"lastInboundAt"|"threadCount"> {
   let newestOutbound=0,newestInbound=0,reply=false;
   for(const thread of threads){
@@ -59,7 +59,7 @@ export function classifyThreads(
       if(at===null)continue;
       const from=headerValues(m,"from").some(v=>hasAddress(v,accountEmail));
       const toProspect=headerValues(m,"to").some(v=>hasAddress(v,prospectEmail));
-      if(from&&toProspect){
+      if(from&&toProspect&&(!requireSentLabel || (Array.isArray(m.labelIds) && m.labelIds.includes("SENT") && !m.labelIds.includes("DRAFT")))){
         firstOutbound=firstOutbound===0?at:Math.min(firstOutbound,at);
         newestOutbound=Math.max(newestOutbound,at);
       }
@@ -89,7 +89,7 @@ async function getJson(client:ConnectorClient,path:string):Promise<unknown>{
   }
   return response.json();
 }
-async function reviewContact(client:ConnectorClient,row:SheetProspect,account:string):Promise<GmailMatch>{
+async function reviewContact(client:ConnectorClient,row:Pick<SheetProspect,"rowNumber"|"businessName"|"contactEmail">,account:string,requireSentLabel=false):Promise<GmailMatch>{
   const email=normalEmail(row.contactEmail);
   const base={rowNumber:row.rowNumber,businessName:row.businessName,contactEmail:email};
   try{
@@ -104,7 +104,7 @@ async function reviewContact(client:ConnectorClient,row:SheetProspect,account:st
       const result=await getJson(client,`/gmail/v1/users/me/threads/${encodeURIComponent(id)}?format=metadata&metadataHeaders=From&metadataHeaders=To`);
       if(result&&typeof result==="object")threads.push(result as GmailThread);
     }
-    const result=classifyThreads(threads,email,account);
+    const result=classifyThreads(threads,email,account,requireSentLabel);
     const suggestedAction:GmailMatch["suggestedAction"]=result.status==="reply_detected"?"review_reply"
       :result.status==="outbound_found"?"verify_outreach"
       :result.status==="inbound_without_outbound"?"inspect_inbound":"none";
@@ -125,6 +125,15 @@ export function eligibleContacts(rows:SheetProspect[]){
   const skippedAmbiguous=rows.filter(r=>!r.doNotContact&&!!normalEmail(r.contactEmail)&&counts.get(normalEmail(r.contactEmail))!==1).length;
   return {eligible,skippedSuppressed,skippedAmbiguous};
 }
+export async function verifyProspectMail(contactEmail: string, businessName: string, since: Date, client: ConnectorClient = new ReplitConnectors()) {
+  const profile = await getJson(client, "/gmail/v1/users/me/profile") as GmailProfile;
+  const account = normalEmail(typeof profile?.emailAddress === "string" ? profile.emailAddress : "");
+  if (account !== "shea@atgconsulting.io" || !normalEmail(contactEmail)) throw new Error("Verify the approved ATG mailbox and contact.");
+  const match = await reviewContact(client, {rowNumber: 0, businessName, contactEmail}, account, true);
+  if (!match.lastOutboundAt || new Date(match.lastOutboundAt) < since) return null;
+  return match;
+}
+
 export async function reconcileGmail(opts:{
  client?:ConnectorClient;pipelineReader?:typeof readProspectPipeline;expectedAccount?:string;offset?:number;
 }={}):Promise<GmailReconciliation>{

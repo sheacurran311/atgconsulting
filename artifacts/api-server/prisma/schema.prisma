@@ -1413,3 +1413,11 @@ model ProspectSiteReview {
   @@unique([prospectId, day])
   @@index([day])
 }
+
+/// Permanent outbound suppression by normalized business domain or published business email.
+model AtgProspectSuppression {
+  key         String   @id
+  source      String
+  actorUserId String
+  createdAt   DateTime @default(now())
+}
