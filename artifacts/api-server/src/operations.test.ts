@@ -49,10 +49,18 @@ test("operating guide API isolates customers, preserves drafts, and requires a r
   const published = JSON.stringify(buildOperatingPlan(null));
   const originalFind = prisma.operatingPlan.findUnique;
   const originalUpdate = prisma.operatingPlan.updateMany;
+  const originalTransaction = prisma.$transaction;
+  const originalQuery = prisma.$queryRaw;
+  const originalContext = prisma.businessContextVersion.findFirst;
+  const originalIntake = prisma.discoveryIntake.findFirst;
+  prisma.$transaction = (async (work: (db: typeof prisma) => unknown) => work(prisma)) as typeof prisma.$transaction;
+  prisma.$queryRaw = (async () => [{id: "client-a"}]) as typeof prisma.$queryRaw;
+  prisma.businessContextVersion.findFirst = (async () => null) as never;
+  prisma.discoveryIntake.findFirst = (async () => null) as never;
   let where: any;
   prisma.operatingPlan.findUnique = (async (args: any) => {
     where = args.where;
-    const row: any = { id: "plan-a", clientId: "client-a", content: "PRIVATE DRAFT", internalNotes: "PRIVATE NOTES", version: 2, publishedContent: published, publishedVersion: 1, publishedAt: new Date(), acceptedAt: null, acceptedVersion: null, events: [] };
+    const row: any = { id: "plan-a", clientId: "client-a", content: JSON.stringify({...buildOperatingPlan(null), summary: "PRIVATE DRAFT"}), internalNotes: "PRIVATE NOTES", version: 2, publishedContent: published, publishedVersion: 1, publishedAt: new Date(), acceptedAt: null, acceptedVersion: null, events: [] };
     return args.select ? Object.fromEntries(Object.keys(args.select).map((key) => [key, row[key]])) : row;
   }) as any;
   prisma.operatingPlan.updateMany = (async (args: any) => { where = args.where; return { count: 0 }; }) as any;
@@ -76,7 +84,14 @@ test("operating guide API isolates customers, preserves drafts, and requires a r
     assert.equal(where.clientId, "client-a");
     assert.equal((await request(app).post("/api/client/operations/accept").set("x-test-role", "ADMIN").set("x-view-only", "true").send({ version: 1, confirmed: true })).status, 403);
     assert.equal((await request(app).put("/api/admin/clients/client-a/operations").set("x-test-role", "ADMIN").send({ version: 2, content: buildOperatingPlan(null), internalNotes: "private" })).status, 409);
-  } finally { prisma.operatingPlan.findUnique = originalFind; prisma.operatingPlan.updateMany = originalUpdate; }
+  } finally {
+    prisma.operatingPlan.findUnique = originalFind;
+    prisma.operatingPlan.updateMany = originalUpdate;
+    prisma.$transaction = originalTransaction;
+    prisma.$queryRaw = originalQuery;
+    prisma.businessContextVersion.findFirst = originalContext;
+    prisma.discoveryIntake.findFirst = originalIntake;
+  }
 });
 
 test("report delivery does not claim success without a configured mail provider", async () => {

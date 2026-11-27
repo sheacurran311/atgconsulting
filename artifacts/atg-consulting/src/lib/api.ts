@@ -1,3 +1,4 @@
+import type { WorkspaceRecord } from "@/lib/engagementWorkspace";
 /**
  * Typed API client — thin wrapper over fetch that targets the same origin.
  * Uses the Clerk session cookie for auth (same-origin, credentials: "include").
@@ -596,6 +597,12 @@ export interface PortalStatus {
 }
 
 export interface ClientProposal {
+  commercialTerms?: {
+    digest: string;
+    additionalHourlyCents: number;
+    measurement: Extract<WorkspaceRecord, {kind: "measurement"}>;
+    sla: Extract<WorkspaceRecord, {kind: "sla"}> | null;
+  } | null;
   testInstallments?: {label:string;amount:string;status:string;stage?:number}[];
   liveInstallments?: {label:string;amount:string;status:string;stage:number}[];
   id: string;
@@ -629,7 +636,7 @@ export interface AccessLogEntry {
 export const portalApi = {
   status:      () => get<PortalStatus>("/portal/status"),
   proposal:    () => get<PortalProposal>("/portal/proposal"),
-  acceptProposal: (proposalId:string, approvedAt:string|null) => post<{ ok: boolean; acceptedAt: string | null; acceptedByName: string | null }>("/portal/proposal/accept", {proposalId,approvedAt}),
+  acceptProposal: (proposalId:string, approvedAt:string|null, bindingDigest?: string) => post<{ ok: boolean; acceptedAt: string | null; acceptedByName: string | null }>("/portal/proposal/accept", {proposalId,approvedAt,bindingDigest}),
   liveInstallment: (id:string, stage:number) => post<{paid?:boolean;url?:string}>(`/portal/proposal/${id}/installments/${stage}/checkout`, {}),
   testInstallment: (id:string, stage:number) => post<{paid?:boolean;url?:string}>(`/portal/proposal/${id}/installments/${stage}/test-checkout`, {}),
   personalize: () => post<{ ok: boolean }>("/portal/personalize", {}),

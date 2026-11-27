@@ -1,7 +1,9 @@
+import { transformationServices } from "../../../../api-server/src/lib/transformationServices";
 import { useCallback, useEffect, useState } from "react";
 
 type Phase = { id: string; label: string; owner: string; status: string; deliverable: string; evidence: string; dueDate: string };
-type Workflow = { id: string; name: string; realm: string; owner: string; role: string; trigger: string; inputs: string; actions: string; approval: string; recovery: string; success: string; platform: string; status: string; evidence: string; checkedAt: string; lastSuccessAt: string; baselineMinutes: number | null; currentMinutes: number | null };
+type WorkflowAuthorization = {contextVersion: number; scope: string; reference: string; approvedOn: string};
+type Workflow = { id: string; serviceId?: string; authorization?: WorkflowAuthorization; name: string; realm: string; owner: string; role: string; trigger: string; inputs: string; actions: string; approval: string; recovery: string; success: string; platform: string; status: string; evidence: string; checkedAt: string; lastSuccessAt: string; baselineMinutes: number | null; currentMinutes: number | null };
 type Integration = { name: string; purpose: string; accountOwner: string; permissions: string; status: string; evidence: string; checkedAt: string; cost: string };
 type Content = { audience: string; summary: string; desiredOutcome: string; boundaries: string; approvalPolicy: string; budget: string; phases: Phase[]; workflows: Workflow[]; integrations: Integration[]; care: { scope: string; cadence: string; responseExpectation: string; nextReview: string; monthlyCost: string; offboarding: string } };
 type Event = { id: string; kind: string; note: string; createdAt: string; resolvedAt: string | null };
@@ -55,6 +57,8 @@ export default function OperatingGuide({ clientId }: { clientId?: string }) {
     {!admin && <a href="/intake?edit=true" className="btn-secondary">Review your assessment</a>}
   </section>;
   const setWorkflow = (index: number, key: keyof Workflow, value: string | number | null) => change({ ...content, workflows: content.workflows.map((w, i) => i === index ? { ...w, [key]: value } : w) });
+  const setAuthorization = (index: number, patch: Partial<WorkflowAuthorization>) => change({...content, workflows: content.workflows.map((item, i) =>
+    i === index ? {...item, authorization: {...(item.authorization ?? {contextVersion: 1, scope: "", reference: "", approvedOn: ""}), ...patch}} : item)});
   const fields: [keyof Workflow, string][] = [["name", "Workflow"], ["role", "Role in your team"], ["owner", "Human owner"], ["trigger", "What starts the work"], ["inputs", "Allowed information"], ["actions", "What it does"], ["approval", "When it needs approval"], ["recovery", "How to pause and recover"], ["success", "Acceptance criteria"], ["platform", "Where it runs"], ["evidence", "Test evidence / source"]];
   return <div className="space-y-5" style={{ color: "var(--canvas-text)" }}>
     <section style={card}>
@@ -78,6 +82,22 @@ export default function OperatingGuide({ clientId }: { clientId?: string }) {
       <details open={admin}><summary className="cursor-pointer text-sm font-semibold">Workflow contract & evidence</summary><div className="space-y-3 mt-3">{fields.map(([key, title]) => <Field key={key} title={title} value={String(w[key] ?? "")} edit={admin} change={(v) => setWorkflow(i, key, v)} />)}
       <Field title="Status" value={w.status} edit={admin} choices={["planned", "configured", "tested", "live", "paused"]} change={(v) => setWorkflow(i, "status", v)} />
       <Field title="Information context" value={w.realm} edit={admin} choices={["business", "personal"]} change={(v) => setWorkflow(i, "realm", v)} />
+      {admin && w.realm === "business" && <fieldset className="space-y-2">
+        <legend className="font-semibold">Service and written authorization</legend>
+        <label className="block text-sm">Service<select style={control} value={w.serviceId ?? ""} onChange={e => setWorkflow(i, "serviceId", e.target.value)}>
+          <option value="">Select or retain the original service</option>{transformationServices.map(service =>
+            <option key={service.id} value={service.id}>{service.name}</option>)}</select></label>
+        {!w.authorization && <button type="button" className="btn-secondary" onClick={() => setAuthorization(i, {})}>Record authorization</button>}
+        {w.authorization && <>
+          <label className="block text-sm">Approved context revision<input style={control} type="number" min={1} value={w.authorization.contextVersion}
+            onChange={e => setAuthorization(i, {contextVersion: Number(e.target.value)})} /></label>
+          <Field title="Written authorization reference" value={w.authorization.reference} edit change={reference => setAuthorization(i, {reference})} />
+          <Field title="Authorized scope" value={w.authorization.scope} edit change={scope => setAuthorization(i, {scope})} />
+          <Field title="Date authorized" value={w.authorization.approvedOn} edit date change={approvedOn => setAuthorization(i, {approvedOn})} />
+          <button type="button" className="btn-secondary" onClick={() => change({...content, workflows: content.workflows.map((item, n) =>
+            n === i ? {...item, authorization: undefined} : item)})}>Clear authorization from draft</button>
+        </>}
+      </fieldset>}
       <Field title="Test checked on" value={w.checkedAt} edit={admin} date change={(v) => setWorkflow(i, "checkedAt", v)} />
       <Field title="Last successful run reported" value={w.lastSuccessAt} edit={admin} date change={(v) => setWorkflow(i, "lastSuccessAt", v)} />
       <div className="grid grid-cols-2 gap-3">{([ ["baselineMinutes", "Weekly minutes before"], ["currentMinutes", "Weekly minutes now"] ] as const).map(([key, title]) => <label key={key} className="text-sm">{title}{admin ? <input style={control} type="number" min={0} max={10080} value={w[key] ?? ""} onChange={(e) => setWorkflow(i, key, e.target.value === "" ? null : Number(e.target.value))} /> : <p className="font-semibold">{w[key] ?? "Not measured"}</p>}</label>)}</div>

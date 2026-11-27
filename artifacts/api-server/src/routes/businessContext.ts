@@ -1,3 +1,4 @@
+import { lockClientGovernance } from "../lib/clientGovernanceLock";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
@@ -25,15 +26,18 @@ router.put(path,withUser,requireAdmin,async(req,res)=>{
   const id=String(req.params.id);
   const body=bodySchema.safeParse(req.body);
   if(!body.success){res.status(422).json({error:"Invalid context metadata or version."});return;}
-  if(!await prisma.client.findUnique({where:{id},select:{id:true}})){res.sendStatus(404);return;}
-  const latest=await prisma.businessContextVersion.findFirst({where:{clientId:id},orderBy:{version:"desc"},select:{version:true}});
-  if((latest?.version??0)!==body.data.expectedVersion){res.status(409).json({error:"Context changed. Reload before saving."});return;}
-  const version=body.data.expectedVersion+1;
-  const profile=BusinessContextSchema.parse({...body.data.profile,clientId:id,version});
-  try{
-    await prisma.businessContextVersion.create({data:{clientId:id,version,content:JSON.stringify(profile),actorUserId:actor.id}});
-  }catch(e){if((e as {code?:string}).code==="P2002"){res.status(409).json({error:"Context changed. Reload before saving."});return;}throw e;}
-  res.json({savedVersion:version});
+  const result = await prisma.$transaction(async db => {
+    if (!(await lockClientGovernance(db, id)).length) return "missing";
+    const latest = await db.businessContextVersion.findFirst({where: {clientId: id}, orderBy: {version: "desc"}, select: {version: true}});
+    if ((latest?.version ?? 0) !== body.data.expectedVersion) return "stale";
+    const version = body.data.expectedVersion + 1;
+    const profile = BusinessContextSchema.parse({...body.data.profile, clientId: id, version});
+    await db.businessContextVersion.create({data: {clientId: id, version, content: JSON.stringify(profile), actorUserId: actor.id}});
+    return version;
+  });
+  if (result === "missing") { res.sendStatus(404); return; }
+  if (result === "stale") { res.status(409).json({error: "Context changed. Reload before saving."}); return; }
+  res.json({savedVersion: result});
 });
 router.post(path+"/evaluate",withUser,requireAdmin,async(req,res)=>{
   const actor=(req as AuthedRequest).atgUser!;

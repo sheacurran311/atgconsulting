@@ -1,3 +1,4 @@
+import { SlaCalendar, validTimezone } from "./slaClock";
 import { workflowEstimateCatalog, workflowEstimateCatalogVersion } from "./workflowEstimateCatalog";
 import { z } from "zod";
 import { estimate } from "./consultingIntelligence";
@@ -28,7 +29,7 @@ const workstream = z.object({
 
 export const EstimateInput = z.object({
   label: name, engagement: z.enum(["project", "monthly"]),
-  months: z.number().int().min(1).max(12),
+  months: z.number().int().min(1).max(60),
   internalHourlyCents: money, additionalHourlyCents: hourly,
   contingencyPercent: percentage, marginPercent: percentage.max(90),
   sharedSetupCents: money, sharedMonthlyCents: money, monthlyReserveCents: money,
@@ -108,11 +109,11 @@ const severity = z.object({
 export const SlaInput = z.object({
   title: name, atgParty: name, clientParty: name, contractReference: name, effectiveDate: date, term: text,
   scope: text, deliverables: text, exclusions: text, dependencies: text,
-  timezone: name, coverage: text, channels: text, severity: z.object({P1:severity, P2:severity, P3:severity, P4:severity}).strict(),
+  timezone: name, coverage: text, channels: text, calendar: SlaCalendar.optional(), severity: z.object({P1:severity, P2:severity, P3:severity, P4:severity}).strict(),
   measurementClock: text, availabilityAndMaintenance: text, governance: text, responsibilities: text,
   reporting: text, commercialTerms: text, includedHours: hours, additionalHourlyCents: hourly,
   changeAuthorization: text, escalation: text, terminationAndHandoff: text,
-}).strict();
+}).strict().refine(sla => !sla.calendar || validTimezone(sla.timezone), "Use an IANA time zone such as America/Denver for structured coverage.");
 export type SlaInput = z.infer<typeof SlaInput>;
 
 const evidence = z.object({
@@ -184,11 +185,38 @@ export const IntakeSource = z.object({
   proposal: z.object({id: z.string(), updatedAt: z.string()}).nullable(),
 }).strict();
 export type IntakeSource = z.infer<typeof IntakeSource>;
+const FieldProvenance = z.object({
+  origin: z.enum(["intake", "fit-call", "catalog", "proposal", "sla", "manual", "ai"]),
+  reference: name.optional(), revision: name.optional(), recordedAt: z.string().datetime().optional(),
+  note: z.string().trim().max(500).optional(), reviewed: z.boolean().optional(),
+}).strict();
+export type FieldProvenance = z.infer<typeof FieldProvenance>;
+
 export const SavedEstimate = z.object({
   input: EstimateInput, source: IntakeSource.nullable(), formulaVersion: z.literal(estimateFormula),
+  provenance: z.record(z.string().max(100), FieldProvenance).optional(),
 }).strict();
 
 export type SavedEstimate = z.infer<typeof SavedEstimate>;
+
+export function estimateFieldValues(input: EstimateInput) {
+  const {workstreams, ...general} = input;
+  return new Map<string, unknown>([
+    ...Object.entries(general),
+    ...workstreams.flatMap((row, index) => Object.entries(row).filter(([key]) => key !== "catalog")
+      .map(([key, value]) => ["workstreams." + index + "." + key, value] as const)),
+  ]);
+}
+
+export function reviewedEstimateProvenance(saved: SavedEstimate, now: string) {
+  const fields = estimateFieldValues(saved.input);
+  const origins = saved.provenance ?? {};
+  const unknownFields = Object.keys(origins).filter(key => !fields.has(key));
+  const provenance = Object.fromEntries([...fields.keys()].map(key => [key, {
+    ...(origins[key] ?? {origin: "manual"}), recordedAt: origins[key]?.recordedAt ?? now,
+  }]));
+  return {provenance, unknownFields};
+}
 
 export const changeReference = z.string().trim().regex(/^CO-[A-Z0-9-]{1,24}$/);
 export const ChangeOrderInput = z.object({

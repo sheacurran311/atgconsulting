@@ -1,3 +1,4 @@
+import type { FieldProvenance } from "../../../../api-server/src/lib/engagementWorkspace";
 import { useState } from "react";
 import { transformationServices } from "@/content/transformationServices";
 import { usd, type EstimateCatalog, type SavedEstimate, type WorkspaceRecord, type WorkspaceSource } from "@/lib/engagementWorkspace";
@@ -28,8 +29,8 @@ const expenses = [
   ["setupFeeCents", "Negotiated setup fee (USD)"], ["monthlyFeeCents", "Negotiated monthly fee (USD)"],
 ] as const;
 
-export function EngagementEstimateEditor({value, onChange, source, catalog, saved, copyQuote, busy, dirty}: {
-  catalog?: EstimateCatalog; value: SavedEstimate; onChange: (value: SavedEstimate) => void; source: WorkspaceSource | null;
+export function EngagementEstimateEditor({value, onChange, source, catalog, saved, copyQuote, busy, dirty, slaVersion}: {
+  slaVersion?: number | null; catalog?: EstimateCatalog; value: SavedEstimate; onChange: (value: SavedEstimate) => void; source: WorkspaceSource | null;
   saved: Extract<WorkspaceRecord, {kind: "estimate"}> | undefined;
   copyQuote: (installments: {label: string; amount: string}[]) => void; busy: boolean; dirty: boolean;
 }) {
@@ -38,10 +39,33 @@ export function EngagementEstimateEditor({value, onChange, source, catalog, save
   const selectedCatalog = catalog?.find(item => item.id === catalogId);
   const [installments, setInstallments] = useState<{label: string; amount: string}[]>([{label: "", amount: ""}]);
   const input = value.input;
+  const [provenanceField, setProvenanceField] = useState("internalHourlyCents");
+  const fieldChoice = provenanceField.startsWith("workstreams.") ? Number(provenanceField.split(".")[1]) : -1;
+  const fields = [
+    ...Object.keys(input).filter(key => key !== "workstreams").map(key => ({value: key, label: key.replace(/([A-Z])/g, " $1")})),
+    ...input.workstreams.flatMap((item, index) => Object.keys(item).filter(key => key !== "catalog")
+      .map(key => ({value: "workstreams." + index + "." + key, label: "Workstream " + (index + 1) + " · " + key.replace(/([A-Z])/g, " $1")}))),
+  ];
+  const origin = value.provenance?.[provenanceField];
+  function setOrigin(sourceOrigin: FieldProvenance["origin"]) {
+    const metadata: FieldProvenance = {origin: sourceOrigin};
+    const catalogSource = input.workstreams[fieldChoice]?.catalog;
+    if (sourceOrigin === "intake" && source) Object.assign(metadata, {reference: source.source.intakeId, revision: source.source.updatedAt});
+    if (sourceOrigin === "fit-call" && source?.source.fitCall) Object.assign(metadata, {reference: source.source.fitCall.id, revision: String(source.source.fitCall.revision)});
+    if (sourceOrigin === "proposal" && source?.source.proposal) Object.assign(metadata, {reference: source.source.proposal.id, revision: source.source.proposal.updatedAt});
+    if (sourceOrigin === "catalog" && catalogSource) Object.assign(metadata, {reference: catalogSource.id, revision: String(catalogSource.version)});
+    if (sourceOrigin === "sla" && slaVersion) Object.assign(metadata, {reference: "sla", revision: String(slaVersion)});
+    onChange({...value, source: ["intake", "fit-call", "proposal"].includes(sourceOrigin) ? source?.source ?? value.source : value.source,
+      provenance: {...value.provenance, [provenanceField]: metadata}});
+  }
+  function clearSource(key: string) {
+    return {...value.provenance, [key]: {origin: "manual" as const}};
+  }
   const monthly = input.engagement === "monthly";
-  const set = <K extends keyof Estimate>(key: K, next: Estimate[K]) => onChange({...value, input: {...input, [key]: next}});
+  const set = <K extends keyof Estimate>(key: K, next: Estimate[K]) => onChange({...value, input: {...input, [key]: next}, provenance: key === "workstreams" ? value.provenance : clearSource(key)});
   const row = <K extends keyof Workstream>(index: number, field: K, next: Workstream[K]) =>
-    set("workstreams", input.workstreams.map((item, i) => i === index ? {...item, [field]: next} : item));
+    onChange({...value, input: {...input, workstreams: input.workstreams.map((item, i) => i === index ? {...item, [field]: next} : item)},
+      provenance: clearSource("workstreams." + index + "." + String(field))});
   const stale = !!value.source && JSON.stringify(value.source) !== JSON.stringify(source?.source);
   return <>
     <div className={card}>
@@ -82,7 +106,12 @@ export function EngagementEstimateEditor({value, onChange, source, catalog, save
           const existing = input.workstreams.filter(item => item.label);
           const imported = source.proposal!.workstreams.filter(item => !existing.some(row => row.label === item.label))
             .map(item => ({...emptyWorkstream, label: item.label, setupFeeCents: Math.round(Number(item.amount) * 100)}));
-          onChange({...value, source: source.source, input: {...input, workstreams: [...existing, ...imported].slice(0, 12)}});
+          const rows = [...input.workstreams, ...imported].slice(0, 12);
+          const reference = source.source.proposal;
+          const attributes = reference ? Object.fromEntries(rows.slice(input.workstreams.length).flatMap((_, index) => ["label", "setupFeeCents"]
+            .map(key => ["workstreams." + (input.workstreams.length + index) + "." + key,
+              {origin: "proposal" as const, reference: reference.id, revision: reference.updatedAt}]))) : {};
+          onChange({...value, source: source.source, input: {...input, workstreams: rows}, provenance: {...value.provenance, ...attributes}});
         }}>Add proposal workstreams</button>}
         {value.source && <button type="button" className="btn-ghost" onClick={() => onChange({...value, source: null})}>Save as manual estimate</button>}
       </div>
@@ -103,8 +132,11 @@ export function EngagementEstimateEditor({value, onChange, source, catalog, save
         const item: Workstream = {...emptyWorkstream, label: selectedCatalog.label, implementation: selectedCatalog[catalogSizing],
           complexity: ({S:"small", M:"medium", L:"large", XL:"custom"} as const)[selectedCatalog.difficulty],
           catalog: {id: selectedCatalog.id, version: 1, sizing: catalogSizing}};
-        set("workstreams", input.workstreams.length === 1 && JSON.stringify(input.workstreams[0]) === JSON.stringify(emptyWorkstream)
-          ? [item] : [...input.workstreams, item]);
+        const replace = input.workstreams.length === 1 && JSON.stringify(input.workstreams[0]) === JSON.stringify(emptyWorkstream);
+        const index = replace ? 0 : input.workstreams.length;
+        const provenance = Object.fromEntries(["label", "implementation", "complexity"].map(key =>
+          ["workstreams." + index + "." + key, {origin: "catalog" as const, reference: selectedCatalog.id, revision: "1"}]));
+        onChange({...value, input: {...input, workstreams: replace ? [item] : [...input.workstreams, item]}, provenance: {...value.provenance, ...provenance}});
       }}>Add reference to estimate</button>
     </details>}
     {input.workstreams.map((item, index) => <fieldset className={card} key={index}>
@@ -122,9 +154,36 @@ export function EngagementEstimateEditor({value, onChange, source, catalog, save
         {expenses.filter(([field]) => monthly || !field.startsWith("monthly")).map(([field, label]) => <NumericField key={field} label={label}
           currency value={item[field]} onChange={next => row(index, field, field.endsWith("FeeCents") ? next : next ?? 0)} />)}
       </div>
-      {input.workstreams.length > 1 && <button type="button" className="btn-ghost" onClick={() => set("workstreams", input.workstreams.filter((_, i) => i !== index))}>Remove workstream {index + 1}</button>}
+      {input.workstreams.length > 1 && <button type="button" className="btn-ghost" onClick={() => {
+        const provenance = Object.fromEntries(Object.entries(value.provenance ?? {}).flatMap(([path, origin]) => {
+          const [root, row, key] = path.split(".");
+          if (root !== "workstreams") return [[path, origin]];
+          const position = Number(row);
+          return position === index ? [] : [["workstreams." + (position > index ? position - 1 : position) + "." + key, origin]];
+        }));
+        onChange({...value, input: {...input, workstreams: input.workstreams.filter((_, i) => i !== index)}, provenance});
+        setProvenanceField("internalHourlyCents");
+      }}>Remove workstream {index + 1}</button>}
     </fieldset>)}
     {input.workstreams.length < 12 && <button type="button" className="btn-ghost" onClick={() => set("workstreams", [...input.workstreams, {...emptyWorkstream}])}>Add workstream</button>}
+    <details className={card}>
+      <summary className="cursor-pointer font-bold">Pricing input sources</summary>
+      <p className="text-sm">Editing a field records it as a consultant assumption. Reapply a source after reviewing the revision and value.</p>
+      <SelectField label="Input to document" value={provenanceField} choices={fields} onChange={setProvenanceField} />
+      <SelectField<FieldProvenance["origin"]> label="Input source" value={origin?.origin ?? "manual"} onChange={setOrigin}
+        choices={[{value: "manual", label: "Consultant assumption"}, {value: "ai", label: "AI recommendation"},
+          ...(source ? [{value: "intake" as const, label: "Client intake"}] : []),
+          ...(source?.source.fitCall ? [{value: "fit-call" as const, label: "Completed fit call"}] : []),
+          ...(source?.source.proposal ? [{value: "proposal" as const, label: "Existing proposal"}] : []),
+          ...(input.workstreams[fieldChoice]?.catalog ? [{value: "catalog" as const, label: "Workflow catalog"}] : []),
+          ...(slaVersion ? [{value: "sla" as const, label: "Reviewed SLA"}] : []),
+        ]} />
+      {origin?.reference && <p className="break-words text-sm">Source {origin.reference} · Revision {origin.revision}</p>}
+      {origin?.recordedAt && <p className="text-sm">Recorded {new Date(origin.recordedAt).toLocaleString()}</p>}
+      {origin?.origin === "ai" && <label className="flex gap-2 text-sm"><input type="checkbox" checked={!!origin.reviewed}
+        onChange={event => onChange({...value, provenance: {...value.provenance, [provenanceField]: {...origin, reviewed: event.target.checked}}})} />
+        I reviewed the AI-suggested assumption and its evidence.</label>}
+    </details>
     {saved && <div className={card}>
       <h3 className="font-bold">Saved estimate · Revision {saved.version}</h3>
       <div className="grid gap-3 sm:grid-cols-2">

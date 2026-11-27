@@ -5,6 +5,9 @@ function Fact({label, children}: {label: string; children: ReactNode}) {
   return <div className="min-w-0"><dt className="font-semibold">{label}</dt><dd className="whitespace-pre-line break-words">{children}</dd></div>;
 }
 
+const readinessLabels = {infrastructure: "Digital infrastructure", data: "Data readiness", process: "Process maturity",
+  adoption: "AI adoption", governance: "Governance", team: "Team readiness"};
+
 const valueText = (value: number | null) => value === null ? "Unavailable" : value.toLocaleString("en-US", {maximumFractionDigits: 2});
 type Evidence = ValueReportInput["kpis"][number]["observationEvidence"];
 function EvidenceNote({value}: {value: Evidence}) {
@@ -12,6 +15,90 @@ function EvidenceNote({value}: {value: Evidence}) {
 }
 
 export function EngagementRecord({record}: {record: Exclude<WorkspaceRecord, {kind: "estimate"}>}) {
+  if (record.kind === "sla-incident") {
+    const item = record.content;
+    return <div className="space-y-2 break-words text-sm">
+      <h3 className="font-semibold">{item.reference} · {item.title}</h3>
+      <p>{item.severity} · Executed SLA revision {item.slaVersion}</p>
+      <p>Reported {item.reportedAt} · Response {item.respondedAt ?? "unknown"} · Restoration {item.restoredAt ?? "unknown"}</p>
+      <p>{item.evidence}</p>
+    </div>;
+  }
+  if (record.kind === "financial") {
+    const {content} = record;
+    return <article className="space-y-2 break-words text-sm">
+      <h3 className="font-semibold">{content.title} · {content.financialPeriod}</h3>
+      <p>{content.evidenceClass} · {content.sourceSystem} · {content.sourceRecord}</p>
+      <p>{usd(content.grossCents)} documented change · {usd(content.attributableCents)} attributable · {content.attributionConfidence} confidence</p>
+      <p>{content.attributionMethod}</p><p>{content.limitations}</p>
+    </article>;
+  }
+  if (record.kind === "readiness") {
+    const {content, calculation} = record;
+    return <article className="space-y-3 break-words text-sm">
+      <h3 className="font-bold">{content.title} · {content.period}</h3>
+      <p>{calculation.coverage} of {calculation.total} dimensions assessed · Overall {calculation.score === null ? "awaiting evidence" : calculation.score + "/100"}</p>
+      <p className="whitespace-pre-line">{content.summary}</p>
+      <dl className="grid gap-3 sm:grid-cols-2">{Object.entries(content.scores).map(([key, item]) =>
+        <Fact key={key} label={readinessLabels[key as keyof typeof readinessLabels]}>{item.score === null ? "Unknown" : item.score + "/4"}</Fact>)}</dl>
+      {content.recommendations.length > 0 && <ul className="ml-5 list-disc">{content.recommendations.map((item, index) =>
+        <li key={index}>{readinessLabels[item.dimension]} · {item.action}</li>)}</ul>}
+    </article>;
+  }
+  if (record.kind === "opportunity") {
+    const {content, calculation} = record;
+    return <article className="space-y-3 break-words text-sm">
+      <h3 className="font-bold">{content.reference} · {content.title}</h3>
+      {calculation && <>
+        <p>Weighted score {calculation.score === null ? "awaiting evidence" : calculation.score + "/100"} · {calculation.priority}</p>
+        {calculation.missing.length > 0 && <p>Missing scores · {calculation.missing.join(", ")}</p>}
+        {calculation.gate.reasons.length > 0 && <p>Governance · {calculation.gate.reasons.join(". ")}</p>}
+        {calculation.candidates && <p>Catalog candidates · {[
+          ...calculation.candidates.recipes, ...calculation.candidates.templates, ...calculation.candidates.modules,
+        ].map(item => item.title).join(", ") || calculation.candidates.gap}</p>}
+      </>}
+      <p>{content.recommendation}</p>
+    </article>;
+  }
+  if (record.kind === "measurement") {
+    const {content, calculation, definitions} = record;
+    return <article className="space-y-4 break-words text-sm">
+      <h3 className="font-bold">{content.title} · revision {record.version}</h3>
+      <p className="whitespace-pre-line">{content.objectives}</p>
+      <p>Reporting · {content.cadence} · First evaluation {content.evaluationOn}</p>
+      {content.metrics.map(row => {
+        const definition = definitions.find(item => item.id === row.kpiId);
+        return <section key={row.kpiId + row.workstream} className="rounded-lg border border-canvas-border p-3">
+          <h4 className="font-semibold">{definition?.name ?? row.kpiId} · {row.workstream}</h4>
+          <p>{definition?.formula} · {definition?.unit}</p>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <Fact label="Baseline">{row.baseline === null ? "Unknown. " + row.collectionPlan : valueText(row.baseline)} · {row.baselineStart} to {row.baselineEnd}</Fact>
+            <Fact label="Target">{valueText(row.target)}</Fact>
+            <Fact label="Owner and source">{row.owner} · {row.source}</Fact>
+            <Fact label="Evidence">{row.evidenceClass} · {row.evidence}</Fact>
+            <Fact label="Comparable workload">{row.comparableWorkload}</Fact>
+            <Fact label="Attribution and limitations">{row.attribution}. {row.limitations}</Fact>
+          </dl>
+        </section>;
+      })}
+      {calculation && <section className="space-y-2">
+        <h4 className="font-semibold">Forecast scenarios</h4>
+        <p>Estimates use the reviewed assumptions. Recovered employee capacity is measured independently of projected financial benefits.</p>
+        <div className="grid gap-3 xl:grid-cols-3">{Object.entries(calculation).map(([key, result]) => <section key={key} className="rounded-lg border border-canvas-border p-3">
+          <h5 className="mb-1 font-semibold capitalize">{key}</h5>
+          <dl className="space-y-2">
+            <Fact label="Monthly capacity after ramp-up">{valueText(result.capacityHours)} hours</Fact>
+            <Fact label="Estimated monthly capacity value">{usd(result.capacityValueCents)}</Fact>
+            <Fact label="Projected monthly financial benefit">{usd(result.monthlyBenefitCents)}</Fact>
+            <Fact label="Net monthly benefit after ramp-up">{usd(result.monthlyNetCents)}</Fact>
+            <Fact label="Net benefit over the term">{usd(result.cumulativeNetCents)}</Fact>
+            <Fact label="Projected ROI">{result.roiPercent === null ? "Unavailable" : valueText(result.roiPercent) + "%"}</Fact>
+            <Fact label="Payback">{result.paybackMonth === null ? "Unavailable in the stated term" : "Month " + result.paybackMonth}</Fact>
+          </dl>
+        </section>)}</div>
+      </section>}
+    </article>;
+  }
   if (record.kind === "value") {
     const {content, calculation} = record;
     return <article className="space-y-4 break-words">
