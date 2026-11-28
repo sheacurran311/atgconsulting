@@ -6,8 +6,8 @@ The [R4 phase-gated implementation protocol](qa/ATG_R4_PHASE_GATED_IMPLEMENTATIO
 
 | Phase | Product gate | Status |
 |---|---|---|
-| P0 | Conflict reconciliation and baseline | IN_PROGRESS. P0-01 refs/tree verified, P0-02 operating instructions added, P0-03 replay underway. [Evidence](qa/checkpoints/P0.md) |
-| P1 | Catalog and specifications | OPEN |
+| P0 | Conflict reconciliation and baseline | PRODUCT_GATE_PASSED at 51091b8. Linux and CI each passed 285 API tests and both responsive suites. [Evidence](qa/checkpoints/P0.md) |
+| P1 | Catalog and specifications | IN_PROGRESS. P1-01 catalog coverage, P1-02 admin filters, P1-03 engagement selection |
 | P2 | Commercial and delivery identity | OPEN |
 | P3 | Value realization and SLA | OPEN |
 | P4 | Managed delivery and fractional leadership | OPEN |
