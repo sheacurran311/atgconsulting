@@ -22,14 +22,14 @@ async function compileReportData(clientId: string, since: Date): Promise<ReportD
     prisma.actionItem.count({
       where: {
         consultation: { clientId },
-        done: false,
+        done: false, clientVisible: true,
         dueAt: { gte: since, lte: new Date() },
       },
     }),
     prisma.actionItem.count({
       where: {
         consultation: { clientId },
-        done: false,
+        done: false, clientVisible: true,
         dueAt: { lt: new Date() },
       },
     }),

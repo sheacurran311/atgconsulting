@@ -1,4 +1,6 @@
 import { firstCallPrep } from "./firstCallPrep";
+import { transformationServiceFor } from "./transformationServices";
+import { candidatesForGoal } from "./serviceWorkflowLinks";
 import { personalGoal, projectFocus } from "./assessmentProfile";
 /**
  * Reusable consultant briefing compiled from a consented ATG intake.
@@ -30,6 +32,7 @@ export interface ClientConsultationBrief {
   fitCall: ConsultationStage[];
   guidedSessions: GuidedSessionBrief[];
   recommendedSkills: Array<{ id: string; title: string; purpose: string }>;
+  transformationCandidates?: NonNullable<ReturnType<typeof candidatesForGoal>>[];
   note: string;
 }
 function problems(raw:string):string[]{
@@ -55,6 +58,7 @@ export function buildConsultationBrief(rawAnswers:string|null|undefined, guidedS
   const focusOps=/admin|operat|schedul|book|customer request/i.test(priority);
   const personalFocus = audience === 'personal' || (audience === 'both' && personalGoal(priority));
   const project = !personalFocus ? projectFocus(priority) : null;
+  const expanded = !personalFocus ? transformationServiceFor(priority) : undefined;
   const context:ClientConsultationBrief["knownContext"]=[];
   for(const [label,key] of [
     ["Business", "company_name"],["Business type","business_type"],["Team size","team_size"],
@@ -77,7 +81,7 @@ export function buildConsultationBrief(rawAnswers:string|null|undefined, guidedS
   if(!text(answers.success_definition))missing.push("Agree a measurable 30- or 90-day success criterion.");
   if(business&&!text(answers.decision_authority))missing.push("Identify the person authorized to approve the pilot.");
   if(!text(answers.data_boundaries))missing.push("Document data exclusions and approval boundaries.");
-  const targeted = prep.tracks[0]?.name==="Logo and brand identity" ? [
+  const targeted = expanded ? [expanded.prompt, expanded.proposal, expanded.kickoff] : prep.tracks[0]?.name==="Logo and brand identity" ? [
     "Who should the identity reach, and where will the logo appear?",
     "Which existing assets or visual references should guide the design?",
     "Who approves concepts and final artwork?",
@@ -155,6 +159,7 @@ export function buildConsultationBrief(rawAnswers:string|null|undefined, guidedS
   return {audience,organization:business?text(answers.company_name)??null:null,primaryPriority:priority,knownContext:context,
     missingInformation:missing.slice(0,8),fitCall,guidedSessions,
     recommendedSkills:personalFocus ? [] : atgBusinessSkills.filter(s=>skillIds.includes(s.id)).map(s=>({id:s.id,title:s.title,purpose:s.description})),
+    ...(business ? {transformationCandidates: [...new Set([priority,...priorities])].flatMap(goal=>{const candidate=candidatesForGoal(goal); return candidate ? [candidate] : [];})} : {}),
     note:"Internal preparation only. Review all findings against the current client record. Do not send, publish, mark milestones complete, or claim a customer platform is connected.",
   };
 }

@@ -57,6 +57,8 @@ A bundle theme is **not** a promise to include every referenced workflow. Select
 
 ## A. Fifty candidate workflows
 
+These records are sizing references. The [implementation specifications](../artifacts/api-server/src/lib/workflowSpecifications.ts) add 12 versioned delivery specifications, one per service, to the admin engagement workspace. The specifications link the approved procedure, permission boundary, test cases, rollback and KPI to existing recipe, template and Guided candidates. Validate client installation and production behavior separately. Further distinct specifications remain in scope.
+
 | # | Area | Workflow deliverable | Difficulty | Baseline implementation hours | Potential support | Primary complexity / QA trigger |
 | --- | --- | --- | --- | --- | --- | --- |
 | 01 | Lead capture | Website form → lead ledger | **S** | 2–4 | Low | Form ownership, spam filtering, duplicate keys |

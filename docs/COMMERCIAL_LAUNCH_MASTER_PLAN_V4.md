@@ -1,4 +1,26 @@
+# Current execution priority | November 27, 2026
+
+The [R4 phase-gated implementation protocol](qa/ATG_R4_PHASE_GATED_IMPLEMENTATION.md) and [phase execution ledger](qa/ATG_R4_PHASE_EXECUTION_LEDGER.md) are mandatory execution instructions. The original commercial roadmap below remains the scope authority and historical workstream reference; its dates and phase ordering are superseded by the R4 product phases. Complete every applicable phase acceptance criterion, including UI, tests, security and evidence; update this master plan and the canonical reconciliation before advancing. Continue automatically until all product gates pass; external staging/provider/owner gates are tracked separately. The next session resumes the first unpassed phase. No outreach, production deployment or main merge is authorized.
+
+## R4 phase status
+
+| Phase | Product gate | Status |
+|---|---|---|
+| P0 | Conflict reconciliation and baseline | PRODUCT_GATE_PASSED at 51091b8. Linux and CI each passed 285 API tests and both responsive suites. [Evidence](qa/checkpoints/P0.md) |
+| P1 | Catalog and specifications | IN_PROGRESS. P1-01 catalog coverage, P1-02 admin filters, P1-03 engagement selection |
+| P2 | Commercial and delivery identity | OPEN |
+| P3 | Value realization and SLA | OPEN |
+| P4 | Managed delivery and fractional leadership | OPEN |
+| P5 | Founder operations | OPEN |
+| P6 | CRM, acquisition and SEO/AEO | OPEN |
+| P7 | Marketing, education and complete UI | OPEN |
+| P8 | Integrated QA and final reconciliation | OPEN |
+
+Update this table at every checkpoint with exact commit and evidence; do not mark a phase passed for partial work.
+
 # ATG Consulting | Commercial Launch Master Plan v4.0
+
+Current execution precedence and verification: [ATG implementation reconciliation](ATG_IMPLEMENTATION_RECONCILIATION.md).
 Approved direction: 2026-11-24. Target controlled outreach: Monday 2026-11-30. Owner: founder. Baseline inspected: main bf18a28 (PRs 78/79 merged). This is the forward execution authority, not evidence of deployment. Historical decisions: MASTER_IMPLEMENTATION_PLAN.md. Internal prices: ATG_INTERNAL_WORKFLOW_CATALOG_AND_PRICING.md.
 
 ## Operating rules
@@ -7,7 +29,7 @@ Product-enabled technology consultancy, six approved capabilities: Websites & Br
 ## Status at baseline
 MERGED/SOURCE: public custom proposal positioning; 50-workflow markdown catalogue; animated growth workflow; industry website pages; shorter adaptive intake; private first-call worksheet and proposal revision/approval snapshot; custom workstream/installment quote and sandbox payments; Guided modules/playbooks; admin prospect CRUD, qualification and draft approval; Sheet reader, Gmail metadata reconciliation, calendar meeting reader, bounded reviewed Sheet writeback; SEO metric analysis and scope allowlist. These are source/document evidence, not all independently tested.
 PARTIAL: CRM two separate identities, delivery milestones not assigned automatically, catalogue not wired to quote calculator, custom payment flow not live, proposal Docs export gated, SEO analysis not integrated with live sources.
-OPEN: licensed discovery, bounded site inspection/enrichment, scheduled research/run evidence, canonical sync and shared suppression, production acceptance, collateral, outreach readiness, GSC/GA4 OAuth and scheduled reporting, AEO sampling, change orders and service management. Existing HANDOFF.md legacy commercial references superseded.
+OPEN AT BASELINE: broad candidate discovery, bounded site inspection/enrichment, scheduled research/run evidence, canonical sync and shared suppression, production acceptance, collateral, outreach readiness, GSC/GA4 OAuth and scheduled reporting, AEO sampling, change orders and service management. Existing HANDOFF.md legacy commercial references superseded.
 UNKNOWN: deployed SHA, live schema, connector identities/permissions, real notification/booking, full build/test results, production settings, prospect count. Do not mark verified without evidence.
 
 ## Phase A | P0 release consolidation (Nov 25)
@@ -18,7 +40,7 @@ UNKNOWN: deployed SHA, live schema, connector identities/permissions, real notif
 Exit: release evidence recorded; critical failures fixed or safe documented fallback approved by owner.
 
 ## Phase B | P0 acquisition pilot (Nov 25–27)
-- B1 (W4): configurable market/segment settings (Greater Denver/Castle Rock first, trades/home services first); 20 candidates/day and five reviewed sends/day max, initially zero until release gates. Select licensed source with retention/outreach permissions and cost budget approved. Never scrape restricted directories or invent emails.
+- B1 (W4): configurable market/segment settings (Greater Denver/Castle Rock first, trades/home services first); 20 candidates/day and five reviewed sends/day max, initially zero until release gates. Use the business’s official public website to substantiate its published business contact and any observation. Confirm site terms, robots rules, bounded access and owner-approved research limits. A paid source is optional and requires separate approval.
 - B2: implement bounded official-site fetch/inspection with SSRF/redirect/DNS/private-network guards, time/size limits, robots and terms checks, safe handling of untrusted page instructions. Identify observable design/mobile/lead-capture/service-page gaps; source URLs, timestamps, confidence and human verification. Public business contact paths only; no inferred private contacts or sensitive profiling.
 - B3: service-specific opportunity scoring 100 points: observable improvement 30, economic value hypothesis 20, service fit 15, contact confidence 15, feasibility 10, expansion 10. Priority >=80, qualified 65–79, research 45–64, below 45 deprioritize. Hard reject suppressed, unverifiable and disallowed sources regardless of score. Version rubric. Draft one-to-one outreach grounded in evidence; human review before use.
 - B4 (W5): unify pilot duplicate/suppression checks across Sheet, database and mailbox. Choose Sheet as temporary pilot ledger; Postgres canonical target. Stable IDs, audit and fail-closed suppression, verified contact identity, reply/opt-out stops follow-up. Never treat approval as delivery. Manual Gmail sends only after owner authorization, record actual message event. Review before every follow-up.
@@ -51,15 +73,15 @@ Exit: owner authorizes initial outreach, verified sender/opt-out and duplicate c
 Exit per workstream: focused tests, documented limitations and client/owner acceptance before calling complete.
 
 ## Phase F | P2/P3 scalable operations
-- W20 outbound dispatch: only after licensed sourcing, sender authentication, postal address, opt-out and legal/provider checks, owner-approved policy, rate limits, kill switch, actual send receipt and idempotency. Replies, bounces, complaints and unsubscribes pause sequences. Test concurrent suppression and retries; default disabled. Explicit separate production approval.
+- W20 outbound dispatch: only after official-source evidence, sender authentication, postal address, opt-out and legal/provider checks, owner-approved policy, rate limits, kill switch, actual send receipt and idempotency. Replies, bounces, complaints and unsubscribes pause sequences. Test concurrent suppression and retries; default disabled. Explicit separate production approval.
 - W21 change orders: immutable accepted scope, versioned addendum and client consent, price/schedule impacts, updated milestones, invoice reconciliation.
 - W22 recurring service: explicit contract, defined deliverables/capacity, maintenance calendar, incidents and renewals; no automatic enrollment or unlimited support.
 - W23 performance/ROI dashboard: source-linked delivery evidence, estimated versus actual effort, lead conversion, cash, retention, contribution margin and client outcome baselines; no fabricated attribution.
-- W24 capacity and assignments: workload/capacity, roles, ownership, handoff and tenant permission tests when additional consultants warranted. Referral program and genuine permissioned case studies after delivery.
-- Defer speculative free tools, new workflow catalogue items, additional customer OAuth, multi-agent frameworks, and admin redesign until demand supports them.
+- W24 capacity and assignments: founder workload and capacity are in initial scope. Multi-consultant roles, assignments, handoff and tenant permission tests apply when additional consultants are warranted. Referral program and genuine permissioned case studies after delivery.
+- Keep speculative free tools, additional customer OAuth, multi-agent frameworks and a broad admin redesign gated. The approved expansion toward 100 unique workflow implementation specifications remains active.
 
 ## First 30 days
 Week 1/2/3/4 targets: evaluated 100/150/200/250; qualified 50/75/100/125; outreach 25/40/60/75; positive replies 2/3/4/5; held consultations 1–2/2/2–3/3–4; proposals 1/1–2/2/2–3; new clients 0–1/1/1/1–2. These are hypotheses, not benchmarks; later throughput requires explicit cap increase, sender health, capacity and opt-out review. Illustrative 200 contacts x 7% positive reply x 65% booking x 30% close x $1,800 = $4,914 expected bookings, not cash; actual results govern. Track founder capacity, not just lead volume.
 
 ## Execution and evidence ledger
-Every task: ID, priority, owner, status (OPEN/IN PROGRESS/MERGED/TESTED/PRODUCTION VERIFIED/BLOCKED), branch/PR/SHA, test commands/results, runtime evidence, dependencies, fallback, next action. Owner approves credentials, data source spend, compliance, live rollout, sender enablement, payment activation and customer scope. Implementation agent can prepare code/tests/docs on isolated branches. Do not upgrade status on source existence alone. Daily checkpoint: update this plan and historical status index, list failures and next highest-priority gate. Stop new features when critical release checks fail. 
+Every task: ID, priority, owner, status (OPEN/IN PROGRESS/MERGED/TESTED/PRODUCTION VERIFIED/BLOCKED), branch/PR/SHA, test commands/results, runtime evidence, dependencies, fallback, next action. Owner approves credentials, data source spend, compliance, live rollout, sender enablement, payment activation and customer scope. Implementation agent can prepare code/tests/docs on isolated branches. Do not upgrade status on source existence alone. Daily checkpoint: update this plan and historical status index, list failures and next highest-priority gate. Stop new features when critical release checks fail.

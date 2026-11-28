@@ -7,12 +7,18 @@ export default function IntakeEntry({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, user } = useUser();
   const query = new URLSearchParams(window.location.search);
   const deliberateEdit = query.get("edit") === "true" || query.has("resume");
+  const [continueAsGuest, setContinueAsGuest] = useState(false);
   const [destination, setDestination] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || deliberateEdit) return;
+    if (isLoaded) return;
+    const timeout = window.setTimeout(() => setContinueAsGuest(true), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [isLoaded]);
+  useEffect(() => {
+    if (continueAsGuest || !isLoaded || !isSignedIn || deliberateEdit) return;
     let active = true;
     setReady(false); setDestination(null); setError("");
     void (async () => {
@@ -25,9 +31,9 @@ export default function IntakeEntry({ children }: { children: ReactNode }) {
       else setReady(true);
     })().catch((err: unknown) => { if (active) setError(err instanceof Error ? err.message : "Could not check your account. Please try again."); });
     return () => { active = false; };
-  }, [isLoaded, isSignedIn, user?.id, deliberateEdit, retry]);
+  }, [isLoaded, isSignedIn, user?.id, deliberateEdit, retry, continueAsGuest]);
   // Invite/member routes bypass this wrapper; explicit edits/resumes stay intentional.
-  if (isLoaded && (!isSignedIn || deliberateEdit)) return <>{children}</>;
+  if (continueAsGuest || deliberateEdit || (isLoaded && !isSignedIn)) return <>{children}</>;
   if (destination) return <Redirect to={destination} />;
   if (ready) return <>{children}</>;
   return <main className="max-w-xl mx-auto px-5 py-16 text-center">

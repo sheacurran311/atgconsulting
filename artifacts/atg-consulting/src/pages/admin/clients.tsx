@@ -1,5 +1,7 @@
 import { adminJson, announceAdminChange } from "@/lib/adminWork";
 import { useFocusedRecord } from "@/lib/useFocusedRecord";
+import EngagementWorkspacePanel from "@/components/admin/EngagementWorkspacePanel";
+import BusinessContextPanel from "@/components/admin/BusinessContextPanel";
 import MasterPlaybook from "@/components/admin/MasterPlaybook";
 import { useState, useEffect } from "react";
 import { Link, useRoute } from "wouter";
@@ -107,7 +109,7 @@ function ClientList() {
 
 // ── Client detail ─────────────────────────────────────────────────────────────
 
-const TABS = ["overview", "operations", "brief", "prep", "playbook", "sessions", "access", "plan", "consultations", "documents", "reports", "outputs", "workflows"];
+const TABS = ["overview", "operations", "context", "engagement", "brief", "prep", "playbook", "sessions", "access", "plan", "consultations", "documents", "reports", "outputs", "workflows"];
 
 function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
   const [client, setClient] = useState<ClientDetail | null>(null);
@@ -180,6 +182,8 @@ function AdminClientDetail({ id, tab }: { id: string; tab: string }) {
         {tab === "prep" && <PrepTab prep={prep} />}
         {tab === "playbook" && <PlaybookTabWrapper clientId={id} intakeId={client.intakes?.[0]?.id} />}
         {tab === "operations" && <OperatingGuide clientId={id} />}
+        {tab === "engagement" && <EngagementWorkspacePanel key={id} clientId={id} />}
+        {tab === "context" && <BusinessContextPanel key={id} clientId={id} />}
         {tab === "sessions" && <SessionsTab clientId={id} />}
         {tab === "access" && <AccessLogTabWrapper clientId={id} tier={client.tier} />}
         {tab === "plan" && <PlanTab plan={client.plans[0] ?? null} />}

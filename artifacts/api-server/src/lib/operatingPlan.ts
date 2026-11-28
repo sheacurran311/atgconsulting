@@ -1,10 +1,19 @@
 import { z } from "zod";
 import { answerMap } from "./intakeAnswers";
+import { governanceReview } from "./businessContext";
+import { transformationServices, transformationServiceFor } from "./transformationServices";
 import { audienceFrom, personalGoal, projectFocus, selectedProblems } from "./assessmentProfile";
 
 const text = z.string().trim().max(2000);
 const date = z.string().max(30).refine((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v), "Use YYYY-MM-DD");
 export const WorkflowContractSchema = z.object({
+  serviceId: z.string().trim().max(100).optional(),
+  authorization: z.object({
+    contextVersion: z.coerce.number().int().positive(),
+    scope: text.min(1),
+    reference: text.min(1),
+    approvedOn: z.string().date(),
+  }).strict().optional(),
   id: z.string().regex(/^[a-z0-9-]+$/).max(80), name: text.min(1), realm: z.enum(["business", "personal"]),
   owner: text.min(1), role: text, trigger: text.min(1), inputs: text, actions: text,
   approval: text.min(1), recovery: text.min(1), success: text.min(1), platform: text,
@@ -28,6 +37,42 @@ export const OperatingPlanSchema = z.object({
   p.integrations.forEach((item, i) => { if (["connected", "verified"].includes(item.status) && (!item.evidence || !item.checkedAt)) ctx.addIssue({ code: "custom", path: ["integrations", i, "evidence"], message: "Connections require dated evidence." }); });
 });
 export type OperatingPlanContent = z.infer<typeof OperatingPlanSchema>;
+
+const legacyServices: Record<string, string> = {
+  "website-delivery": "digital-transformation",
+  "follow-up": "workflow-engineering",
+};
+const knownService = (id: string) => transformationServices.some(service => service.id === id) ? id : legacyServices[id];
+
+export function operatingGovernanceReasons(input: {
+  current: OperatingPlanContent; prior: OperatingPlanContent; trustedIntake: OperatingPlanContent;
+  context: {version: number; profile: unknown} | null; clientId: string; today: string;
+}) {
+  const {current, prior, trustedIntake, context, clientId, today} = input;
+  return current.workflows.flatMap(workflow => {
+    const previous = prior.workflows.find(item => item.id === workflow.id);
+    const trusted = trustedIntake.workflows.find(item => item.id === workflow.id);
+    const priorService = previous?.serviceId || trusted?.serviceId || knownService(workflow.id);
+    const serviceId = workflow.serviceId || priorService;
+    const issue = (reason: string) => [workflow.name + ": " + reason];
+    if (priorService && (serviceId !== priorService || workflow.realm !== "business" || !workflow.serviceId && previous?.serviceId)) {
+      return issue("Review this workflow under its original service. Add a separately scoped workflow for a different service.");
+    }
+    if (!["configured", "tested", "live"].includes(workflow.status)) return [];
+    if (!serviceId && workflow.realm === "personal" && trusted?.realm === "personal" && previous?.realm === "personal") return [];
+    if (!serviceId || workflow.realm !== "business") return issue("Assign a recognized service before recording active implementation.");
+    const review = governanceReview(context?.profile, clientId, serviceId);
+    if (review.status !== "cleared") return review.reasons.flatMap(issue);
+    if (!workflow.authorization || workflow.authorization.contextVersion !== context?.version || workflow.authorization.approvedOn > today) {
+      return issue("Record written client authorization for the current Business Context Profile revision.");
+    }
+    return [];
+  });
+}
+
+export function publishedOperatingPlan(content: OperatingPlanContent): OperatingPlanContent {
+  return {...content, workflows: content.workflows.map(({authorization: _authorization, ...workflow}) => workflow)};
+}
 
 export const DELIVERY_PHASES = [
   ["audit", "Review the assessment", "Review selected examples; record frequency, baseline time, constraints, and missing information."],
@@ -53,7 +98,9 @@ export function buildOperatingPlan(raw: string | null | undefined): OperatingPla
     const realm = audience==="personal" || (audience==="both" && personalGoal(goal)) ? "personal" : "business";
     const project = projectFocus(goal);
     const title = goal.slice(0,240);
-    const pilot = realm==="personal" && /travel|trip/i.test(goal)
+    const expanded = realm==="business" ? transformationServiceFor(goal) : undefined;
+    const pilot = expanded ? contract(expanded.id,title,realm,"Project owner","The consultant and customer agree the scope.",expanded.proposal+" "+expanded.kickoff)
+      : realm==="personal" && /travel|trip/i.test(goal)
       ? contract("travel-planning",title,realm,"Trip planner","An upcoming trip needs planning.","Gather the itinerary, compare options and review bookings with the traveler.")
       : realm==="personal" && /schedule|commitment|routine/i.test(goal)
       ? contract("family-coordination",title,realm,"Schedule coordinator","A commitment changes or a shared review is due.","Collect updates, check for conflicts and review reminders.")
@@ -62,6 +109,7 @@ export function buildOperatingPlan(raw: string | null | undefined): OperatingPla
       : /prospect|sales|outreach|follow.up/i.test(goal) && realm==="business"
       ? contract("follow-up",title,realm,"Sales coordinator","A qualified opportunity needs attention.","Research the opportunity, prepare a next step and confirm follow-up ownership.")
       : contract("project-"+(workflows.length+1),title,realm,"Project owner","The agreed example or project brief is ready.","Review the current approach and test one improvement against the stated outcome.");
+    if(expanded) pilot.serviceId=expanded.id;
     if(workflows.some(w=>w.id===pilot.id)) pilot.id="selection-"+(workflows.length+1);
     workflows.push(pilot);
   }

@@ -7,20 +7,21 @@ import { ReplitConnectors } from "@replit/connectors-sdk";
 import { readProspectPipeline, type SheetProspect } from "./prospectSheet";
 
 export const MAX_CONTACTS=12;
-const MAX_THREADS_PER_CONTACT=3;
+const THREADS_PER_PAGE = 10;
+const MAX_THREAD_PAGES = 3;
 const EMAIL=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 const VALID_ID=/^[A-Za-z0-9_-]{1,160}$/;
 type ConnectorClient=Pick<ReplitConnectors,"proxy">;
 type Header={name?:unknown;value?:unknown};
-type Message={internalDate?:unknown;payload?:{headers?:Header[]}};
+type Message={labelIds?:unknown;internalDate?:unknown;payload?:{headers?:Header[]}};
 type GmailThread={id?:unknown;messages?:Message[]};
-type GmailList={threads?:Array<{id?:unknown}>};
+type GmailList={threads?:Array<{id?:unknown}>;nextPageToken?:unknown};
 type GmailProfile={emailAddress?:unknown};
 export type GmailMatch = {
   rowNumber:number;businessName:string;contactEmail:string;
-  status:"reply_detected"|"outbound_found"|"inbound_without_outbound"|"no_recent_match"|"error";
+  status:"reply_detected"|"outbound_found"|"inbound_without_outbound"|"no_recent_match"|"incomplete"|"error";
   lastOutboundAt:string|null;lastInboundAt:string|null;threadCount:number;
-  suggestedAction:"review_reply"|"verify_outreach"|"inspect_inbound"|"none";
+  suggestedAction:"review_reply"|"verify_outreach"|"inspect_inbound"|"hold_follow_up"|"none";
 };
 export type GmailReconciliation={
   account:string;checked:number;eligibleCount:number;limited:boolean;offset:number;nextOffset:number|null;skippedSuppressed:number;
@@ -48,7 +49,7 @@ function messageTime(m:Message):number|null {
   return Number.isSafeInteger(n)&&n>0&&n<8.64e15?n:null;
 }
 export function classifyThreads(
- threads:GmailThread[], prospectEmail:string, accountEmail:string
+ threads:GmailThread[], prospectEmail:string, accountEmail:string, requireSentLabel=false, since=0
 ):Pick<GmailMatch,"status"|"lastOutboundAt"|"lastInboundAt"|"threadCount"> {
   let newestOutbound=0,newestInbound=0,reply=false;
   for(const thread of threads){
@@ -56,17 +57,17 @@ export function classifyThreads(
     let firstOutbound=0;
     for(const m of messages){
       const at=messageTime(m);
-      if(at===null)continue;
+      if(at===null || at<since)continue;
       const from=headerValues(m,"from").some(v=>hasAddress(v,accountEmail));
       const toProspect=headerValues(m,"to").some(v=>hasAddress(v,prospectEmail));
-      if(from&&toProspect){
+      if(from&&toProspect&&(!requireSentLabel || (Array.isArray(m.labelIds) && m.labelIds.includes("SENT") && !m.labelIds.includes("DRAFT")))){
         firstOutbound=firstOutbound===0?at:Math.min(firstOutbound,at);
         newestOutbound=Math.max(newestOutbound,at);
       }
     }
     for(const m of messages){
       const at=messageTime(m);
-      if(at===null)continue;
+      if(at===null || at<since)continue;
       const fromProspect=headerValues(m,"from").some(v=>hasAddress(v,prospectEmail));
       const toAccount=headerValues(m,"to").some(v=>hasAddress(v,accountEmail));
       if(fromProspect&&toAccount){
@@ -89,29 +90,47 @@ async function getJson(client:ConnectorClient,path:string):Promise<unknown>{
   }
   return response.json();
 }
-async function reviewContact(client:ConnectorClient,row:SheetProspect,account:string):Promise<GmailMatch>{
+async function reviewContact(client:ConnectorClient,row:Pick<SheetProspect,"rowNumber"|"businessName"|"contactEmail">,account:string,since=0):Promise<GmailMatch>{
   const email=normalEmail(row.contactEmail);
   const base={rowNumber:row.rowNumber,businessName:row.businessName,contactEmail:email};
   try{
     // Search both sides in one Gmail query. Gmail returns existing threads without exposing bodies.
     const q=`{from:${email} to:${email}}`;
-    const search=await getJson(client,`/gmail/v1/users/me/threads?maxResults=${MAX_THREADS_PER_CONTACT}&q=${encodeURIComponent(q)}`) as GmailList;
-    const ids=Array.isArray(search?.threads)?search.threads.map(t=>t.id)
-      .filter((id):id is string=>typeof id==="string"&&VALID_ID.test(id))
-      .slice(0,MAX_THREADS_PER_CONTACT):[];
+    const ids = new Set<string>();
+    const tokens = new Set<string>();
+    let pageToken: string | undefined;
+    for (let page = 0; page < MAX_THREAD_PAGES; page++) {
+      const params = new URLSearchParams({maxResults: String(THREADS_PER_PAGE), q});
+      if (pageToken) params.set("pageToken", pageToken);
+      const search = await getJson(client, "/gmail/v1/users/me/threads?" + params) as GmailList;
+      if (!search || (search.threads !== undefined && !Array.isArray(search.threads)) ||
+          (search.threads?.length ?? 0) > THREADS_PER_PAGE) throw new Error("Invalid Gmail page.");
+      for (const item of search.threads ?? []) {
+        if (typeof item?.id !== "string" || !VALID_ID.test(item.id)) throw new Error("Invalid Gmail thread ID.");
+        ids.add(item.id);
+      }
+      const next = search.nextPageToken;
+      if (!next) {pageToken = undefined; break;}
+      if (typeof next !== "string" || next.length > 1024 || tokens.has(next)) throw new Error("Invalid Gmail page token.");
+      tokens.add(next);
+      pageToken = next;
+    }
+    if (pageToken) return {...base, status: "incomplete", lastOutboundAt: null, lastInboundAt: null,
+      threadCount: ids.size, suggestedAction: "hold_follow_up"};
     const threads:GmailThread[]=[];
     for(const id of ids){
       const result=await getJson(client,`/gmail/v1/users/me/threads/${encodeURIComponent(id)}?format=metadata&metadataHeaders=From&metadataHeaders=To`);
-      if(result&&typeof result==="object")threads.push(result as GmailThread);
+      if (!result || typeof result !== "object" || !Array.isArray((result as GmailThread).messages)) throw new Error("Missing Gmail metadata.");
+      threads.push(result as GmailThread);
     }
-    const result=classifyThreads(threads,email,account);
+    const result=classifyThreads(threads,email,account,true,since);
     const suggestedAction:GmailMatch["suggestedAction"]=result.status==="reply_detected"?"review_reply"
       :result.status==="outbound_found"?"verify_outreach"
       :result.status==="inbound_without_outbound"?"inspect_inbound":"none";
     return {...base,...result,suggestedAction};
   }catch{
     // No provider error payloads or email content exposed.
-    return {...base,status:"error",lastOutboundAt:null,lastInboundAt:null,threadCount:0,suggestedAction:"none"};
+    return {...base,status:"error",lastOutboundAt:null,lastInboundAt:null,threadCount:0,suggestedAction:"hold_follow_up"};
   }
 }
 export function eligibleContacts(rows:SheetProspect[]){
@@ -125,6 +144,15 @@ export function eligibleContacts(rows:SheetProspect[]){
   const skippedAmbiguous=rows.filter(r=>!r.doNotContact&&!!normalEmail(r.contactEmail)&&counts.get(normalEmail(r.contactEmail))!==1).length;
   return {eligible,skippedSuppressed,skippedAmbiguous};
 }
+export async function verifyProspectMail(contactEmail: string, businessName: string, since: Date, client: ConnectorClient = new ReplitConnectors()) {
+  const profile = await getJson(client, "/gmail/v1/users/me/profile") as GmailProfile;
+  const account = normalEmail(typeof profile?.emailAddress === "string" ? profile.emailAddress : "");
+  if (account !== "shea@atgconsulting.io" || !normalEmail(contactEmail)) throw new Error("Verify the approved ATG mailbox and contact.");
+  const match = await reviewContact(client, {rowNumber: 0, businessName, contactEmail}, account, since.getTime());
+  if (!match.lastOutboundAt || new Date(match.lastOutboundAt) < since) return null;
+  return match;
+}
+
 export async function reconcileGmail(opts:{
  client?:ConnectorClient;pipelineReader?:typeof readProspectPipeline;expectedAccount?:string;offset?:number;
 }={}):Promise<GmailReconciliation>{
@@ -145,13 +173,13 @@ export async function reconcileGmail(opts:{
   return {
     account,checked:matches.length,eligibleCount:eligible.length,offset,
     nextOffset:offset+matches.length<eligible.length?offset+matches.length:null,
-    limited:offset+MAX_CONTACTS<eligible.length||pipeline.dataTruncated,skippedSuppressed,skippedAmbiguous,
+    limited:offset+MAX_CONTACTS<eligible.length||pipeline.dataTruncated||matches.some(row=>row.status==="incomplete"||row.status==="error"),skippedSuppressed,skippedAmbiguous,
     matches,summary:{
       replyDetected:matches.filter(m=>m.status==="reply_detected").length,
       outboundFound:matches.filter(m=>m.status==="outbound_found").length,
       inboundWithoutOutbound:matches.filter(m=>m.status==="inbound_without_outbound").length,
       noRecentMatch:matches.filter(m=>m.status==="no_recent_match").length,
-      errors:matches.filter(m=>m.status==="error").length,
+      errors:matches.filter(m=>m.status==="error"||m.status==="incomplete").length,
     },
   };
 }

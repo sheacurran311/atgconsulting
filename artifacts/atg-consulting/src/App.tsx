@@ -1,13 +1,12 @@
+import { TransformationPage } from "@/pages/transformation";
+import { marketingPage } from "../../api-server/src/lib/transformationMarketing";
 import { industrySites, industryBody } from "@/content/industrySites";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Route, Switch, Router, useLocation, Redirect } from "wouter";
 import { ClerkProvider, useUser } from "@clerk/react";
 import { clerkPubKey, clerkProxyUrl, clerkAppearance, basePath, stripBase } from "@/lib/clerk";
 import AccountLanding from "@/components/AccountLanding";
 import IntakeEntry from "@/components/IntakeEntry";
-import AutomationLibraryPage, { AdminAutomationLibraryPage } from "@/pages/app/automations";
-import DeliveryPlaybookPage from "@/pages/admin/playbook";
-import AdminAccountPage from "@/pages/admin/account";
 import Nav from "@/components/Nav";
 import CommandPalette from "@/components/CommandPalette";
 import HomePage from "@/pages/home";
@@ -17,60 +16,65 @@ import RefundsPage from "@/pages/refunds";
 import IntakeDiscoveryPage from "@/pages/intake";
 import { SignInPage, SignUpPage } from "@/pages/auth";
 
-// App (client portal) pages
-import DashboardPage from "@/pages/app/dashboard";
-import PlanPage from "@/pages/app/plan";
-import SessionsPage from "@/pages/app/sessions";
-import ConsultationsPage from "@/pages/app/consultations";
-import DocumentsPage from "@/pages/app/documents";
-import ReportsPage from "@/pages/app/reports";
-import LearnPage from "@/pages/app/learn";
-import { WorkshopHomePage, WorkshopLessonPage } from "@/pages/app/workshop";
-import AppAccountPage from "@/pages/app/account";
-import ProposalPage from "@/pages/app/proposal";
-
-// Admin pages
-import AdminClientsPage from "@/pages/admin/clients";
-import AdminReportsPage from "@/pages/admin/reports";
-import AdminContentPage from "@/pages/admin/content";
-import AdminAuditPage from "@/pages/admin/audit";
-import AdminMessagesPage from "@/pages/admin/messages";
-import AdminTiersPage from "@/pages/admin/tiers";
-import AdminWorkflowTemplatesPage from "@/pages/admin/workflow-templates";
-import AdminToolsPage from "@/pages/admin/tools";
-import AdminAIUsagePage from "@/pages/admin/ai-usage";
-import AdminDiscoveryPage from "@/pages/admin/discovery";
-import AdminEngagementsPage from "@/pages/admin/engagements";
-import AdminCatalogPage from "@/pages/admin/catalog";
-import AdminTodayPage from "@/pages/admin/today";
-import AdminProspectingPage from "@/pages/admin/prospecting";
-import AdminWorkshopPage from "@/pages/admin/workshop";
 import BlogPage from "@/pages/blog";
 import BlogPostPage from "@/pages/blog-post";
+
+const DeliveryPlaybookPage = lazy(() => import("@/pages/admin/playbook"));
+const AdminAccountPage = lazy(() => import("@/pages/admin/account"));
+const DashboardPage = lazy(() => import("@/pages/app/dashboard"));
+const PlanPage = lazy(() => import("@/pages/app/plan"));
+const SessionsPage = lazy(() => import("@/pages/app/sessions"));
+const ConsultationsPage = lazy(() => import("@/pages/app/consultations"));
+const DocumentsPage = lazy(() => import("@/pages/app/documents"));
+const ReportsPage = lazy(() => import("@/pages/app/reports"));
+const LearnPage = lazy(() => import("@/pages/app/learn"));
+const AppAccountPage = lazy(() => import("@/pages/app/account"));
+const ProposalPage = lazy(() => import("@/pages/app/proposal"));
+const AdminClientsPage = lazy(() => import("@/pages/admin/clients"));
+const AdminReportsPage = lazy(() => import("@/pages/admin/reports"));
+const AdminContentPage = lazy(() => import("@/pages/admin/content"));
+const AdminAuditPage = lazy(() => import("@/pages/admin/audit"));
+const AdminMessagesPage = lazy(() => import("@/pages/admin/messages"));
+const AdminTiersPage = lazy(() => import("@/pages/admin/tiers"));
+const AdminWorkflowTemplatesPage = lazy(() => import("@/pages/admin/workflow-templates"));
+const AdminToolsPage = lazy(() => import("@/pages/admin/tools"));
+const AdminAIUsagePage = lazy(() => import("@/pages/admin/ai-usage"));
+const AdminDiscoveryPage = lazy(() => import("@/pages/admin/discovery"));
+const AdminEngagementsPage = lazy(() => import("@/pages/admin/engagements"));
+const AdminCatalogPage = lazy(() => import("@/pages/admin/catalog"));
+const AdminTodayPage = lazy(() => import("@/pages/admin/today"));
+const AdminProspectingPage = lazy(() => import("@/pages/admin/prospecting"));
+const AdminWorkshopPage = lazy(() => import("@/pages/admin/workshop"));
+const AutomationLibraryPage = lazy(() => import("@/pages/app/automations"));
+const AdminAutomationLibraryPage = lazy(() => import("@/pages/app/automations").then(module => ({default: module.AdminAutomationLibraryPage})));
+const WorkshopHomePage = lazy(() => import("@/pages/app/workshop").then(module => ({default: module.WorkshopHomePage})));
+const WorkshopLessonPage = lazy(() => import("@/pages/app/workshop").then(module => ({default: module.WorkshopLessonPage})));
 
 function Metadata() {
   const [location] = useLocation();
   useEffect(() => {
-    const intake = location.replace(/\/$/, "") === "/intake";
+    const intake = /^\/intake(?:\/|$)/.test(location);
+    const marketing = marketingPage(location);
     const industry = industrySites.find(site=>location.replace(/\/$/,"") === "/website-design/"+site.slug);
     const isResult = false;
     const isApp = location.startsWith("/app");
     const isAdmin = location.startsWith("/admin");
     const title =
-      industry ? "Website Design for "+industry.audience+" | ATG Consulting"
+      marketing ? marketing.title + " | ATG Consulting"
+      : industry ? "Website Design for "+industry.audience+" | ATG Consulting"
       : isResult ? "Your AI snapshot | ATG Consulting"
       : intake ? "Map my workflow | ATG Consulting"
       : isApp ? "Client portal | ATG Consulting"
       : isAdmin ? "Admin | ATG Consulting"
-      : "ATG Consulting | AI audits for your business and your life";
-    const desc = industry ? industry.description : intake || isResult
+      : "ATG Consulting | AI transformation for small businesses";
+    const desc = marketing ? marketing.description : industry ? industry.description : intake || isResult
       ? "An AI assessment for your business, personal and family logistics, or both. No account required."
-      : "Shea designs and delivers AI systems tailored to your specific role, clients, and daily life. Based in Colorado, USA.";
+      : "ATG helps small businesses assess, implement and improve AI workflows, websites and internal systems. Engagements are scoped around business outcomes and reviewed evidence.";
     document.title = title;
-    if (!industry && document.querySelector('#atg-jsonld')?.textContent?.includes('"@type":"Service"')) {
-      document.querySelector("#atg-jsonld")?.remove();
-      document.querySelector('link[rel="canonical"]')?.setAttribute("href",window.location.origin+location);
-      document.querySelector('meta[property="og:url"]')?.setAttribute("content",window.location.origin+location);
+    if (marketing || industry) {
+      const canonical = new URL((marketing?.path ?? "/website-design/" + industry?.slug), window.location.origin).href;
+      document.querySelector('link[rel="canonical"]')?.setAttribute("href", canonical);
+      document.querySelector('meta[property="og:url"]')?.setAttribute("content", canonical);
     }
     for (const [attr, key, content] of [
       ["name", "description", desc],
@@ -120,6 +124,7 @@ function AuthenticatedApp() {
       {/* Nav is hidden inside /app and /admin (their shells provide navigation) */}
       {!isShell && <Nav onPalette={() => setPaletteOpen(true)} />}
 
+      <Suspense fallback={<p role="status" className="px-6 py-4">Loading workspace…</p>}>
       <Switch>
         {/* Marketing */}
         <Route path="/" component={HomeRedirect} />
@@ -184,6 +189,17 @@ function AuthenticatedApp() {
         <Route path="/admin/playbook" component={DeliveryPlaybookPage} />
         <Route path="/admin/account" component={AdminAccountPage} />
         <Route path="/admin/today" component={AdminTodayPage} />
+        <Route path="/services">{() => <TransformationPage path="/services" />}</Route>
+        <Route path="/services/:slug">{params => {
+          const path = "/services/" + params.slug;
+          return marketingPage(path) ? <TransformationPage path={path} /> : <NotFound />;
+        }}</Route>
+        <Route path="/seo-aeo">{() => <TransformationPage path="/seo-aeo" />}</Route>
+        <Route path="/seo-aeo/:slug">{params => {
+          const path = "/seo-aeo/" + params.slug;
+          return marketingPage(path) ? <TransformationPage path={path} /> : <NotFound />;
+        }}</Route>
+        <Route path="/value-realization">{() => <TransformationPage path="/value-realization" />}</Route>
         <Route path="/website-design/:slug">{params=>{
           const site=industrySites.find(row=>row.slug===params.slug);
           return site ? <div dangerouslySetInnerHTML={{__html:industryBody(site)}} /> : <NotFound />;
@@ -196,6 +212,7 @@ function AuthenticatedApp() {
 
         <Route component={NotFound} />
       </Switch>
+      </Suspense>
     </ClerkProvider>
   );
 }

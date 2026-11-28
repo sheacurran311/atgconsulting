@@ -1,3 +1,4 @@
+import type { WorkspaceRecord } from "@/lib/engagementWorkspace";
 /**
  * Typed API client — thin wrapper over fetch that targets the same origin.
  * Uses the Clerk session cookie for auth (same-origin, credentials: "include").
@@ -262,7 +263,7 @@ export interface PlanResult {
 export interface AccountIdentity { id: string; email: string | null; name: string | null; role: string; isAdmin: boolean; clientId: string | null }
 export interface ClientProfile { id: string; email: string | null; name: string | null; role: string; isAdmin: boolean; clientId: string | null; tier: string; status: string | null; digestEmailOptIn: boolean; helpStyle?: string | null }
 export interface WorkflowItem { id: string; area: string; title: string; done: boolean; order: number }
-export interface ActionItem { id: string; owner: string; text: string; done: boolean; dueAt: string | null }
+export interface ActionItem { id: string; owner: string; text: string; done: boolean; dueAt: string | null; readOnly?: boolean }
 export interface Consultation { id: string; title: string; scheduledAt: string | null; durationMin: number; notes: string | null; status: string; recordingUrl: string | null; actionItems: ActionItem[] }
 export interface Document { id: string; title: string; type: string; mime: string; size: number; visibleToClient: boolean; createdAt: string }
 export interface Report { id: string; date: string; kind: string; contentMarkdown: string; status: string; publishedAt: string | null }
@@ -596,7 +597,14 @@ export interface PortalStatus {
 }
 
 export interface ClientProposal {
-  testInstallments?: {label:string;amount:string;status:string}[];
+  commercialTerms?: {
+    digest: string;
+    additionalHourlyCents: number;
+    measurement: Extract<WorkspaceRecord, {kind: "measurement"}>;
+    sla: Extract<WorkspaceRecord, {kind: "sla"}> | null;
+  } | null;
+  testInstallments?: {label:string;amount:string;status:string;stage?:number}[];
+  liveInstallments?: {label:string;amount:string;status:string;stage:number}[];
   id: string;
   status: string;
   approvedAt: string | null;
@@ -628,7 +636,8 @@ export interface AccessLogEntry {
 export const portalApi = {
   status:      () => get<PortalStatus>("/portal/status"),
   proposal:    () => get<PortalProposal>("/portal/proposal"),
-  acceptProposal: (proposalId:string, approvedAt:string|null) => post<{ ok: boolean; acceptedAt: string | null; acceptedByName: string | null }>("/portal/proposal/accept", {proposalId,approvedAt}),
+  acceptProposal: (proposalId:string, approvedAt:string|null, bindingDigest?: string) => post<{ ok: boolean; acceptedAt: string | null; acceptedByName: string | null }>("/portal/proposal/accept", {proposalId,approvedAt,bindingDigest}),
+  liveInstallment: (id:string, stage:number) => post<{paid?:boolean;url?:string}>(`/portal/proposal/${id}/installments/${stage}/checkout`, {}),
   testInstallment: (id:string, stage:number) => post<{paid?:boolean;url?:string}>(`/portal/proposal/${id}/installments/${stage}/test-checkout`, {}),
   personalize: () => post<{ ok: boolean }>("/portal/personalize", {}),
   accessLog:   () => get<AccessLogEntry[]>("/portal/access-log"),

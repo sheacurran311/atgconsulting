@@ -2,14 +2,20 @@ import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db";
 import { withUser, requireAuth, requireAdmin, type AuthedRequest } from "../lib/auth";
+import { Prisma } from "@prisma/client";
+import { lockClientGovernance } from "../lib/clientGovernanceLock";
 import { audit } from "../lib/audit";
-import { buildOperatingPlan, OperatingPlanSchema, operatingPlanMarkdown } from "../lib/operatingPlan";
+import { buildOperatingPlan, OperatingPlanSchema, operatingGovernanceReasons, operatingPlanMarkdown, publishedOperatingPlan, type OperatingPlanContent } from "../lib/operatingPlan";
 
 export function createOperationsRouter(resolve: RequestHandler = withUser) {
   const router = Router();
   const adminPath = "/admin/clients/:id/operations";
   const clientPath = "/client/operations";
   router.use([adminPath, clientPath], resolve);
+  router.use(adminPath, (req, res, next) => {
+    if ((req as AuthedRequest).atgUser?.isImpersonating) { res.sendStatus(403); return; }
+    next();
+  });
   const clientId = (req: AuthedRequest) => req.atgUser?.clientId;
 
   router.get(adminPath, requireAdmin, async (req, res) => {
@@ -33,22 +39,47 @@ export function createOperationsRouter(resolve: RequestHandler = withUser) {
   router.put(adminPath, requireAdmin, async (req, res) => {
     const body = z.object({ version: z.number().int().positive(), content: OperatingPlanSchema, internalNotes: z.string().max(10000) }).safeParse(req.body);
     if (!body.success) { res.status(422).json({ error: body.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }); return; }
-    const updated = await prisma.operatingPlan.updateMany({ where: { clientId: req.params.id as string, version: body.data.version }, data: { content: JSON.stringify(body.data.content), internalNotes: body.data.internalNotes, version: { increment: 1 } } });
-    if (!updated.count) { res.status(409).json({ error: "This plan changed elsewhere. Reload before saving." }); return; }
+    const client = req.params.id as string;
+    const result = await saveOrPublish(client, body.data.version, body.data.content, body.data.internalNotes);
+    if (result !== "ok") { res.status(result.status).json({error: result.error}); return; }
     await audit({ actorUserId: (req as AuthedRequest).atgUser!.id, action: "OPERATING_PLAN_UPDATED", entity: "Client", entityId: req.params.id as string });
     res.json({ ok: true });
   });
   router.post(`${adminPath}/publish`, requireAdmin, async (req, res) => {
     const body = z.object({ version: z.number().int().positive() }).safeParse(req.body);
     if (!body.success) { res.status(422).json({ error: "A saved version is required." }); return; }
-    const plan = await prisma.operatingPlan.findUnique({ where: { clientId: req.params.id as string } });
-    if (!plan) { res.status(404).json({ error: "No plan yet." }); return; }
-    if (!OperatingPlanSchema.safeParse(JSON.parse(plan.content)).success) { res.status(422).json({ error: "Review and save a valid plan first." }); return; }
-    const result = await prisma.operatingPlan.updateMany({ where: { id: plan.id, version: body.data.version }, data: { publishedContent: plan.content, publishedVersion: plan.version, publishedAt: new Date() } });
-    if (!result.count) { res.status(409).json({ error: "The plan changed. Reload and review before publishing." }); return; }
-    await audit({ actorUserId: (req as AuthedRequest).atgUser!.id, action: "OPERATING_PLAN_PUBLISHED", entity: "OperatingPlan", entityId: plan.id });
+    const id = String(req.params.id);
+    const result = await saveOrPublish(id, body.data.version);
+    if (result !== "ok") { res.status(result.status).json({error: result.error}); return; }
+    await audit({ actorUserId: (req as AuthedRequest).atgUser!.id, action: "OPERATING_PLAN_PUBLISHED", entity: "Client", entityId: id });
     res.json({ ok: true });
   });
+  async function saveOrPublish(id: string, expectedVersion: number, draft?: OperatingPlanContent, internalNotes?: string) {
+    return prisma.$transaction(async db => {
+      await lockClientGovernance(db, id);
+      const plan = await db.operatingPlan.findUnique({where: {clientId: id}});
+      if (!plan) return {status: 404, error: "No plan yet."};
+      if (plan.version !== expectedVersion) return {status: 409, error: "The plan changed. Reload before continuing."};
+      const saved = OperatingPlanSchema.safeParse(JSON.parse(plan.content));
+      if (!saved.success) return {status: 422, error: "Review and save a valid plan first."};
+      const [context, intake] = await Promise.all([
+        db.businessContextVersion.findFirst({where: {clientId: id}, orderBy: {version: "desc"}}),
+        db.discoveryIntake.findFirst({where: {clientId: id, consentGiven: true}, orderBy: {createdAt: "desc"}, select: {answers: true}}),
+      ]);
+      const content = draft ?? saved.data;
+      const reasons = operatingGovernanceReasons({current: content, prior: saved.data, trustedIntake: buildOperatingPlan(intake?.answers),
+        context: context ? {version: context.version, profile: JSON.parse(context.content)} : null, clientId: id, today: new Date().toISOString().slice(0, 10)});
+      if (reasons.length) return {status: 409, error: reasons.join(" ")};
+      const data = draft ? {content: JSON.stringify(content), internalNotes, version: {increment: 1}}
+        : {publishedContent: JSON.stringify(publishedOperatingPlan(content)), publishedVersion: expectedVersion, publishedAt: new Date()};
+      const updated = await db.operatingPlan.updateMany({where: {id: plan.id, version: expectedVersion}, data});
+      return updated.count ? "ok" as const : {status: 409, error: "The plan changed. Reload before continuing."};
+    }).catch(error => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return {status: 409, error: "The client's governance context changed. Reload and review."};
+      throw error;
+    });
+  }
+
   router.get(clientPath, requireAuth, async (req, res) => {
     const id = clientId(req as AuthedRequest);
     if (!id) { res.status(404).json({ error: "No client profile." }); return; }
@@ -72,6 +103,7 @@ export function createOperationsRouter(resolve: RequestHandler = withUser) {
   router.post(`${clientPath}/accept`, requireAuth, async (req, res) => {
     const body = z.object({ version: z.number().int().positive(), confirmed: z.literal(true) }).safeParse(req.body);
     const id = clientId(req as AuthedRequest);
+    if ((req as AuthedRequest).atgUser?.isImpersonating) { res.sendStatus(403); return; }
     if (!id || !body.success) { res.status(422).json({ error: "Confirm that you reviewed this published version." }); return; }
     const result = await prisma.operatingPlan.updateMany({ where: { clientId: id, publishedVersion: body.data.version, publishedContent: { not: null } }, data: { acceptedVersion: body.data.version, acceptedAt: new Date() } });
     if (!result.count) { res.status(409).json({ error: "The published guide changed. Reload before confirming." }); return; }
@@ -82,6 +114,7 @@ export function createOperationsRouter(resolve: RequestHandler = withUser) {
   router.post(`${clientPath}/events`, requireAuth, async (req, res) => {
     const body = EventBody.safeParse(req.body);
     const id = clientId(req as AuthedRequest);
+    if ((req as AuthedRequest).atgUser?.isImpersonating) { res.sendStatus(403); return; }
     if (!id || !body.success) { res.status(422).json({ error: "Choose a report type and enter 5–2,000 characters." }); return; }
     const plan = await prisma.operatingPlan.findUnique({ where: { clientId: id }, select: { id: true, publishedContent: true } });
     if (!plan?.publishedContent) { res.status(404).json({ error: "No published operating guide." }); return; }

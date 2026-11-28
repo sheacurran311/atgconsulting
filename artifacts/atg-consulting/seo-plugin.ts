@@ -1,3 +1,5 @@
+import { marketingPage, marketingPaths } from "../api-server/src/lib/transformationMarketing.ts";
+import { marketingDocument } from "../api-server/src/lib/marketingDocument.ts";
 import { industrySites, industryPath } from "../api-server/src/lib/industrySites.ts";
 import { industryDocument } from "../api-server/src/lib/industryDocument.ts";
 /**
@@ -115,6 +117,20 @@ async function handle(
     return;
   }
 
+  const marketing = marketingPage(pathname);
+  if (marketing) {
+    try {
+      const template = await renderIndex(req.url ?? pathname);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.end(req.method === "HEAD" ? undefined : marketingDocument(template, origin, marketing));
+    } catch (error) { next(error); }
+    return;
+  }
+  if (pathname.startsWith("/services/") || pathname.startsWith("/seo-aeo/")) {
+    res.statusCode = 404;
+    res.end(req.method === "HEAD" ? undefined : "Service page not found.");
+    return;
+  }
   if (pathname.startsWith("/website-design/")) {
     const site=industrySites.find(item=>industryPath(item)===pathname.replace(/\/$/,""));
     if (!site) { res.statusCode=404; res.end(req.method==="HEAD"?undefined:"Industry page not found."); return; }
@@ -174,7 +190,15 @@ async function prerenderBuiltBlog(outDir: string): Promise<void> {
     fs.mkdirSync(directory,{recursive:true});
     fs.writeFileSync(path.join(directory,"index.html"),industryDocument(indexHtml,origin,site));
   }
+  for (const pathname of marketingPaths) {
+    const page = marketingPage(pathname)!;
+    const directory = path.join(outDir, pathname.slice(1));
+    fs.mkdirSync(directory, {recursive: true});
+    fs.writeFileSync(path.join(directory, "index.html"), marketingDocument(indexHtml, origin, page));
+  }
   const listed = await loadPosts();
+  fs.writeFileSync(path.join(outDir, "sitemap.xml"), sitemapXml(origin, listed));
+  fs.writeFileSync(path.join(outDir, "robots.txt"), robotsTxt(origin));
   for (const row of listed) {
     const post = await loadPost(row.slug);
     if (!post || post === "missing") continue;

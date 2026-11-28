@@ -6,7 +6,7 @@ import type { SheetProspect } from "./lib/prospectSheet";
 const account="shea@atgconsulting.io";
 const email="owner@smallbusiness.example";
 function msg(from:string,to:string,at:number) {
-  return {internalDate:String(at),payload:{headers:[{name:"From",value:from},{name:"To",value:to}]}};
+  return {labelIds:from === account ? ["SENT"] : ["INBOX"],internalDate:String(at),payload:{headers:[{name:"From",value:from},{name:"To",value:to}]}};
 }
 function prospect(overrides:Partial<SheetProspect>={}):SheetProspect {
   return {rowNumber:2,businessName:"ABC HVAC",website:"",domain:"abc.example",category:"HVAC",city:"Denver",state:"CO",
@@ -85,4 +85,30 @@ test("rejects invalid Gmail page offsets before connector calls",async()=>{
   const client={proxy:async()=>{called=true;return new Response(null,{status:200})}};
   await assert.rejects(()=>reconcileGmail({client,offset:-1}),/Invalid Gmail reconciliation offset/);
   assert.equal(called,false);
+});
+
+test("checks replies after the third thread and holds follow-up on incomplete Gmail searches", async () => {
+  let exhaust = false;
+  const client = {proxy: async (_name: string, path: string) => {
+    const params = new URL(path, "https://fixture.invalid").searchParams;
+    const page = params.get("pageToken");
+    if (path.includes("/profile")) return Response.json({emailAddress: account});
+    if (path.includes("/threads?")) {
+      if (exhaust) return Response.json({threads: [], nextPageToken: String(Number(page ?? 0) + 1)});
+      return Response.json(page ? {threads: [{id: "fourth"}]} :
+        {threads: ["first", "second", "third"].map(id => ({id})), nextPageToken: "next"});
+    }
+    return Response.json({messages: path.includes("fourth") ?
+      [msg(account,email,1700000000000),msg(email,account,1700000100000)] : []});
+  }};
+  const pipelineReader = async () => ({spreadsheetId:"x",url:"",prospectCount:1,rows:[prospect()],
+    byStage:{Ready:1},suppressedCount:0,followUpsDue:0,dataTruncated:false});
+  const checked = await reconcileGmail({client,pipelineReader,expectedAccount:account});
+  assert.equal(checked.matches[0]?.threadCount, 4);
+  assert.equal(checked.matches[0]?.status, "reply_detected");
+  exhaust = true;
+  const limited = await reconcileGmail({client,pipelineReader,expectedAccount:account});
+  assert.equal(limited.matches[0]?.status, "incomplete");
+  assert.equal(limited.matches[0]?.suggestedAction, "hold_follow_up");
+  assert.equal(limited.limited, true);
 });

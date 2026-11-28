@@ -1,5 +1,8 @@
+import { contractBindingFor } from "../lib/engagementContract";
+import { forecast, kpiRegistry, MeasurementPlan } from "../lib/engagementMeasurement";
+import { SlaInput } from "../lib/engagementWorkspace";
 import { savedQuote } from "../lib/customQuote";
-import { testPaymentsEnabled } from "../lib/quotePayments";
+import { livePaymentsEnabled, testPaymentsEnabled } from "../lib/quotePayments";
 import { legacyAssessmentFor } from "../lib/assessmentPresence";
 /**
  * Portal onboarding and personalization routes.
@@ -139,18 +142,46 @@ router.get("/portal/proposal", resolve, requireAuth, async (req, res) => {
   }
 
   const intake = intakes.find((i) => i.id === proposal.discoveryIntakeId);
-  const stages = testPaymentsEnabled() ? savedQuote(proposal.investment)?.installments ?? [] : [];
+  const scope = {clientId: user.clientId, workspace: proposal.discoveryIntakeId};
+  const binding = await contractBindingFor(prisma, scope, proposal.id);
+  const commercialTerms = binding ? await (async () => {
+    const [measurement, sla] = await Promise.all([
+      prisma.engagementRevision.findFirstOrThrow({where: {...scope, kind: "measurement", period: "", version: binding.measurementVersion, status: "published"}}),
+      binding.slaVersion === null ? null : prisma.engagementRevision.findFirstOrThrow({
+        where: {...scope, kind: "sla", period: "", version: binding.slaVersion, status: {in: ["published", "executed"]}},
+      }),
+    ]);
+    const plan = MeasurementPlan.parse(JSON.parse(measurement.content));
+    return {
+      digest: binding.digest, additionalHourlyCents: binding.additionalHourlyCents,
+      measurement: {kind: "measurement", workspace: scope.workspace, version: measurement.version, status: measurement.status,
+        period: measurement.period, createdAt: measurement.createdAt, content: plan, calculation: plan.forecast ? forecast(plan.forecast) : null,
+        definitions: kpiRegistry.filter(item => plan.metrics.some(metric => metric.kpiId === item.id))},
+      sla: sla && {kind: "sla", workspace: scope.workspace, version: sla.version, status: sla.status,
+        period: sla.period, createdAt: sla.createdAt, content: SlaInput.parse(JSON.parse(sla.content))},
+    };
+  })() : null;
+
+  const testPayments = testPaymentsEnabled();
+  const livePayments = livePaymentsEnabled();
+  const stages = testPayments || livePayments ? savedQuote(proposal.investment)?.installments ?? [] : [];
   const payments = stages.length && proposal.acceptedAt ? await prisma.quoteInstallment.findMany({
-    where:{proposalId:proposal.id, clientId:user.clientId}, select:{stage:true, paidAt:true, refundedCents:true},
+    where:{proposalId:proposal.id, clientId:user.clientId}, select:{stage:true, paidAt:true, refundedCents:true, liveMode:true, authorizedAt:true},
   }) : [];
   res.json({
     state,
     proposal: {
       ...toClientProposal(proposal, intake?.contactName ?? null),
-      testInstallments: stages.map((item, stage) => {
+      commercialTerms,
+      testInstallments: testPayments ? stages.flatMap((item, stage) => {
         const payment = payments.find(row => row.stage === stage);
-        return {...item, status:payment?.refundedCents ? 'Refund recorded' : payment?.paidAt ? 'Paid' : 'Unpaid'};
-      }),
+        return payment?.liveMode ? [] : [{...item, stage, status:payment?.refundedCents ? "Refund recorded" : payment?.paidAt ? "Paid" : "Unpaid"}];
+      }) : [],
+      liveInstallments: livePayments ? stages.flatMap((item, stage) => {
+        const payment = payments.find(row => row.stage === stage);
+        return payment?.liveMode && payment.authorizedAt
+          ? [{...item, stage, status:payment.refundedCents ? "Refund recorded" : payment.paidAt ? "Paid" : "Unpaid"}] : [];
+      }) : [],
     },
   });
 });
@@ -174,6 +205,10 @@ router.post("/portal/proposal/accept", resolve, requireAuth, async (req, res) =>
     orderBy: { approvedAt: "desc" },
   });
   if (!proposal) { res.status(404).json({ error: "No approved proposal to accept." }); return; }
+  const binding = await contractBindingFor(prisma, {clientId: user.clientId, workspace: proposal.discoveryIntakeId}, proposal.id);
+  if (binding && (req.body?.bindingDigest !== binding.digest || !req.is("application/json") || req.get("sec-fetch-site") === "cross-site")) {
+    res.status(409).json({error: "Review the current proposal and its measurement plan before accepting."}); return;
+  }
   const requiresVersion = !!savedQuote(proposal.investment) || req.body?.proposalId !== undefined;
   if (requiresVersion && (req.body?.proposalId !== proposal.id || req.body?.approvedAt !== proposal.approvedAt?.toISOString())) {
     res.status(409).json({error:"The approved proposal changed. Reload and review before accepting."});

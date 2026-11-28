@@ -1,3 +1,4 @@
+import ProspectSiteReview from "@/components/admin/ProspectSiteReview";
 import { useEffect, useState } from "react";
 import AdminShell from "@/components/admin/AdminShell";
 import { adminJson } from "@/lib/adminWork";
@@ -8,7 +9,8 @@ interface Prospect {
   notes: string; status: Status; score: number | null; outreachDraft: string;
   review?: Review | null;
 }
-interface Review { industryFit:number; sizeFit:number; observableNeed:number; contactConfidence:number; urgency:number; suppressed:boolean; evidence: Array<{claim:string;sourceUrl:string;observedAt:string;verified:boolean}> }
+type ProspectContact = {email: string; sourceUrl: string; checkedAt: string};
+interface Review { contact?: ProspectContact; qualification?: {economicPotential: number; serviceFit: number; feasibility: number; expansion: number}; industryFit:number; sizeFit:number; observableNeed:number; contactConfidence:number; urgency:number; suppressed:boolean; evidence: Array<{claim:string;sourceUrl:string;observedAt:string;verified:boolean}> }
 interface SheetProspect {
   rowNumber:number; businessName:string; website:string; domain:string; category:string; city:string; state:string;
   contactName:string; contactEmail:string; emailStatus:string; observedSignal:string; suggestedService:string;
@@ -21,9 +23,9 @@ interface SheetPipeline {
 }
 interface GmailMatch {
   rowNumber:number;businessName:string;contactEmail:string;
-  status:"reply_detected"|"outbound_found"|"inbound_without_outbound"|"no_recent_match"|"error";
+  status:"reply_detected"|"outbound_found"|"inbound_without_outbound"|"no_recent_match"|"incomplete"|"error";
   lastOutboundAt:string|null;lastInboundAt:string|null;threadCount:number;
-  suggestedAction:"review_reply"|"verify_outreach"|"inspect_inbound"|"none";
+  suggestedAction:"review_reply"|"verify_outreach"|"inspect_inbound"|"hold_follow_up"|"none";
 }
 interface GmailReconciliation {
   account:string;checked:number;eligibleCount:number;limited:boolean;offset:number;nextOffset:number|null;
@@ -38,6 +40,7 @@ interface MeetingOverview {
   meetingCount:number;rangeStart:string;rangeEnd:string;limited:boolean;eventsConsidered:number;
   matches:ProspectMeeting[];
 }
+const qualificationDefaults = {economicPotential: 0, serviceFit: 0, feasibility: 0, expansion: 0};
 const emptyReview:Review={industryFit:0,sizeFit:0,observableNeed:0,contactConfidence:0,urgency:0,suppressed:false,evidence:[]};
 const transitions: Record<Status, Status[]> = {
   NEW:["RESEARCHED","DISQUALIFIED","SUPPRESSED"],
@@ -63,6 +66,18 @@ export default function AdminProspectingPage() {
     try { setCalendar(await adminJson<MeetingOverview>("/api/admin/prospecting/calendar-meetings")); }
     catch(e){setCalendarError(e instanceof Error?e.message:"Unable to read calendar.");}
     finally {setCalendarBusy(false);}
+  }
+  const [suppressionBusy, setSuppressionBusy] = useState(false);
+  const [suppressionResult, setSuppressionResult] = useState("");
+  async function reconcileSuppression() {
+    setSuppressionBusy(true);
+    setSuppressionResult("");
+    try {
+      const result = await adminJson<{suppressedRows: number; coverageTruncated: boolean}>("/api/admin/prospecting/suppression/reconcile", {method: "POST"});
+      setSuppressionResult(result.suppressedRows + " Sheet suppression records reviewed. " +
+        (result.coverageTruncated ? "The Sheet exceeded scan coverage. Review before outreach." : "Matching identities are locked in the app."));
+    } catch (err) {setSuppressionResult(err instanceof Error ? err.message : "Unable to reconcile suppression.");}
+    finally {setSuppressionBusy(false);}
   }
   const [approvalRow,setApprovalRow]=useState<SheetProspect|null>(null);
   const [approvalStage,setApprovalStage]=useState<"Contacted"|"Replied">("Contacted");
@@ -115,8 +130,15 @@ export default function AdminProspectingPage() {
   }
 
   const [name,setName]=useState(""); const [website,setWebsite]=useState("");
+  const [inviteLink, setInviteLink] = useState("");
   const [selected,setSelected]=useState<Prospect|null>(null);
   const [draft,setDraft]=useState(""); const [notes,setNotes]=useState("");
+  const [contactDraft, setContactDraft] = useState({email: "", sourceUrl: ""});
+  const [contactChecked, setContactChecked] = useState(false);
+  useEffect(() => {
+    setContactDraft({email: selected?.review?.contact?.email ?? "", sourceUrl: selected?.review?.contact?.sourceUrl ?? ""});
+    setContactChecked(false);
+  }, [selected?.id, selected?.review?.contact?.checkedAt]);
   const [review,setReview]=useState<Review>(emptyReview);
   const [claim,setClaim]=useState(""); const [sourceUrl,setSourceUrl]=useState("");
   const [evidenceVerified,setEvidenceVerified]=useState(false);
@@ -126,6 +148,17 @@ export default function AdminProspectingPage() {
     catch(e) { setError(e instanceof Error ? e.message : "Unable to load prospects."); }
   }
   useEffect(()=>{void load();},[]);
+  useEffect(() => {
+    if (selected || !rows.length) return;
+    const target = new URLSearchParams(window.location.search).get("prospect");
+    const match = rows.find(item => item.id === target);
+    if (match) {
+      setSelected(match);
+      setDraft(match.outreachDraft);
+      setNotes(match.notes);
+      setReview(match.review ?? emptyReview);
+    }
+  }, [rows, selected]);
   useEffect(()=>{void loadSheet();},[]);
   async function add(e: React.FormEvent) {
     e.preventDefault(); if(busy) return; setBusy(true); setError(""); setMessage("");
@@ -144,7 +177,12 @@ export default function AdminProspectingPage() {
         setError("Enter a complete observation and URL, then confirm you verified the source."); setBusy(false); return;
       }
       const evidence = evidenceVerified && claim.trim() && sourceUrl.trim() ? [{claim:claim.trim(),sourceUrl:sourceUrl.trim(),observedAt:new Date().toISOString(),verified:true}] : [];
-      const payload:Record<string,unknown>={notes,expectedUpdatedAt:selected.updatedAt,review:{...review,evidence: evidence.length ? [...review.evidence,...evidence] : review.evidence}};
+      const contactChanged = contactDraft.email.trim() !== (review.contact?.email ?? "") || contactDraft.sourceUrl.trim() !== (review.contact?.sourceUrl ?? "");
+      if (contactChanged && (!contactChecked || !contactDraft.email.trim() || !contactDraft.sourceUrl.trim())) {
+        setError("Confirm the email against its official public contact page before saving."); return;
+      }
+      const contact = contactChanged ? {...contactDraft, checkedAt: new Date().toISOString()} : review.contact;
+      const payload:Record<string,unknown>={notes,expectedUpdatedAt:selected.updatedAt,review:{...review, contact, evidence: evidence.length ? [...review.evidence,...evidence] : review.evidence}};
       if(selected.status!=="APPROVED"&&nextStatus!=="APPROVED")payload.outreachDraft=draft;
       if(nextStatus)payload.nextStatus=nextStatus;
       const updated=await adminJson<Prospect>(`/api/admin/prospecting/${selected.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
@@ -320,11 +358,12 @@ export default function AdminProspectingPage() {
                 outbound_found:"Outbound message observed",
                 inbound_without_outbound:"Inbound message; outbound not confirmed",
                 no_recent_match:"No match in limited search",
+                incomplete:"Search limit reached. Hold follow-up.",
                 error:"Unable to check",
               } as const)[m.status]}</td>
               <td className="p-2">{m.lastOutboundAt?new Date(m.lastOutboundAt).toLocaleDateString():""}</td>
               <td className="p-2">{m.lastInboundAt?new Date(m.lastInboundAt).toLocaleDateString():""}</td>
-              <td className="p-2">{({review_reply:"Review response",verify_outreach:"Verify sent message",inspect_inbound:"Review inbound",none:"No change"} as const)[m.suggestedAction]}</td>
+              <td className="p-2">{({review_reply:"Review response",verify_outreach:"Verify sent message",inspect_inbound:"Review inbound",hold_follow_up:"Hold follow-up",none:"No change"} as const)[m.suggestedAction]}</td>
             </tr>)}
           </tbody></table>
         </div>
@@ -340,6 +379,12 @@ export default function AdminProspectingPage() {
     </section>
     {error&&<p role="alert" className="p-3 rounded bg-red-100 text-red-900">{error}</p>}
     {message&&<p role="status" className="p-3 rounded bg-green-100 text-green-900">{message}</p>}
+    <section className="space-y-2 rounded-lg border border-canvas-border p-3" aria-label="Shared outreach suppression">
+      <button type="button" className="btn-secondary" disabled={suppressionBusy} onClick={() => void reconcileSuppression()}>
+        {suppressionBusy ? "Reconciling…" : "Import Do Not Contact records from the ATG Sheet"}
+      </button>
+      {suppressionResult && <p className="text-sm" role="status">{suppressionResult}</p>}
+    </section>
     <form onSubmit={add} className="flex flex-wrap gap-2">
       <input aria-label="Business name" className="field-input flex-1 min-w-48" placeholder="Business name" value={name} onChange={e=>setName(e.target.value)} required/>
       <input aria-label="Website" className="field-input flex-1 min-w-48" placeholder="https://business.com" value={website} onChange={e=>setWebsite(e.target.value)} required/>
@@ -348,7 +393,7 @@ export default function AdminProspectingPage() {
     <div className="grid md:grid-cols-2 gap-4">
       <section className="space-y-2" aria-label="Prospects">
         {rows.length===0&&<p className="text-sm opacity-70">No prospects recorded.</p>}
-        {rows.map(p=><button key={p.id} type="button" onClick={()=>{setSelected(p);setDraft(p.outreachDraft);setNotes(p.notes);setReview(p.review??emptyReview);setClaim("");setSourceUrl("");setEvidenceVerified(false);setMessage("");}}
+        {rows.map(p=><button key={p.id} type="button" onClick={()=>{setSelected(p);setDraft(p.outreachDraft);setNotes(p.notes);setReview(p.review??emptyReview);setClaim("");setSourceUrl("");setEvidenceVerified(false);setMessage("");setInviteLink("");}}
           className="block w-full text-left rounded-lg border p-3" style={{borderColor:selected?.id===p.id?"var(--blue)":"var(--canvas-border)"}}>
           <div className="font-semibold">{p.businessName}</div><div className="text-xs opacity-70">{p.domain}</div>
           <div className="text-xs mt-2">{p.status} {p.score!==null?`· Fit ${p.score}/100`:""}</div>
@@ -359,11 +404,28 @@ export default function AdminProspectingPage() {
           <div><h2 className="font-semibold text-lg">{selected.businessName}</h2>
             <a className="text-sm underline" href={selected.website} target="_blank" rel="noopener noreferrer">{selected.domain}</a>
             <p className="text-xs opacity-70 mt-1">Status: {selected.status}. Qualification requires verified source evidence.</p></div>
+          <ProspectSiteReview key={selected.id} prospectId={selected.id}
+            enabledForProspect={!["SUPPRESSED", "DISQUALIFIED"].includes(selected.status)}
+            onContact={(email, sourceUrl) => {setContactDraft({email, sourceUrl}); setContactChecked(false);}}
+            onSelect={(observation, source) => {setClaim(observation); setSourceUrl(source); setEvidenceVerified(false);}} />
           <div className="space-y-2 rounded border p-3" style={{borderColor:"var(--canvas-border)"}}>
             <p className="font-semibold text-sm">Evidence-backed qualification (0–5)</p>
-            {(["industryFit","sizeFit","observableNeed","contactConfidence","urgency"] as const).map(key=><label key={key} className="flex items-center justify-between gap-2 text-xs">
-              <span>{key.replace(/([A-Z])/g," $1")}</span><input aria-label={key} type="number" min={0} max={5} step={1} className="field-input w-16" value={review[key]} onChange={e=>setReview(r=>({...r,[key]:Number(e.target.value)}))}/>
-            </label>)}
+            <div className="grid gap-2 sm:grid-cols-2">
+              {([["observableNeed", "Observable improvement (30%)"], ["contactConfidence", "Contact confidence (15%)"]] as const).map(([key, label]) =>
+                <label key={key} className="text-xs">{label}<input type="number" min={0} max={5} step={1} className="field-input mt-1 w-full"
+                  value={review[key]} onChange={e => setReview(current => ({...current, [key]: Number(e.target.value)}))} /></label>)}
+              {([["economicPotential", "Potential economic value (20%)"], ["serviceFit", "ATG service fit (15%)"],
+                ["feasibility", "Implementation feasibility (10%)"], ["expansion", "Expansion potential (10%)"]] as const).map(([key, label]) =>
+                <label key={key} className="text-xs">{label}<input type="number" min={0} max={5} step={1} className="field-input mt-1 w-full"
+                  value={(review.qualification ?? qualificationDefaults)[key]} onChange={e => setReview(current => ({...current,
+                    qualification: {...(current.qualification ?? qualificationDefaults), [key]: Number(e.target.value)}}))} /></label>)}
+            </div>
+            <label className="block text-xs">Published business email<input className="field-input mt-1 w-full" type="email"
+              value={contactDraft.email} onChange={e => setContactDraft({...contactDraft, email: e.target.value})} /></label>
+            <label className="block text-xs">Official contact source URL<input className="field-input mt-1 w-full" type="url"
+              value={contactDraft.sourceUrl} onChange={e => setContactDraft({...contactDraft, sourceUrl: e.target.value})} /></label>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={contactChecked} onChange={event => setContactChecked(event.target.checked)} />
+              I verified that the official website publishes this business email.</label>
             <label className="block text-xs">Verified observation<input className="field-input mt-1 w-full" value={claim} onChange={e=>setClaim(e.target.value)} placeholder="Specific observable business fact"/></label>
             <label className="block text-xs">Source URL<input className="field-input mt-1 w-full" value={sourceUrl} onChange={e=>setSourceUrl(e.target.value)} placeholder="https://source.example/page"/></label>
             <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={evidenceVerified} onChange={e=>setEvidenceVerified(e.target.checked)}/> I personally checked this fact against the supplied public source</label>
@@ -379,7 +441,24 @@ export default function AdminProspectingPage() {
             {transitions[selected.status].map(s=><button type="button" key={s} disabled={busy} onClick={()=>void save(s)}
               className="text-xs font-semibold rounded border px-3 py-2" style={{borderColor:"var(--canvas-border)"}}>{s.replaceAll("_"," ")}</button>)}
           </div>
-          <p className="text-xs opacity-70">Qualification is intentionally blocked until a source-backed assessment is saved through the reviewed API workflow. Mark CONTACTED only after separately completing approved outreach.</p>
+          {["QUALIFIED", "DRAFT_READY", "APPROVED", "CONTACTED", "REPLIED", "BOOKED"].includes(selected.status) && <>
+            <button type="button" className="btn-ghost" disabled={busy} onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                const result = await adminJson<{link: string}>("/api/admin/discovery/invite", {
+                  method: "POST", headers: {"Content-Type": "application/json"},
+                  body: JSON.stringify({prospectId: selected.id, prefilledCompany: selected.businessName.slice(0, 200)}),
+                });
+                setInviteLink(new URL(result.link, window.location.origin).href);
+              } catch (err) {setError(err instanceof Error ? err.message : "Could not create a prospect assessment link.");}
+              finally {setBusy(false);}
+            }}>Create prospect assessment link</button>
+            {inviteLink && <label className="block text-sm">Private invitation link
+              <input readOnly className="field-input mt-1 w-full" value={inviteLink} onFocus={event => event.target.select()} />
+            </label>}
+          </>}
+          <p className="text-xs opacity-70">Qualification requires a documented official source. To mark Contacted or Replied, the app checks ATG Gmail and the suppression Sheet.</p>
         </>:<p className="text-sm opacity-70">Select a prospect to see research and draft history.</p>}
       </section>
     </div>

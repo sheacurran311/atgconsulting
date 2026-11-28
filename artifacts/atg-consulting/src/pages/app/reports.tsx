@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, useRoute } from "wouter";
 import AppShell from "@/components/app/AppShell";
+import GoogleSeoConnections from "@/components/app/GoogleSeoConnections";
+import EngagementReports from "@/components/app/EngagementReports";
 import { NeedsIntake } from "@/components/app/IntakeGate";
 import { api, missingProfile, type Report } from "@/lib/api";
 
@@ -32,9 +34,10 @@ function ReportListBody() {
       <div className="max-w-3xl mx-auto">
         <div className="mb-8">
           <p className="section-eyebrow mb-1">Client portal</p>
-          <h1 className="text-2xl font-extrabold text-canvas-text">Your daily reports</h1>
-          <p className="text-canvas-text text-sm mt-1">Shea reviews and publishes these. Check in to see your progress.</p>
+          <h1 className="text-2xl font-extrabold text-canvas-text">Reports</h1>
         </div>
+        {!needsIntake && <><EngagementReports /><GoogleSeoConnections /></>}
+        <h2 className="mb-3 text-xl font-extrabold">Daily reports</h2>
         {loading ? <p className="text-canvas-text">Loading…</p> : needsIntake ? <NeedsIntake /> : reports.length === 0 ? (
           <div className="rounded-2xl border border-canvas-border bg-canvas-1 p-10 text-center">
             <p className="font-bold text-canvas-text mb-1">No reports published yet</p>

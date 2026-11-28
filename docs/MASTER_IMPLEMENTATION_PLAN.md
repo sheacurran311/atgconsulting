@@ -1,4 +1,10 @@
+# Current execution precedence | November 27, 2026
+
+The [R4 phase-gated protocol](qa/ATG_R4_PHASE_GATED_IMPLEMENTATION.md) and [phase ledger](qa/ATG_R4_PHASE_EXECUTION_LEDGER.md) govern current implementation sequencing. Preserve the approved historical decisions below; the commercial master plan and R3 mandate retain all requirements. Update phase status and evidence before advancing, and resume the first unpassed phase across sessions.
+
 # ATG Consulting | Master Implementation Plan: historical decisions and status register
+
+Current execution precedence and verification: [ATG implementation reconciliation](ATG_IMPLEMENTATION_RECONCILIATION.md).
 
 **Updated November 24, 2026.** Forward execution authority: [Commercial Launch Master Plan v4.0](COMMERCIAL_LAUNCH_MASTER_PLAN_V4.md). The historical text below is preserved for decision provenance; its old branch statuses, fixed prices, deployment instructions and future-tense statements are not current instructions. Baseline: main bf18a28, merged PRs #78 and #79. Source presence is not production verification.
 
@@ -20,6 +26,8 @@
 | Runtime | Unverified | Latest deployment SHA, database migration, tests/build, production flags, legal publication, email and booking require recorded evidence. |
 
 ## Superseded decisions and additions
+
+- November 26 final mandate: use public contacts published on official business websites for the controlled manual pilot. Earlier licensed-source language is retained solely as historical context. The latest reconciliation is authoritative for launch gate evidence.
 
 - November 17 Word plan: free access replacing paid Self-Serve retained; earlier fixed Guided/DIFY prices superseded by November 19 bespoke quote policy. Existing enum compatibility is not a purchasable product.
 - November 19 catalogue: website bands and five bundle ranges remain internal scoping hypotheses, not public pricing. Full project labor includes QA, revisions, training and risk.

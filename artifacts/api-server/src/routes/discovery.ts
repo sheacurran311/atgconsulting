@@ -1,3 +1,10 @@
+import { lockClientGovernance } from "../lib/clientGovernanceLock";
+import { SavedEstimate } from "../lib/engagementWorkspace";
+import { Prisma } from "@prisma/client";
+import { ContractSelection, commercialReviewSources, digestOf, newContractBinding } from "../lib/engagementContract";
+import { MeasurementPlan, OpportunityReview } from "../lib/engagementMeasurement";
+import { emptyBusinessContext, governanceReview } from "../lib/businessContext";
+import { acquisitionAttribution } from "../lib/acquisitionAttribution";
 import { testPaymentsEnabled } from "../lib/quotePayments";
 import { parseInvestment } from "../lib/clientProposal";
 import { quoteSchema, reviewedInvestment, savedQuote } from "../lib/customQuote";
@@ -103,11 +110,11 @@ const AnswerSchema = z.object({
   answer:   z.string().min(1).max(4000),
 });
 
-async function getOrVerifySession(id: string): Promise<{ id: string; answers: AnsweredQuestion[]; tokensUsed: number; consentGiven: boolean } | null> {
-  const rec = await prisma.discoveryIntake.findUnique({ where: { id }, select: { id: true, answers: true, tokensUsed: true, expiresAt: true, consentGiven: true } });
+async function getOrVerifySession(id: string): Promise<{ id: string; answers: AnsweredQuestion[]; tokensUsed: number; consentGiven: boolean; discoveryInviteId: string | null } | null> {
+  const rec = await prisma.discoveryIntake.findUnique({ where: { id }, select: { id: true, answers: true, tokensUsed: true, expiresAt: true, consentGiven: true, discoveryInviteId: true } });
   if (!rec || (rec.expiresAt && rec.expiresAt <= new Date())) return null;
   const answers: AnsweredQuestion[] = (() => { try { return JSON.parse(rec.answers) as AnsweredQuestion[]; } catch { return []; } })();
-  return { id: rec.id, answers, tokensUsed: rec.tokensUsed, consentGiven: rec.consentGiven };
+  return { id: rec.id, answers, tokensUsed: rec.tokensUsed, consentGiven: rec.consentGiven, discoveryInviteId: rec.discoveryInviteId };
 }
 
 // ── GET /api/discovery/questions — static question bank ───────────────────────
@@ -115,6 +122,28 @@ async function getOrVerifySession(id: string): Promise<{ id: string; answers: An
 router.get("/discovery/questions", (_req, res) => {
   res.json({ questions: ALL_ASSESSMENT_QUESTIONS, fallbackOrder: preCallQuestions([]).map(q=>q.id) });
 });
+
+async function linkSubmittedInvite(inviteId: string, intakeId: string) {
+  return prisma.$transaction(async db => {
+    const invite = await db.discoveryInvite.findFirst({
+      where: {id: inviteId, revokedAt: null, expiresAt: {gt: new Date()}},
+      select: {prospectId: true},
+    });
+    if (!invite) return false;
+    const updated = await db.discoveryInvite.updateMany({
+      where: {id: inviteId, revokedAt: null, OR: [{discoveryIntakeId: null}, {discoveryIntakeId: intakeId}]},
+      data: {status: "submitted", discoveryIntakeId: intakeId},
+    });
+    if (!updated.count) return false;
+    const prospect = invite.prospectId && await db.atgProspect.findFirst({
+      where: {id: invite.prospectId, status: {not: "SUPPRESSED"}}, select: {id: true},
+    });
+    if (prospect) await db.discoveryIntake.updateMany({
+      where: {id: intakeId, discoveryInviteId: inviteId, consentGiven: true, prospectId: null}, data: {prospectId: prospect.id},
+    });
+    return true;
+  });
+}
 
 // ── POST /api/discovery/start ─────────────────────────────────────────────────
 
@@ -133,10 +162,16 @@ router.post("/discovery/start", async (req, res) => {
   const startBody = z.object({
     contactEmail: z.string().trim().email().toLowerCase().optional(),
     answers: z.array(AnswerSchema).max(30).optional(),
+    inviteToken: z.string().regex(/^[A-Za-z0-9_-]{16}$/).nullish(),
     requestedTier: z.enum(["self_serve", "guided", "done_for_you"]).optional(),
     requestedSessions: z.union([z.literal(3), z.literal(5), z.literal("3"), z.literal("5")]).optional(),
   }).safeParse(req.body ?? {});
   if (!startBody.success) { res.status(422).json({ error: "Please enter a valid email address and assessment options." }); return; }
+  const invite = startBody.data.inviteToken ? await prisma.discoveryInvite.findFirst({
+    where: {token: startBody.data.inviteToken, revokedAt: null, expiresAt: {gt: new Date()}, status: {notIn: ["submitted", "revoked"]}},
+    select: {id: true},
+  }) : null;
+  if (startBody.data.inviteToken && !invite) {res.status(410).json({error: "This invitation is no longer active."}); return;}
   const initialAnswers: AnsweredQuestion[] = [...new Map([
     ...(startBody.data.answers ?? []).map((a) => ({ ...a, question: sanitiseShortText(a.question), answer: sanitiseText(a.answer, 4000) })),
     ...(startBody.data.contactEmail
@@ -155,6 +190,7 @@ router.post("/discovery/start", async (req, res) => {
     data: {
       ipHash: hashIpDiscovery(ip),
       expiresAt: expires,
+      discoveryInviteId: invite?.id,
       contactEmail: startBody.data.contactEmail ?? null,
       answers: JSON.stringify(initialAnswers),
       transcript: buildTranscript(initialAnswers),
@@ -250,6 +286,7 @@ const SubmitBody = z.object({
   contactEmail:   z.string().trim().email().toLowerCase().optional(),
   contactName:    z.string().max(100).optional(),
   consentGiven:   z.boolean(),
+  acquisition: z.unknown().optional(),
   honeypot:       z.string().max(0).optional(), // must be empty
   engMemberToken: z.string().min(1).max(100).nullish(), // absent for ordinary visitors
 });
@@ -271,7 +308,11 @@ router.post("/discovery/submit", async (req, res) => {
   const session = await getOrVerifySession(parsed.data.sessionId);
   if (!session) { res.status(404).json({ error: "Session not found." }); return; }
 
-  if (session.consentGiven) { res.json({ ok: true, alreadySubmitted: true }); return; }
+  if (session.consentGiven) {
+    if (session.discoveryInviteId) await linkSubmittedInvite(session.discoveryInviteId, session.id);
+    res.json({ok: true, alreadySubmitted: true});
+    return;
+  }
   if (!parsed.data.consentGiven) {
     res.status(422).json({ error: "You must agree to our privacy policy to submit." });
     return;
@@ -320,6 +361,7 @@ router.post("/discovery/submit", async (req, res) => {
   const approverEmail = allAnswers.find((a) => a.id === "approver_email")?.answer?.toLowerCase().trim() ?? null;
   const approverRole  = allAnswers.find((a) => a.id === "approver_role")?.answer ?? null;
 
+  const attribution = acquisitionAttribution(parsed.data.acquisition);
   const claim = await prisma.discoveryIntake.updateMany({
     where: { id: session.id, consentGiven: false },
     data:  {
@@ -328,6 +370,7 @@ router.post("/discovery/submit", async (req, res) => {
       contactEmail:      finalEmail,
       contactName:       name,
       consentGiven:      true,
+      acquisitionJson:   attribution ? JSON.stringify(attribution) : null,
       status:            "new",
       decisionAuthority: authorityLevel,
       approverName:      approverName,
@@ -337,6 +380,7 @@ router.post("/discovery/submit", async (req, res) => {
   });
 
   if (!claim.count) { res.json({ ok: true, alreadySubmitted: true }); return; }
+  if (session.discoveryInviteId) await linkSubmittedInvite(session.discoveryInviteId, session.id);
 
   // If this person already has a verified account, attach the intake in the
   // same request. A later login also links it, but that misses a submit that
@@ -679,6 +723,9 @@ router.post("/admin/discovery/:id/link-client", withUser, requireAdmin, async (r
 
   const intake = await prisma.discoveryIntake.findUnique({ where: { id: req.params.id as string } });
   if (!intake) { res.status(404).json({ error: "Intake not found." }); return; }
+  if (intake.clientId && intake.clientId !== targetClientId) {
+    res.status(409).json({error: "This intake is bound to its current client. Resolve the ownership conflict before issuing a new engagement."}); return;
+  }
 
   const client = await prisma.client.findUnique({
     where: { id: targetClientId },
@@ -687,10 +734,12 @@ router.post("/admin/discovery/:id/link-client", withUser, requireAdmin, async (r
   if (!client) { res.status(404).json({ error: "Client not found." }); return; }
 
   const previousClientId = intake.clientId;
-  await prisma.discoveryIntake.update({
-    where: { id: intake.id },
+  const result = await prisma.discoveryIntake.updateMany({
+    where: { id: intake.id, clientId: previousClientId },
     data: { clientId: targetClientId, status: "converted" },
   });
+
+  if (!result.count) {res.status(409).json({error: "Intake ownership changed. Reload before linking."}); return;}
 
   await audit({
     actorUserId: actor.id,
@@ -721,6 +770,7 @@ router.post("/admin/discovery/:id/convert", withUser, requireAdmin, async (req, 
   const actor = (req as AuthedRequest).atgUser!;
   const intake = await prisma.discoveryIntake.findUnique({ where: { id: req.params.id as string } });
   if (!intake) { res.status(404).json({ error: "Not found." }); return; }
+  if (intake.clientId) {res.json({ok: true, clientId: intake.clientId}); return;}
 
   const answers: AnsweredQuestion[] = (() => {
     try { return JSON.parse(intake.answers) as AnsweredQuestion[]; } catch { return []; }
@@ -765,10 +815,12 @@ router.post("/admin/discovery/:id/convert", withUser, requireAdmin, async (req, 
     });
   }
 
-  await prisma.discoveryIntake.update({
-    where: { id: intake.id },
+  const result = await prisma.discoveryIntake.updateMany({
+    where: { id: intake.id, clientId: null },
     data:  { clientId: client.id, status: "converted", expiresAt: new Date("2099-01-01") },
   });
+
+  if (!result.count) {res.status(409).json({error: "Intake ownership changed. Reload before converting."}); return;}
 
   await audit({
     actorUserId: actor.id,
@@ -795,6 +847,7 @@ const InviteBody = z.object({
   prefilledCompany:  z.string().max(200).optional(),
   prefilledIndustry: z.string().max(100).optional(),
   contextNote:       z.string().max(1000).optional(),
+  prospectId:        z.string().regex(/^[A-Za-z0-9_-]{1,100}$/).optional(),
 });
 
 // Public: validate + return prefill data for an invite link
@@ -820,19 +873,22 @@ router.get("/discovery/invite/:token", async (req, res) => {
 
 // Public: update invite status as prospect progresses
 router.patch("/discovery/invite/:token/status", async (req, res) => {
-  const parsed = z.object({ status: z.enum(["opened", "in_progress", "submitted"]) }).safeParse(req.body);
-  if (!parsed.success) { res.status(422).json({ error: "Invalid status." }); return; }
-
-  const inv = await prisma.discoveryInvite.findUnique({ where: { token: req.params.token as string } });
-  if (!inv || inv.revokedAt || inv.expiresAt < new Date()) { res.status(404).json({ error: "Invite not found." }); return; }
-
-  await prisma.discoveryInvite.update({
-    where: { id: inv.id },
-    data: {
-      status: parsed.data.status,
-      ...(parsed.data.status === "submitted" && req.body.intakeId ? { discoveryIntakeId: req.body.intakeId as string } : {}),
-    },
-  });
+  const parsed = z.object({status: z.enum(["opened", "in_progress", "submitted"]),
+    intakeId: z.string().max(100).optional()}).strict().safeParse(req.body);
+  if (!parsed.success) {res.status(422).json({error: "Invalid status."}); return;}
+  const inv = await prisma.discoveryInvite.findUnique({where: {token: String(req.params.token)}});
+  if (!inv || inv.revokedAt || inv.expiresAt < new Date()) {res.status(404).json({error: "Invite not found."}); return;}
+  if (parsed.data.status === "submitted") {
+    const intake = parsed.data.intakeId && await prisma.discoveryIntake.findFirst({
+      where: {id: parsed.data.intakeId, discoveryInviteId: inv.id, consentGiven: true}, select: {id: true},
+    });
+    if (!intake) {res.status(404).json({error: "The submitted assessment does not belong to this invitation."}); return;}
+    const changed = await linkSubmittedInvite(inv.id, intake.id);
+    if (!changed) {res.status(409).json({error: "The invitation has already been used."}); return;}
+  } else {
+    const prior = parsed.data.status === "opened" ? ["created", "opened"] : ["created", "opened", "in_progress"];
+    await prisma.discoveryInvite.updateMany({where: {id: inv.id, revokedAt: null, status: {in: prior}}, data: {status: parsed.data.status}});
+  }
   res.json({ ok: true });
 });
 
@@ -840,6 +896,10 @@ router.patch("/discovery/invite/:token/status", async (req, res) => {
 router.post("/admin/discovery/invite", withUser, requireAdmin, async (req, res) => {
   const parsed = InviteBody.safeParse(req.body);
   if (!parsed.success) { res.status(422).json({ error: "Validation failed.", issues: parsed.error.flatten() }); return; }
+  if (parsed.data.prospectId && !await prisma.atgProspect.findFirst({
+    where: {id: parsed.data.prospectId, status: {in: ["QUALIFIED", "DRAFT_READY", "APPROVED", "CONTACTED", "REPLIED", "BOOKED"]}},
+    select: {id: true},
+  })) {res.status(422).json({error: "Select a qualified, non-suppressed prospect."}); return;}
   const token = makeInviteToken();
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
   const inv = await prisma.discoveryInvite.create({
@@ -1037,38 +1097,106 @@ router.get("/admin/discovery/:id/proposal", withUser, requireAdmin, async (req, 
   res.json(proposal);
 });
 
+router.get("/admin/discovery/:id/proposal/binding-options", withUser, requireAdmin, async (req, res) => {
+  if ((req as AuthedRequest).atgUser?.isImpersonating) { res.sendStatus(403); return; }
+  res.set("Cache-Control", "private, no-store");
+  const intake = await prisma.discoveryIntake.findUnique({where: {id: String(req.params.id)}, select: {clientId: true}});
+  if (!intake) { res.sendStatus(404); return; }
+  if (!intake.clientId) { res.json({measurement: null, sla: null, opportunities: []}); return; }
+  const result = await commercialReviewSources(prisma, {clientId: intake.clientId, workspace: String(req.params.id)});
+  res.json({
+    measurement: result.measurement && {version: result.measurement.version, title: MeasurementPlan.parse(JSON.parse(result.measurement.content)).title},
+    sla: result.sla && {version: result.sla.version, status: result.sla.status},
+    opportunities: result.opportunities.map(row => ({reference: row.period, version: row.version,
+      title: OpportunityReview.parse(JSON.parse(row.content)).title})),
+  });
+});
+
 // Admin: approve proposal
 router.post("/admin/discovery/:id/proposal/approve", withUser, requireAdmin, async (req, res) => {
   const actor = (req as AuthedRequest).atgUser!;
-  const proposal = await prisma.discoveryProposal.findUnique({ where: { discoveryIntakeId: req.params.id as string } });
-  if (!proposal) { res.status(404).json({ error: "No proposal to approve." }); return; }
-  if(proposal.status!=="draft"){res.status(409).json({error:"Proposal already approved."});return;}
-  const fitCall=await prisma.fitCallOutcome.findUnique({where:{discoveryIntakeId:proposal.discoveryIntakeId}});
-  if(!fitCall||fitCall.status!=="completed"||fitCall.revision!==proposal.fitCallRevision){
-    res.status(409).json({error:"Complete the fit call and regenerate the proposal before approval."});return;
-  }
-  const deliveryPlan=proposalDeliveryPlan(proposal.milestones,proposal.scope,
-    parseFitCallAnswers(fitCall?.answersJson));
-  if (req.body?.expectedUpdatedAt !== proposal.updatedAt.toISOString()) {
-    res.status(409).json({error:"The draft has changed. Reload it and review before approval."}); return;
-  }
-  const hasReviewedQuote = !!savedQuote(proposal.investment);
-  if(!proposal.scope.trim()||deliveryPlan.milestones.length===0||
-    !hasReviewedQuote||!proposal.acceptanceClause.trim()||
-    !/authoriz/i.test(proposal.acceptanceClause)){
-    res.status(422).json({error:"Review scope, milestones, balanced USD quote and authorized acceptance language before approving."});return;
-  }
-  const result=await prisma.discoveryProposal.updateMany({
-    where:{id:proposal.id,status:"draft",updatedAt:proposal.updatedAt},
-    data:{status:"approved",approvedAt:new Date(),deliveryPlanJson:JSON.stringify(deliveryPlan)},
+  if (actor.isImpersonating) { res.sendStatus(403); return; }
+  const selection = ContractSelection.safeParse(req.body);
+  if (!selection.success) { res.status(422).json({error: "Select an approved measurement plan and review the SLA selection before approving."}); return; }
+  const input = selection.data;
+  const workspace = String(req.params.id);
+  const outcome = await prisma.$transaction(async db => {
+    const proposal = await db.discoveryProposal.findUnique({where: {discoveryIntakeId: workspace}});
+    if (!proposal) return "missing";
+    if (proposal.status !== "draft" || proposal.updatedAt.toISOString() !== input.expectedUpdatedAt) return "stale";
+    const intake = await db.discoveryIntake.findUnique({where: {id: workspace}, select: {clientId: true}});
+    if (!intake?.clientId) return "unlinked";
+    const scope = {clientId: intake.clientId, workspace};
+    await lockClientGovernance(db, scope.clientId);
+    const fitCall = await db.fitCallOutcome.findUnique({where: {discoveryIntakeId: workspace}});
+    if (!fitCall || fitCall.status !== "completed" || fitCall.revision !== proposal.fitCallRevision) return "fitcall";
+    const deliveryPlan = proposalDeliveryPlan(proposal.milestones, proposal.scope, parseFitCallAnswers(fitCall.answersJson));
+    if (!proposal.scope.trim() || !deliveryPlan.milestones.length || !savedQuote(proposal.investment)
+      || !proposal.acceptanceClause.trim() || !/authoriz/i.test(proposal.acceptanceClause)) return "scope";
+
+    const sources = await commercialReviewSources(db, scope);
+    if (sources.measurement?.version !== input.measurementVersion ||
+      (input.slaVersion !== null && sources.sla?.version !== input.slaVersion)) return "revision";
+    if (sources.sla && input.slaVersion === null) return "sla";
+    if (new Set(input.opportunityRefs.map(ref => ref.reference)).size !== input.opportunityRefs.length) return "revision";
+    if (input.opportunityRefs.length) {
+      const context = await db.businessContextVersion.findFirst({where: {clientId: scope.clientId}, orderBy: {version: "desc"}});
+      const profile = context ? JSON.parse(context.content) : emptyBusinessContext(scope.clientId);
+      for (const ref of input.opportunityRefs) {
+        const row = sources.opportunities.find(item => item.period === ref.reference && item.version === ref.version);
+        if (!row) return "revision";
+        const serviceId = OpportunityReview.parse(JSON.parse(row.content)).scores.serviceId;
+        if (governanceReview(profile, scope.clientId, serviceId).status !== "cleared") return "governance";
+      }
+    }
+
+    const approvedAt = new Date();
+    const transfer = sources.transfer ? JSON.parse(sources.transfer.content) : null;
+    const estimateVersion = sources.transfer && transfer?.proposalId === proposal.id &&
+      transfer.investmentDigest === digestOf(proposal.investment) ? sources.transfer.version : null;
+    if (estimateVersion) {
+      const estimate = await db.engagementRevision.findFirst({where: {...scope, kind: "estimate", period: "", version: estimateVersion}});
+      if (!estimate || SavedEstimate.parse(JSON.parse(estimate.content)).input.additionalHourlyCents !== input.additionalHourlyCents) return "rate";
+    }
+    const binding = newContractBinding({proposalId: proposal.id, approvedAt: approvedAt.toISOString(),
+      statementOfWorkDigest: digestOf({scope: proposal.scope, milestones: deliveryPlan.milestones,
+        investment: proposal.investment, acceptanceClause: proposal.acceptanceClause}),
+      measurementVersion: input.measurementVersion, slaVersion: input.slaVersion,
+      additionalHourlyCents: input.additionalHourlyCents, estimateVersion,
+      opportunities: input.opportunityRefs,
+    });
+    const result = await db.discoveryProposal.updateMany({
+      where: {id: proposal.id, status: "draft", updatedAt: proposal.updatedAt},
+      data: {status: "approved", approvedAt, deliveryPlanJson: JSON.stringify(deliveryPlan)},
+    });
+    if (!result.count) return "stale";
+    await db.engagementRevision.create({data: {...scope, kind: "contract-binding", period: "", version: 1, status: "internal",
+      content: JSON.stringify(binding), actorUserId: actor.id}});
+    return db.discoveryProposal.findUniqueOrThrow({where: {id: proposal.id}});
+  }).catch(error => {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && ["P2002", "P2034"].includes(error.code)) return "stale" as const;
+    throw error;
   });
-  if(result.count!==1){res.status(409).json({error:"Proposal changed before approval. Reload."});return;}
-  const updated=await prisma.discoveryProposal.findUniqueOrThrow({where:{id:proposal.id}});
+  if (typeof outcome === "string") {
+    const messages = {
+      missing: "No proposal to approve.",
+      unlinked: "Link this intake to a client before preparing the engagement measurement plan.",
+      stale: "The proposal changed. Reload and review before approval.",
+      fitcall: "Complete the fit call and regenerate the proposal before approval.",
+      rate: "The additional-work rate must match the estimate used for the transferred quote.",
+      scope: "Review scope, milestones, balanced USD quote and authorized acceptance language before approving.",
+      revision: "The selected engagement revisions changed. Load and review the current versions.",
+      sla: "An SLA review copy is available. Select its current revision before approving.",
+      governance: "A selected opportunity requires governance clearance before inclusion in the proposal.",
+    };
+    res.status(outcome === "missing" ? 404 : outcome === "scope" ? 422 : 409).json({error: messages[outcome]});
+    return;
+  }
   await audit({
     actorUserId: actor.id, action: "PROPOSAL_APPROVED", entity: "DiscoveryIntake",
     entityId: req.params.id as string, meta: { clientVisible: true },
   });
-  res.json({ ok: true, proposal: updated });
+  res.json({ ok: true, proposal: outcome });
 });
 
 // Internal delivery contract is created only from an approved proposal snapshot.

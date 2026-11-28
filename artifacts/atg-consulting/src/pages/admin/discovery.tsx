@@ -1,3 +1,4 @@
+import ProposalBindingReview, { type Selection } from "@/components/admin/ProposalBindingReview";
 import GenerationProgress, { type GenerationWork } from "@/components/admin/GenerationProgress";
 import FitCallPanel from "@/components/admin/FitCallPanel";
 import ProposalReviewPanel from "@/components/admin/ProposalReviewPanel";
@@ -45,6 +46,8 @@ interface IntakeRow {
 }
 
 interface IntakeDetail extends IntakeRow {
+  prospectId?: string | null;
+  acquisitionJson?: string | null;
   reportEmailedAt?: string | null;
   reportEmailSendingAt?: string | null;
   reportEmailError?: string | null;
@@ -330,12 +333,12 @@ export default function AdminDiscoveryPage() {
   function generateProposal() { return generate("proposal"); }
   function generateReport() { return generate("report"); }
 
-  async function approveProposal() {
+  async function approveProposal(selection: Selection) {
     if (!selected || approving) return;
     setApproving(true);setGenerationError("");
     try {
       const result=await adminJson<{ok:boolean;proposal:ProposalRow}>(
-        `/api/admin/discovery/${selected.id}/proposal/approve`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({expectedUpdatedAt:proposal?.updatedAt})});
+        `/api/admin/discovery/${selected.id}/proposal/approve`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({expectedUpdatedAt:proposal?.updatedAt, ...selection})});
       if(!result.ok||!result.proposal)throw new Error("Approval was not confirmed by the server.");
       setProposal(result.proposal);
       setGenerationNotice("Proposal approved. The delivery scope snapshot is now locked.");
@@ -595,6 +598,9 @@ export default function AdminDiscoveryPage() {
                 {selected.reportEmailedAt && <span className="text-sm">Emailed {new Date(selected.reportEmailedAt).toLocaleDateString()}</span>}
                 {selected.reportEmailSendingAt && <div className="text-sm max-w-md"><p>Delivery is in progress or uncertain. Check the email provider before recording a result.</p><div className="flex flex-wrap gap-2 mt-2"><button className="btn-secondary" disabled={approving} onClick={() => reportAction("email-report/reconcile", { providerChecked: true, delivered: true })}>Provider confirms delivered</button><button className="btn-secondary" disabled={approving} onClick={() => reportAction("email-report/reconcile", { providerChecked: true, delivered: false })}>Provider confirms not sent; enable retry</button></div></div>}
                 {(deliveryError || selected.reportEmailError) && <p role="alert" className="text-red-700 text-sm w-full">{deliveryError || selected.reportEmailError}</p>}
+                {selected.clientId && <Link href={`/admin/clients/${selected.clientId}/engagement?intake=${selected.id}`} className="btn-secondary text-sm">Open engagement workspace</Link>}
+                {selected.prospectId && <Link href={`/admin/prospecting?prospect=${encodeURIComponent(selected.prospectId)}`} className="btn-secondary text-sm">View source prospect</Link>}
+                {selected.acquisitionJson && <AcquisitionContext value={selected.acquisitionJson} />}
                 {selected.clientId && <Link href={`/admin/clients/${selected.clientId}/operations`} className="btn-secondary text-sm">Audit & delivery playbook</Link>}
                 {!proposal && (
                   <button type="button" onClick={generateProposal} disabled={!!generation||!fitCallMeta?.completed} title={!fitCallMeta?.completed?"Complete the fit-call worksheet first.":undefined} className="btn-primary text-sm" style={{ padding: "7px 14px" }}>
@@ -614,9 +620,7 @@ export default function AdminDiscoveryPage() {
                     <a href={`/api/admin/discovery/${selected.id}/proposal.html`} target="_blank" rel="noopener noreferrer" className="btn-secondary text-sm" style={{ padding: "7px 14px" }}>
                       Print view
                     </a>
-                    <button type="button" onClick={() => approveProposal()} disabled={approving||!fitCallMeta?.completed||proposal.fitCallRevision!==fitCallMeta?.revision} title={proposal.fitCallRevision!==fitCallMeta?.revision?"Regenerate the proposal after the latest completed fit call.":undefined} className="btn-primary text-sm" style={{ padding: "7px 14px", background: "#16A34A" }}>
-                      {approving ? "…" : "Approve"}
-                    </button>
+
                   </>
                 )}
                 {proposal && proposal.status !== "draft" && (
@@ -636,6 +640,10 @@ export default function AdminDiscoveryPage() {
                 )}
               </div>
             </div>
+
+            {proposal?.status === "draft" && <ProposalBindingReview key={selected.id + (selected.clientId ?? "")}
+              intakeId={selected.id} clientId={selected.clientId} onApprove={selection => void approveProposal(selection)}
+              busy={approving} eligible={!!fitCallMeta?.completed && proposal.fitCallRevision === fitCallMeta.revision} />}
 
             {/* Manual link to client (override for email mismatch) */}
             {!selected.clientId && (
@@ -861,4 +869,13 @@ export default function AdminDiscoveryPage() {
       </div>
     </AdminShell>
   );
+}
+
+
+function AcquisitionContext({value}: {value: string}) {
+  try {
+    const source = JSON.parse(value) as {serviceId?: string | null; industryId?: string | null; channel?: string | null};
+    const description = [source.serviceId, source.industryId, source.channel].filter(Boolean).join(" · ");
+    return description ? <p className="w-full text-sm">Assessment entry · {description}</p> : null;
+  } catch {return null;}
 }

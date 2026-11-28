@@ -1,0 +1,113 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { serviceDivisions, transformationServices, transformationStages } from "./lib/transformationServices";
+import { assessmentQuestions, preCallQuestions, applicableAnswers } from "./lib/assessmentProfile";
+import { firstCallPrep } from "./lib/firstCallPrep";
+const business={id:"audience",answer:"My business"};
+const personal={id:"audience",answer:"My personal and family life"};
+test("approved taxonomy contains twelve unique services, five divisions and five stages",()=>{
+  assert.equal(transformationServices.length,12);
+  assert.equal(new Set(transformationServices.map(s=>s.id)).size,12);
+  assert.equal(new Set(transformationServices.map(s=>s.goal)).size,12);
+  assert.equal(Object.keys(serviceDivisions).length,5);
+  assert.equal(new Set(transformationServices.map(s=>s.division)).size,5);
+  assert.equal(transformationStages.length,5);
+  assert.equal(transformationServices.find(s=>s.id==="voice-ai")?.readiness,"pilot-required");
+});
+test("all expanded goals are business-only, route to one pre-call prompt and produce correct discovery scope",()=>{
+  const businessOptions=assessmentQuestions([business]).find(q=>q.id==="top_problems")?.options??[];
+  const personalOptions=assessmentQuestions([personal]).find(q=>q.id==="top_problems")?.options??[];
+  for(const service of transformationServices){
+    assert.ok(businessOptions.includes(service.goal),service.id);
+    assert.ok(!personalOptions.includes(service.goal),service.id);
+    const rows=[business,{id:"top_problems",answer:JSON.stringify([service.goal])}];
+    const plan=preCallQuestions(rows);
+    assert.ok(plan.length<=11,service.id);
+    assert.equal(plan.filter(q=>q.id.startsWith("meeting_context_")).length,1);
+    assert.ok(plan.some(q=>q.text===service.prompt));
+    const prep=firstCallPrep(JSON.stringify(rows));
+    assert.equal(prep.tracks[0]?.name,service.name);
+    assert.equal(prep.tracks[0]?.proposal,service.proposal);
+    assert.ok(!applicableAnswers([personal,rows[1]!]).some(a=>a.id==="top_problems"));
+  }
+});
+test("mixed priorities preserve fractional leadership and existing website scope",()=>{
+  const goal=transformationServices.find(s=>s.id==="fractional-ai-leadership")!.goal;
+  const rows=[business,{id:"top_problems",answer:JSON.stringify(["Build or redesign a website",goal])},{id:"first_priority",answer:goal}];
+  assert.deepEqual(firstCallPrep(JSON.stringify(rows)).tracks.map(t=>t.name),["Fractional AI leadership","Websites"]);
+  assert.equal(preCallQuestions(rows).length,11);
+});
+
+import { serviceWorkflowLinks, workflowCandidates } from "./lib/serviceWorkflowLinks";
+import { emptyBusinessContext, governanceReview } from "./lib/businessContext";
+import { buildConsultationBrief } from "./lib/clientConsultationBrief";
+import { buildOperatingPlan } from "./lib/operatingPlan";
+
+test("catalog references resolve without inventing or duplicating existing identifiers",()=>{
+  for(const service of transformationServices){
+    const links=serviceWorkflowLinks[service.id]!;
+    const resolved=workflowCandidates(service.id)!;
+    for(const key of ["recipes","templates","modules"] as const){
+      assert.deepEqual(new Set(resolved[key].map(r=>r.id)),new Set(links[key]),service.id+" "+key);
+    }
+    assert.equal(resolved.status,"candidate-only");
+    assert.ok(resolved.gap);
+  }
+  assert.equal(workflowCandidates("unknown"),null);
+});
+test("context review fails closed, isolates tenants and requires voice pilot evidence",()=>{
+  const draft=emptyBusinessContext("client-a");
+  assert.equal(governanceReview(draft,"client-b","ai-readiness").status,"blocked");
+  assert.equal(governanceReview(draft,"client-a","ai-readiness").status,"review");
+  const approved={...draft,decisionOwner:"Owner",accessReview:"confirmed",dataReview:"confirmed",humanOversight:"confirmed",regulatedReview:"not-applicable"};
+  assert.equal(governanceReview(approved,"client-a","ai-readiness").status,"cleared");
+  assert.equal(governanceReview(approved,"client-a","voice-ai").status,"review");
+  assert.equal(governanceReview({...approved,accessReview:"blocked"},"client-a","ai-readiness").status,"blocked");
+  assert.equal(governanceReview({...approved,credential:"secret"},"client-a","ai-readiness").status,"blocked");
+  assert.equal(governanceReview({...approved,sources:[{label:"Restricted records",owner:"Owner",classification:"restricted",authorization:"confirmed"}]},"client-a","ai-readiness").status,"review");
+});
+test("fractional leadership reaches consultant brief and planned delivery contract",()=>{
+  const service=transformationServices.find(s=>s.id==="fractional-ai-leadership")!;
+  const raw=JSON.stringify([business,{id:"top_problems",answer:JSON.stringify([service.goal])}]);
+  const brief=buildConsultationBrief(raw);
+  assert.ok(brief.fitCall[1]!.questions.includes(service.prompt));
+  assert.equal(brief.transformationCandidates?.[0]?.serviceId,service.id);
+  const plan=buildOperatingPlan(raw);
+  assert.equal(plan.workflows[0]?.id,service.id);
+  assert.equal(plan.workflows[0]?.status,"planned");
+  assert.ok(plan.workflows[0]?.actions.includes("advisory hours"));
+});
+
+import { readiness, opportunity, roi, estimate } from "./lib/consultingIntelligence";
+test("readiness distinguishes missing evidence from zero maturity",()=>{
+ const d={score:0,evidence:"Reviewed baseline"};
+ const input={infrastructure:d,data:d,process:d,adoption:d,governance:d,team:d};
+ assert.equal(readiness(input).score,0);
+ assert.equal(readiness({...input,team:{score:null,evidence:""}}).score,null);
+ assert.throws(()=>readiness({...input,team:{score:4,evidence:""}}));
+});
+test("opportunity score cannot override governance",()=>{
+ const d={score:4,evidence:"Reviewed evidence"};
+ const input={serviceId:"workflow-engineering",impact:d,roi:d,feasibility:d,urgency:d,confidence:d};
+ const p=emptyBusinessContext("a");
+ assert.equal(opportunity(input,p,"a").priority,"discovery");
+ assert.equal(opportunity(input,p,"b").priority,"blocked");
+ const approved={...p,decisionOwner:"Owner",accessReview:"confirmed",dataReview:"confirmed",humanOversight:"confirmed",regulatedReview:"not-applicable"};
+ assert.equal(opportunity(input,approved,"a").score,100);
+ assert.equal(opportunity(input,approved,"a").priority,"priority");
+ assert.equal(opportunity({...input,serviceId:"voice-ai"},approved,"a").priority,"discovery");
+});
+test("ROI distinguishes capacity and realizable cash; no false payback",()=>{
+ const input={weeklyHours:10,hourlyCostCents:3500,reductionPercent:60,realizablePercent:0,setupCents:150000,monthlyCostCents:10000};
+ const r=roi(input);
+ assert.equal(r.monthlyCapacityCents,91000);
+ assert.equal(r.monthlyCashScenarioCents,0);
+ assert.equal(r.paybackMonths,null);
+ assert.equal(roi({...input,realizablePercent:100}).monthlyNetCashScenarioCents,81000);
+});
+test("bespoke estimate includes advisory support monitoring and reserves",()=>{
+ const r=estimate({implementationHours:10,testingHours:2,trainingHours:1,advisoryHours:4,supportHours:3,monitoringHours:2,internalHourlyCents:7500,setupDirectCents:0,monthlyDirectCents:5000,monthlyReserveCents:10000,contingencyPercent:0,marginPercent:45});
+ assert.equal(r.monthlyCostCents,82500);
+ assert.equal(r.indicativeMonthlyCents,150000);
+ assert.equal(r.binding,false);
+});

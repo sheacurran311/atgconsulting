@@ -1,3 +1,5 @@
+import { usd } from "@/lib/engagementWorkspace";
+import { EngagementRecord } from "@/components/app/EngagementRecord";
 /**
  * /app/proposal — the proposal Shea has approved.
  * Reachable before an intake is linked. Drafts are not shown.
@@ -34,15 +36,16 @@ function ReadyView({ proposal }: { proposal: ClientProposal }) {
   const [acceptedByName, setAcceptedByName] = useState<string | null>(proposal.acceptedByName);
   const [paymentNotice,setPaymentNotice] = useState("");
   const [paying,setPaying] = useState(false);
-  async function openTestPayment(stage:number) {
+  async function openPayment(stage:number, live = false) {
     setPaying(true); setPaymentNotice("");
     try {
-      const result = await portalApi.testInstallment(proposal.id,stage);
+      const result = await (live ? portalApi.liveInstallment : portalApi.testInstallment)(proposal.id,stage);
       if(result.url) window.location.assign(result.url);
-      else if(result.paid) setPaymentNotice("This installment has already been paid in test mode.");
-    } catch(error) { setPaymentNotice(error instanceof Error ? error.message : "Could not open the test payment."); }
+      else if(result.paid) setPaymentNotice(live ? "This installment has already been paid." : "This installment has already been paid in test mode.");
+    } catch(error) { setPaymentNotice(error instanceof Error ? error.message : "Could not open Checkout."); }
     finally {setPaying(false);}
   }
+  const [reviewedTerms, setReviewedTerms] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const scope = proposal.scope.split("\n").map((line) => line.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
@@ -132,6 +135,17 @@ function ReadyView({ proposal }: { proposal: ClientProposal }) {
       )}
 
       <Section label="07 — ACCEPTANCE" title="Ready to move forward">
+          {proposal.commercialTerms && <div className="space-y-3">
+            <p className="text-sm">Additional work is {usd(proposal.commercialTerms.additionalHourlyCents)}/hour and requires prior written approval through a separate change order.</p>
+            <details className="space-y-3"><summary className="cursor-pointer font-semibold">Value Measurement Plan included in this proposal</summary>
+              <EngagementRecord record={proposal.commercialTerms.measurement} /></details>
+            {proposal.commercialTerms.sla && <details className="space-y-3"><summary className="cursor-pointer font-semibold">SLA included in this proposal</summary>
+              <EngagementRecord record={proposal.commercialTerms.sla} /></details>}
+            {!acceptedAt && <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={reviewedTerms} onChange={event => setReviewedTerms(event.target.checked)} />
+              I have reviewed the measurement plan and any SLA included with this proposal, and I am authorized to accept these terms.
+            </label>}
+          </div>}
           {proposal.acceptanceClause.trim() ? <Paragraphs text={proposal.acceptanceClause} /> : null}
           {acceptedAt ? (
             <p className="text-sm font-semibold mt-4" style={{ color: "var(--canvas-text)" }}>
@@ -141,11 +155,11 @@ function ReadyView({ proposal }: { proposal: ClientProposal }) {
             <button
               type="button"
               className="btn-primary mt-4"
-              disabled={accepting}
+              disabled={accepting || (!!proposal.commercialTerms && !reviewedTerms)}
               onClick={() => {
                 setAccepting(true);
                 setAcceptError(null);
-                portalApi.acceptProposal(proposal.id, proposal.approvedAt)
+                portalApi.acceptProposal(proposal.id, proposal.approvedAt, proposal.commercialTerms?.digest)
                   .then((result) => {
                     setAcceptedAt(result.acceptedAt);
                     setAcceptedByName(result.acceptedByName);
@@ -160,11 +174,18 @@ function ReadyView({ proposal }: { proposal: ClientProposal }) {
           {acceptedAt && !!proposal.testInstallments?.length && <div className="mt-4 space-y-2">
             <h3 className="font-semibold">Test installment payments</h3>
             {proposal.testInstallments.map((item,stage)=><button key={stage} disabled={paying || item.status !== "Unpaid"} type="button"
-              className="btn-secondary block px-3 py-2 text-sm" onClick={()=>void openTestPayment(stage)}>
+              className="btn-secondary block px-3 py-2 text-sm" onClick={()=>void openPayment(item.stage ?? stage)}>
               {item.label} · USD {item.amount} · {item.status}
             </button>)}
-            {paymentNotice && <p role="status">{paymentNotice}</p>}
           </div>}
+          {acceptedAt && !!proposal.liveInstallments?.length && <div className="mt-4 space-y-2">
+            <h3 className="font-semibold">Authorized installment payments</h3>
+            {proposal.liveInstallments.map(item => <button key={item.stage} disabled={paying || item.status !== "Unpaid"} type="button"
+              className="btn-secondary block max-w-full whitespace-normal px-3 py-2 text-sm" onClick={() => void openPayment(item.stage, true)}>
+              {item.label} · USD {item.amount} · {item.status}
+            </button>)}
+          </div>}
+          {paymentNotice && <p role="status">{paymentNotice}</p>}
           {acceptError && <p className="text-sm mt-2" style={{ color: "var(--red, #b91c1c)" }}>{acceptError}</p>}
           <p className="text-xs mt-4" style={{ color: "var(--canvas-text-3)" }}>
             This records your name and the time. It does not start billing or change your tier.

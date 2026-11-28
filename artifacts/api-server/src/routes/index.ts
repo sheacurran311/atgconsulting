@@ -1,3 +1,9 @@
+import ownerMetricsRouter from "./ownerMetrics";
+import prospectSiteReviewRouter from "./prospectSiteReview";
+import deliveryMilestonesRouter from "./deliveryMilestones";
+import seoGoogleRouter from "./seoGoogle";
+import engagementWorkspaceRouter from "./engagementWorkspace";
+import businessContextRouter from "./businessContext";
 import quotePayments from "./quotePayments";
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
@@ -79,8 +85,14 @@ router.use(engagementRouter);
 router.use(catalogRouter);
 router.use(contentRouter);
 router.use(adminTodayRouter);
+router.use(ownerMetricsRouter);
 router.use(prospectingRouter);
+router.use(prospectSiteReviewRouter);
 router.use(workshopRouter);
 router.use(operationsRouter);
+router.use(businessContextRouter);
+router.use(engagementWorkspaceRouter);
+router.use(deliveryMilestonesRouter);
+router.use(seoGoogleRouter);
 
 export default router;
